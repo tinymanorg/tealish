@@ -1,0 +1,724 @@
+import sys
+import re
+from typing import get_type_hints
+from .expressions import Expression, GenericExpression, Literal
+from .utils import minify_teal, combine_source_maps
+
+
+line_no = 0
+level = 0
+current_output_line = 1
+output = []
+source_map = {}
+
+class ParseError(Exception):
+    pass
+
+
+class CompileError(Exception):
+    pass
+
+
+class TealishCompiler:
+
+    def __init__(self, source_lines) -> None:
+        self.source_lines = source_lines
+        self.output = []
+        self.source_map = {}
+        self.current_output_line = 1
+        self.level = 0
+        self.line_no = 0
+        self.nodes = []
+        self.conditional_count = 0
+
+    def consume_line(self):
+        if self.line_no == len(self.source_lines):
+            return
+        line = self.source_lines[self.line_no].strip()
+        self.line_no += 1
+        return line
+
+    def peek(self):
+        if self.line_no == len(self.source_lines):
+            return
+        return self.source_lines[self.line_no].strip()
+
+    def write(self, lines=('',), line_no=0):
+        prefix = '  ' * self.level
+        if type(lines) == str:
+            lines = [lines]
+        for s in lines:
+            self.output.append(prefix + s)
+            # print(self.current_output_line, self.output[-1])
+            self.source_map[self.current_output_line] = line_no
+            self.current_output_line += 1
+
+    def parse(self):
+        node = Program.consume(self, None)
+        self.nodes.append(node)
+
+    def compile(self):
+        for node in self.nodes:
+            node.visit()
+        return self.output
+
+
+class Node:
+    pattern = ''
+    possible_child_nodes = []
+    def __init__(self, line, parent=None, compiler=None) -> None:
+        self.parent = parent
+        self.current_scope = None
+        if parent:
+            self.current_scope = parent.current_scope
+        self.compiler = compiler
+        self.line = line
+        self.line_no = compiler.line_no if compiler else None
+        self.nodes = []
+        try:
+            self.matches = re.match(self.pattern, self.line).groupdict()
+        except AttributeError:
+            raise Exception(f'Pattern ({self.pattern}) does not match for {self} for line "{self.line}"')
+        type_hints = get_type_hints(self.__class__)
+        for name, expr_class in type_hints.items():
+            if name in self.matches:
+                try:
+                    if self.matches[name] is not None and hasattr(expr_class, 'parse'):
+                        value = expr_class.parse(self.matches[name])
+                    else:
+                        value = self.matches[name]
+                    setattr(self, name, value)
+                except Exception as e:
+                    raise ParseError(str(e) + f' at line {self.compiler.line_no}')
+
+    def add_child(self, node):
+        if not isinstance(node, tuple(self.possible_child_nodes)):
+            raise ParseError(f'Unexpected child node {node} in {self} at line {self.compiler.line_no}!')
+        node.parent = self
+        if not node.current_scope:
+            node.current_scope = self.current_scope
+        self.nodes.append(node)
+
+    @classmethod
+    def consume(cls, compiler, parent):
+        line = compiler.consume_line()
+        return cls(line, parent=parent, compiler=compiler)
+        
+    def visit(self):
+        try:
+            self.process()
+        except Exception as e:
+            raise CompileError(str(e) + f' at line {self.line_no}')
+        self.compiler.level += 1
+        for n in self.nodes:
+            n.visit()
+        self.compiler.level -= 1
+
+    def process(self):
+        print(self)
+
+    def write(self, lines):
+        self.compiler.write(lines, self.line_no)
+
+    def new_scope(self, name='', slot_range=None):
+        parent_scope = self.parent.get_current_scope() if self.parent else None
+        self.current_scope = {
+            'parent': parent_scope,
+            'slots': {},
+            'slot_range': slot_range or [0, 200],
+            'aliases': {},
+            'consts': {},
+            'blocks': {},
+            'functions': {},
+            'name': (parent_scope['name'] + '__' + name) if parent_scope and parent_scope['name'] else name,
+        }
+
+    def get_scope(self):
+        scope = {
+            'slots': {},
+            'consts': {},
+            'blocks': {},
+            'functions': {},
+        }
+        for s in self.get_scopes():
+            scope['consts'].update(s['consts'])
+            scope['blocks'].update(s['blocks'])
+            scope['slots'].update(s['slots'])
+            scope['functions'].update(s['functions'])
+        return scope
+
+    def get_current_scope(self):
+        return self.current_scope
+
+    def get_scopes(self):
+        scopes = []
+        s = self.get_current_scope()
+        while True:
+            scopes.append(s)
+            if s['parent']:
+                s = s['parent']
+            else:
+                break
+        return scopes
+
+    def get_const(self, name):
+        consts = {}
+        for s in self.get_scopes():
+            consts.update(s['consts'])
+        return consts[name]
+
+    def get_slots(self):
+        slots = {}
+        for s in self.get_scopes():
+            slots.update(s['slots'])
+        return slots
+
+    def get_var(self, name):
+        slots = self.get_slots()
+        if name in slots:
+            return slots[name]
+
+    def declare_var(self, name):
+        scope = self.get_current_scope()
+        scope['slots'][name] = self.find_slot()
+        return scope['slots'][name]
+
+    def find_slot(self):
+        scope = self.get_current_scope()
+        min, max = scope['slot_range']
+        used_slots = [False] * 255
+        slots = self.get_slots()
+        for k in slots:
+            slot = slots[k]
+            used_slots[slot] = True
+        for i, _ in enumerate(used_slots):
+            if not used_slots[i]:
+                if i >= min and i <= max:
+                    return i
+        raise Exception('No available slots!')
+
+    def get_blocks(self):
+        blocks = {}
+        for s in self.get_scopes():
+            blocks.update(s['blocks'])
+        return blocks
+
+    def get_block(self, name):
+        block = self.get_blocks().get(name)
+        # if block:
+            # self.used_blocks.add(block.label)
+        return block
+
+    def is_descendant_of(self, node_class):
+        p = self.parent
+        while p:
+            if isinstance(p, node_class):
+                return True
+            p = p.parent
+        return False
+
+
+    def __repr__(self):
+        return self.__class__.__name__
+
+
+class Statement(Node):
+    @classmethod
+    def consume(cls, compiler, parent):
+        line = compiler.peek()
+        if line.startswith('block '):
+            return Block.consume(compiler, parent)
+        elif line.startswith('switch '):
+            return Switch.consume(compiler, parent)
+        elif line.startswith('func '):
+            return Func.consume(compiler, parent)
+        elif line.startswith('if '):
+            return IfStatement.consume(compiler, parent)
+        elif line.startswith('teal:'):
+            return Teal.consume(compiler, parent)
+        elif line.startswith('inner_txn:'):
+            return InnerTxn.consume(compiler, parent)
+        else:
+            return LineStatement.consume(compiler, parent)
+
+
+class Program(Node):
+    possible_child_nodes = [Statement]
+    def __init__(self, line, parent=None, compiler=None) -> None:
+        super().__init__(line, parent, compiler)
+        self.new_scope('')
+
+    def get_current_scope(self):
+        return self.current_scope
+
+    @classmethod
+    def consume(cls, compiler, parent):
+        node = Program('', parent=parent, compiler=compiler)
+        while True:
+            if compiler.peek() is None:
+                break
+            node.add_child(Statement.consume(compiler, node))
+        return node
+
+    def visit(self):
+        self.write(f'#pragma version 7')
+        for n in self.nodes:
+            n.visit()
+
+
+
+class InlineStatement(Statement):
+    pass
+
+
+class LineStatement(InlineStatement):
+    @classmethod
+    def consume(cls, compiler, parent):
+        line = compiler.consume_line()
+        if line.startswith('#pragma'):
+            return Blank(line, parent, compiler=compiler)
+        elif line.startswith('#'):
+            return Comment(line, parent, compiler=compiler)
+        elif line == '':
+            return Blank(line, parent, compiler=compiler)
+        elif line.startswith('const '):
+            return Const(line, parent, compiler=compiler)
+        elif line.startswith('int '):
+            return IntDeclaration(line, parent, compiler=compiler)
+        elif line.startswith('byte '):
+            return ByteDeclaration(line, parent, compiler=compiler)
+        elif line.startswith('jump '):
+            return Jump(line, parent, compiler=compiler)
+        elif line.startswith('exit('):
+            return Exit(line, parent, compiler=compiler)
+        elif line.startswith('return'):
+            return Return(line, parent, compiler=compiler)
+        elif ' = ' in line:
+            return Assignment(line, parent, compiler=compiler)
+        elif re.match('[a-zA-Z_0-9]+\(.*\)', line):
+            return FunctionCall(line, parent, compiler=compiler)
+        else:
+            raise ParseError(f'Unexpected line statement: "{line}" at {compiler.line_no}.')
+
+
+class Comment(LineStatement):
+    pattern = r'#\s*(?P<comment>.*)'
+    comment: str
+    def process(self):
+        self.write(f'// {self.comment}')
+
+
+class Blank(LineStatement):
+    def process(self):
+        self.write('')
+
+
+class Const(LineStatement):
+    pattern = r'const (?P<type>\bint\b|\bbyte\b) (?P<name>[A-Z][a-zA-Z0-9_]*) = (?P<expression>.*)'
+    type: str
+    name: str
+    expression: Literal
+    def process(self):
+        scope = self.get_current_scope()
+        scope['consts'][self.name] = [self.type, self.expression.value]
+
+class Jump(LineStatement): pass
+
+
+class Exit(LineStatement):
+    pattern = r'exit\((?P<expression>.*)\)'
+    type: str
+    name: str
+    expression: GenericExpression
+    def process(self):
+        self.write(f'// {self.line}')
+        self.write(self.expression.teal(self.get_scope()))
+        self.write('return')
+
+
+class FunctionCall(LineStatement):
+    # pattern = r'(?P<name>[a-zA-Z_0-9]+)\((?P<expression>.*)\)'
+    pattern = r'(?P<expression>[a-zA-Z_0-9]+\(.*\))'
+    expression: GenericExpression
+    def process(self):
+        self.write(f'// {self.line}')
+        self.write(self.expression.teal(self.get_scope()))
+        # self.write(f'{self.name}')
+
+
+class ByteDeclaration(LineStatement):
+    pattern = r'byte (?P<name>[a-z][a-zA-Z0-9_]*) = (?P<expression>.*)'
+    name: str
+    expression: GenericExpression
+    def process(self):
+        slot = self.declare_var(self.name)
+        self.write(f'// {self.line}')
+        self.write(self.expression.teal(self.get_scope()))
+        self.write(f'store {slot} // {self.name}')
+
+
+class IntDeclaration(LineStatement):
+    pattern = r'int (?P<name>[a-z][a-zA-Z0-9_]*)( = (?P<expression>.*))?'
+    name: str
+    expression: GenericExpression
+    def process(self):
+        slot = self.declare_var(self.name)
+        self.write(f'// {self.line} [slot {slot}]')
+        # self.write(f'// var {self.name}: slot {slot}')
+        if self.expression:
+            self.write(self.expression.teal(self.get_scope()))
+            self.write(f'store {slot} // {self.name}')
+
+
+class Assignment(LineStatement):
+    pattern = r'(?P<names>([a-z_][a-zA-Z0-9_]*,?\s*)+) = (?P<expression>.*)'
+    names: str
+    expression: GenericExpression
+    def process(self):
+        self.write(f'// {self.line}')
+        self.write(self.expression.teal(self.get_scope()))
+        for name in self.names.split(','):
+            name = name.strip()
+            if name == '_':
+                self.write(f'pop // discarding value for _')
+            else:
+                slot = self.get_var(name)
+                self.write(f'store {slot} // {name}')
+
+
+class Block(Statement):
+    possible_child_nodes = [Statement]
+    pattern = r'block (?P<name>[a-zA-Z_0-9]+):'
+    name: str
+
+    def __init__(self, line, parent=None, compiler=None) -> None:
+        super().__init__(line, parent, compiler)
+        scope = self.get_current_scope()
+        scope['blocks'][self.name] = self
+        self.label = scope['name'] + ('__' if scope['name'] else '') + self.name
+        self.new_scope(self.name)
+
+    @classmethod
+    def consume(cls, compiler, parent):
+        line = compiler.consume_line()
+        block = Block(line, parent, compiler=compiler)
+        while True:
+            if compiler.peek() == 'end':
+                compiler.consume_line()
+                break
+            block.add_child(Statement.consume(compiler, block))
+        return block
+
+    def process(self):
+        self.write(f'// block {self.name}')
+        self.write(f'{self.label}:')
+
+
+class SwitchOption(Node):
+    pattern = r'(?P<value>.*): (?P<block_name>.*)'
+    value: Literal
+    block_name: str
+
+
+class SwitchElse(Node):
+    pattern = r'else: (?P<block_name>.*)'
+    block_name: str
+
+
+class Switch(InlineStatement):
+    possible_child_nodes = [SwitchOption, SwitchElse]
+    pattern = r'switch (?P<expression>.*):'
+    expression: GenericExpression
+
+    def __init__(self, line, parent=None, compiler=None) -> None:
+        super().__init__(line, parent, compiler)
+        self.options = []
+        self.else_ = None
+
+    def add_option(self, node):
+        self.options.append(node)
+        self.add_child(node)
+
+    def add_else(self, node):
+        self.else_ = node
+        self.add_child(node)
+
+    @classmethod
+    def consume(cls, compiler, parent):
+        switch = Switch(compiler.consume_line(), parent, compiler=compiler)
+        while True:
+            if compiler.peek() == 'end':
+                compiler.consume_line()
+                break
+            if compiler.peek().startswith('else:'):
+                switch.add_else(SwitchElse(compiler.consume_line(), switch, compiler=compiler))
+            else:
+                switch.add_option(SwitchOption(compiler.consume_line(), switch, compiler=compiler))
+        return switch
+
+    def visit(self):
+        self.write(f'// {self.line}')
+        for i, node in enumerate(self.options):
+            self.write(self.expression.teal(self.get_scope()))
+            self.write(node.value.teal())
+            self.write('==')
+            b = self.get_block(node.block_name)
+            self.write(f'bnz {b.label}')
+        if self.else_:
+            b = self.get_block(self.else_.block_name)
+            self.write(f'b {b.label} // else')
+        else:
+            self.write('err // unexpected value')
+
+
+class Teal(InlineStatement):
+    possible_child_nodes = [Node]
+    @classmethod
+    def consume(cls, compiler, parent):
+        node = Teal(compiler.consume_line(), parent, compiler=compiler)
+        while True:
+            if compiler.peek() == 'end':
+                compiler.consume_line()
+                break
+            node.add_child(Node.consume(compiler, node))
+        return node
+
+
+class InnerTxnFieldSetter(InlineStatement):
+    pattern = r'(?P<field_name>.*): (?P<expression>.*)'
+    field_name: str
+    expression: GenericExpression
+
+
+class InnerTxn(InlineStatement):
+    possible_child_nodes = [InnerTxnFieldSetter]
+    @classmethod
+    def consume(cls, compiler, parent):
+        node = InnerTxn(compiler.consume_line(), parent, compiler=compiler)
+        while True:
+            if compiler.peek() == 'end':
+                compiler.consume_line()
+                break
+            elif compiler.peek().startswith('#'):
+                compiler.consume_line()
+            else:
+                node.add_child(InnerTxnFieldSetter(compiler.consume_line(), node, compiler=compiler))
+        return node
+
+    def visit(self):
+        self.write(f'// {self.line}')
+        self.write('itxn_begin')
+        for i, node in enumerate(self.nodes):
+            self.write(node.expression.teal(self.get_scope()))
+            self.write(f'itxn_field {node.field_name}')
+        self.write('itxn_submit')
+
+class IfThen(Node):
+    possible_child_nodes = [InlineStatement]
+    @classmethod
+    def consume(cls, compiler, parent):
+        node = IfThen('', parent, compiler=compiler)
+        while True:
+            if compiler.peek().startswith(('end', 'elif', 'else:')):
+                break
+            node.add_child(InlineStatement.consume(compiler, node))
+        return node
+
+    def process(self):
+        self.write(f'// then:')
+
+
+class Elif(Node):
+    possible_child_nodes = [InlineStatement]
+    pattern = r'elif (?P<condition>.*):'
+    condition: GenericExpression
+    @classmethod
+    def consume(cls, compiler, parent):
+        node = Elif(compiler.consume_line(), parent, compiler=compiler)
+        while True:
+            if compiler.peek().startswith(('end', 'elif', 'else:')):
+                break
+            node.add_child(InlineStatement.consume(compiler, node))
+        return node
+
+    def process(self):
+        self.write(f'// {self.line}')
+        self.write(self.condition.teal(self.get_scope()))
+        self.write(f'bz {self.next_label}')
+
+
+class Else(Node):
+    possible_child_nodes = [InlineStatement]
+    pattern = r'else:'
+    @classmethod
+    def consume(cls, compiler, parent):
+        node = Else(compiler.consume_line(), parent, compiler=compiler)
+        while True:
+            if compiler.peek().startswith(('end')):
+                break
+            node.add_child(InlineStatement.consume(compiler, node))
+        return node
+
+    def process(self):
+        self.write(f'// {self.line}')
+
+
+class IfStatement(InlineStatement):
+    possible_child_nodes = [IfThen, Elif, Else]
+    pattern = r'if (?P<condition>.*):'
+    condition: GenericExpression
+    def __init__(self, line, parent=None, compiler=None) -> None:
+        super().__init__(line, parent, compiler)
+        self.if_then = None
+        self.elifs = []
+        self.else_ = None
+        self.conditional_index = compiler.conditional_count
+        compiler.conditional_count += 1
+        self.end_label = f'l{self.conditional_index}_end'
+        
+    def add_if_then(self, node):
+        node.label = ''
+        self.if_then = node
+        self.add_child(node)
+
+    def add_elif(self, node):
+        i = len(self.elifs)
+        node.label = f'l{self.conditional_index}_elif_{i}'
+        self.elifs.append(node)
+        self.add_child(node)
+
+    def add_else(self, node):
+        node.label = f'l{self.conditional_index}_else'
+        self.else_ = node
+        self.add_child(node)
+
+    @classmethod
+    def consume(cls, compiler, parent):
+        if_statement = IfStatement(compiler.consume_line(), parent, compiler=compiler)
+        if_statement.add_if_then(IfThen.consume(compiler, if_statement))
+        while True:
+            if compiler.peek() == 'end':
+                compiler.consume_line()
+                break
+            elif compiler.peek().startswith('elif '):
+                if_statement.add_elif(Elif.consume(compiler, if_statement))
+            elif compiler.peek().startswith('else:'):
+                 if_statement.add_else(Else.consume(compiler, if_statement))
+        return if_statement
+
+    def visit(self):
+        for i, node in enumerate(self.nodes[:-1]):
+            node.next_label = self.nodes[i+1].label
+        if len(self.nodes) > 1:
+            next_label = self.nodes[1].label
+        else:
+            next_label = self.end_label
+        self.nodes[-1].next_label = self.end_label
+        self.write(f'// {self.line}')
+        self.compiler.level += 1
+        self.write(self.condition.teal(self.get_scope()))
+        self.write(f'bz {next_label}')
+        self.if_then.visit()
+        self.write(f'b {self.end_label}')
+        for n in self.elifs:
+            self.write(f'{n.label}:')
+            n.visit()
+            self.write(f'b {self.end_label}')
+        if self.else_:
+            n = self.else_
+            self.write(f'{n.label}:')
+            n.visit()
+        self.write(f'{self.end_label}: // end')
+        self.compiler.level -= 1
+
+
+class ArgsList(Expression):
+    arg_pattern = r'(?P<arg_name>[a-z][a-z_0-9]*): (?P<arg_type>int|byte)'
+    pattern = rf'(?P<args>({arg_pattern}(, )?)*)'
+    args: str
+    def __init__(self, string) -> None:
+        super().__init__(string)
+        self.args = re.findall(self.arg_pattern, string)
+
+
+class Func(InlineStatement):
+    possible_child_nodes = [InlineStatement]
+    pattern = r'func (?P<name>[a-zA-Z_0-9]+)\((?P<args>.*)\)(?P<returns>.*):$'
+    name: str
+    args: ArgsList
+    returns: str
+
+    def __init__(self, line, parent=None, compiler=None) -> None:
+        super().__init__(line, parent, compiler)
+        scope = self.get_current_scope()
+        scope['functions'][self.name] = self
+        self.label = scope['name'] + '__func__' + self.name
+        # Funcs have their own scopes with a restricted slot range to prevent overlap with other slot usage
+        # However currently all Funcs share the same slot range so calling a func from a func may overwrite slots
+        self.new_scope('func__' + self.name, slot_range=[201, 255])
+
+    @classmethod
+    def consume(cls, compiler, parent):
+        func = Func(compiler.consume_line(), parent, compiler=compiler)
+        while True:
+            if compiler.peek() == 'end':
+                compiler.consume_line()
+                break
+            func.add_child(InlineStatement.consume(compiler, func))
+        return func
+
+    def process(self):
+        self.write(f'// {self.line}')
+        self.write(f'{self.label}:')
+        for (name, type) in self.args.args[::-1]:
+            slot = self.get_var(name)
+            if slot is not None:
+                print(self.current_scope)
+                raise Exception(f'Redefinition of variable "{name}" at line {self.line_no}!')
+            slot = self.declare_var(name)
+            self.write(f'store {slot} // {name}')
+
+
+class Return(LineStatement):
+    pattern = r'return ?(?P<args>([a-zA-Z0-9_](, )?)*)?'
+    args: str
+    def process(self):
+        self.write(f'// {self.line}')
+        if self.args:
+            for a in self.args.strip().split(',')[::-1]:
+                arg = a.strip()
+                expression = GenericExpression.parse(arg)
+                self.write(expression.teal(self.get_scope()))
+        self.write('retsub')
+
+# handle_program()
+
+def compile_program(source, debug=False):
+    source_lines = source.split('\n')
+    compiler = TealishCompiler(source_lines)
+    try:
+        compiler.parse()
+    except ParseError as e:
+        print(e)
+        sys.exit(1)
+    except Exception:
+        print(f'Line: {compiler.line_no}')
+        raise
+    try:
+        compiler.compile()
+    except CompileError as e:
+        print(e)
+        sys.exit(1)
+    teal = compiler.output + ['']
+    if debug:
+        for i in range(0, len(teal)):
+            print(' '.join([str(i + 1), str(compiler.source_map[i + 1]), teal[i]]))
+    min_teal, teal_source_map = minify_teal(teal)
+    combined_source_map = combine_source_maps(teal_source_map, compiler.source_map)
+    return teal, min_teal, compiler.source_map
+
+
+if __name__ == '__main__':
+    filename = sys.argv[1]
+    teal, min_teal, source_map = compile_program(open(filename).read())
+    print('\n'.join(teal))

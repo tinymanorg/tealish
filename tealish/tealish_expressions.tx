@@ -1,0 +1,24 @@
+
+Expression:  Math | Group | FunctionCall | Field | Value;
+Group: ('(' math=Math ')');
+Math: a=Value op=MathOp b=Value;
+MathOp: '+' | '-' | '*' | '/' | '==' | '>=' | '<=' | '>' | '<' | '!=' | '&&' | '||' | 'b+' | 'b/' | 'b*' | 'b-';
+FunctionCall: 
+    name=Name 
+    ('(' 
+    args*=Expression[',']
+    ')')
+;
+Field: TxnArrayField | TxnField | InnerTxnArrayField | InnerTxnField | GroupTxnField | GroupTxnArrayField | GlobalField;
+FieldName: /([A-Z][A-Za-z_]+)/;
+TxnField: 'Txn.' field=FieldName;
+TxnArrayField: 'Txn.' field=FieldName '[' arrayIndex=INT ']';
+GroupTxnField: 'Gtxn[' index=Expression '].' field=FieldName;
+GroupTxnArrayField: 'Gtxn[' index=Expression '].' '[' arrayIndex=INT ']';
+InnerTxnField: 'Itxn.' field=FieldName;
+InnerTxnArrayField: 'Itxn.' field=FieldName '[' arrayIndex=INT ']';
+GlobalField: 'Global.' field=FieldName;
+Value: FunctionCall | Field | Group | INT | STRING | Constant | Variable;
+Variable: name=Name;
+Constant: name=/([A-Z][A-Za-z_0-9]+)/;
+Name: (/([a-z][A-Za-z_0-9]*)/ | /_/);
