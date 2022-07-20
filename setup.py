@@ -18,6 +18,12 @@ setup(
     include_package_data=True,
     package_data={"tealish": ["*.tx", "*.json"]},
     install_requires=["textX >= 3.0.0"],
+    entry_points={
+        "console_scripts": [
+            "tealish = tealish.__main__"
+        ]
+    },
+
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "Intended Audience :: Developers",

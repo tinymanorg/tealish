@@ -716,9 +716,3 @@ def compile_program(source, debug=False):
     min_teal, teal_source_map = minify_teal(teal)
     combined_source_map = combine_source_maps(teal_source_map, compiler.source_map)
     return teal, min_teal, compiler.source_map
-
-
-if __name__ == '__main__':
-    filename = sys.argv[1]
-    teal, min_teal, source_map = compile_program(open(filename).read())
-    print('\n'.join(teal))
