@@ -236,6 +236,8 @@ class Statement(Node):
             return IfStatement.consume(compiler, parent)
         elif line.startswith('teal:'):
             return Teal.consume(compiler, parent)
+        elif line.startswith('inner_group:'):
+            return InnerGroup.consume(compiler, parent)
         elif line.startswith('inner_txn:'):
             return InnerTxn.consume(compiler, parent)
         else:
@@ -503,14 +505,41 @@ class InnerTxn(InlineStatement):
                 compiler.consume_line()
             else:
                 node.add_child(InnerTxnFieldSetter(compiler.consume_line(), node, compiler=compiler))
+
+        if type(parent) != InnerGroup:
+            group = InnerGroup('', parent, compiler=compiler)
+            group.add_child(node)
+            return group
+        return node
+
+    def visit(self):
+        self.write(f'// {self.line}')
+        # self.write('itxn_begin')
+        for i, node in enumerate(self.nodes):
+            self.write(node.expression.teal(self.get_scope()))
+            self.write(f'itxn_field {node.field_name}')
+        # self.write('itxn_submit')
+
+
+class InnerGroup(InlineStatement):
+    possible_child_nodes = [InnerTxn]
+    @classmethod
+    def consume(cls, compiler, parent):
+        node = InnerGroup(compiler.consume_line(), parent, compiler=compiler)
+        while True:
+            if compiler.peek().startswith('end'):
+                compiler.consume_line()
+                break
+            node.add_child(InnerTxn.consume(compiler, node))
         return node
 
     def visit(self):
         self.write(f'// {self.line}')
         self.write('itxn_begin')
         for i, node in enumerate(self.nodes):
-            self.write(node.expression.teal(self.get_scope()))
-            self.write(f'itxn_field {node.field_name}')
+            node.visit()
+            if i < (len(self.nodes) - 1):
+                self.write('itxn_next')
         self.write('itxn_submit')
 
 class IfThen(Node):
