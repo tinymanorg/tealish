@@ -1,25 +1,31 @@
 import json
+from pathlib import Path
 import sys
 import os
 from tealish import compile_program
 
 
 def cli():
-    contracts_dir = sys.argv[1]
+    path = Path(sys.argv[1])
+    if path.is_dir():
+        paths = path.glob('*.tl')
+    else:
+        paths = [path]
+    for path in paths:
+        teal, min_teal, source_map = compile_program(open(path).read())
+        output_path = Path(path).parent / 'build'
+        output_path.mkdir(exist_ok=True)
+        filename = Path(path).name
+        base_filename = filename.replace('.tl', '')
 
-    for filename in os.listdir(contracts_dir):
-        if filename.endswith(".tl"):
-            output_filename = filename.split('.')[0]
-            teal, min_teal, source_map = compile_program(open(f"{contracts_dir}/{filename}").read())
+        # Teal
+        with open(output_path / f'{base_filename}.teal', 'w') as f:
+            f.write('\n'.join(teal))
 
-            # Teal
-            with open(f"{contracts_dir}/build/{output_filename}.teal", 'w') as writer:
-                writer.write('\n'.join(teal))
+        # Min Teal
+        with open(output_path / f'{base_filename}.min.teal', 'w') as f:
+            f.write('\n'.join(min_teal))
 
-            # Min Teal
-            with open(f"{contracts_dir}/build/{output_filename}.min.teal", 'w') as writer:
-                writer.write('\n'.join(min_teal))
-
-            # Source Map
-            with open(f"{contracts_dir}/build/{output_filename}.map.json", 'w') as writer:
-                json.dump(source_map, writer)
+        # Source Map
+        with open(output_path / f'{base_filename}.map.json', 'w') as f:
+            f.write(json.dumps(source_map).replace('],', '],\n'))

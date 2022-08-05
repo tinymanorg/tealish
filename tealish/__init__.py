@@ -1,6 +1,10 @@
+from collections import defaultdict
 import sys
 import re
+import textwrap
 from typing import get_type_hints
+
+from traitlets import default
 from .expressions import Expression, GenericExpression, Literal
 from .utils import minify_teal, combine_source_maps
 
@@ -61,6 +65,20 @@ class TealishCompiler:
         for node in self.nodes:
             node.visit()
         return self.output
+    
+    def traverse(self, node=None, visitor=None):
+        if node is None:
+            node = self.nodes[0]
+        if visitor:
+            visitor(node)
+        if getattr(node, 'nodes', []):
+            for n in node.nodes:
+                self.traverse(n, visitor)
+
+    def reformat(self):
+        if not self.nodes:
+            self.parse()
+        return self.nodes[0].reformat()
 
 
 class Node:
@@ -217,6 +235,9 @@ class Node:
             p = p.parent
         return False
 
+    def reformat(self):
+        raise NotImplementedError(f'reformat() not implemented for {self} for line {self.line_no}')
+
 
     def __repr__(self):
         return self.__class__.__name__
@@ -267,6 +288,11 @@ class Program(Node):
         for n in self.nodes:
             n.visit()
 
+    def reformat(self):
+        output = ''
+        for n in self.nodes:
+            output += n.reformat() + '\n'
+        return output
 
 
 class InlineStatement(Statement):
@@ -302,6 +328,9 @@ class LineStatement(InlineStatement):
         else:
             raise ParseError(f'Unexpected line statement: "{line}" at {compiler.line_no}.')
 
+    def reformat(self):
+        return self.line
+
 
 class Comment(LineStatement):
     pattern = r'#\s*(?P<comment>.*)'
@@ -313,7 +342,6 @@ class Comment(LineStatement):
 class Blank(LineStatement):
     def process(self):
         self.write('')
-
 
 class Const(LineStatement):
     pattern = r'const (?P<type>\bint\b|\bbyte\b) (?P<name>[A-Z][a-zA-Z0-9_]*) = (?P<expression>.*)'
@@ -415,16 +443,30 @@ class Block(Statement):
         self.write(f'// block {self.name}')
         self.write(f'{self.label}:')
 
+    def reformat(self):
+        output = ''
+        output += self.line + '\n'
+        for n in self.nodes:
+            output += indent(n.reformat()) + '\n'
+        output += 'end'
+        return output
+
 
 class SwitchOption(Node):
     pattern = r'(?P<value>.*): (?P<block_name>.*)'
     value: Literal
     block_name: str
 
+    def reformat(self):
+        return self.line + '\n'
+
 
 class SwitchElse(Node):
     pattern = r'else: (?P<block_name>.*)'
     block_name: str
+
+    def reformat(self):
+        return self.line + '\n'
 
 
 class Switch(InlineStatement):
@@ -472,9 +514,26 @@ class Switch(InlineStatement):
         else:
             self.write('err // unexpected value')
 
+    def reformat(self):
+        output = ''
+        output += self.line + '\n'
+        for n in self.nodes:
+            output += indent(n.reformat())
+        output += 'end'
+        return output
+
+
+class TealLine(Node):
+
+    def process(self):
+        self.write(f'{self.line}')
+
+    def reformat(self):
+        return self.line + '\n'
+
 
 class Teal(InlineStatement):
-    possible_child_nodes = [Node]
+    possible_child_nodes = [TealLine]
     @classmethod
     def consume(cls, compiler, parent):
         node = Teal(compiler.consume_line(), parent, compiler=compiler)
@@ -482,14 +541,26 @@ class Teal(InlineStatement):
             if compiler.peek() == 'end':
                 compiler.consume_line()
                 break
-            node.add_child(Node.consume(compiler, node))
+            node.add_child(TealLine.consume(compiler, node))
         return node
+
+    def reformat(self):
+        output = ''
+        output += self.line + '\n'
+        for n in self.nodes:
+            output += indent(n.reformat())
+        output += 'end'
+        return output
 
 
 class InnerTxnFieldSetter(InlineStatement):
-    pattern = r'(?P<field_name>.*): (?P<expression>.*)'
+    pattern = r'(?P<field_name>.*?)(\[(?P<index>\d\d?)\])?: (?P<expression>.*)'
     field_name: str
+    index: int
     expression: GenericExpression
+
+    def reformat(self):
+        return self.line + '\n'
 
 
 class InnerTxn(InlineStatement):
@@ -506,6 +577,7 @@ class InnerTxn(InlineStatement):
             else:
                 node.add_child(InnerTxnFieldSetter(compiler.consume_line(), node, compiler=compiler))
 
+        # If this InnerTxn is not in a InnerGroup we make it a InnerGroup of 1
         if type(parent) != InnerGroup:
             group = InnerGroup('', parent, compiler=compiler)
             group.add_child(node)
@@ -514,15 +586,33 @@ class InnerTxn(InlineStatement):
 
     def visit(self):
         self.write(f'// {self.line}')
-        # self.write('itxn_begin')
+        array_fields = defaultdict(list)
         for i, node in enumerate(self.nodes):
+            if node.index is not None:
+                index = int(node.index)
+                n = len(array_fields[node.field_name])
+                if n == index:
+                    array_fields[node.field_name].append(node)
+                else:
+                    raise ParseError(f'Inccorrect field array index {index} (expected {n}) at line {self.compiler.line_no}!')
             self.write(node.expression.teal(self.get_scope()))
             self.write(f'itxn_field {node.field_name}')
-        # self.write('itxn_submit')
+        for a in array_fields.values():
+            for node in a:
+                self.write(node.expression.teal(self.get_scope()))
+                self.write(f'itxn_field {node.field_name}')
+
+    def reformat(self):
+        output = ''
+        output += self.line + '\n'
+        for n in self.nodes:
+            output += indent(n.reformat())
+        output += 'end'
+        return output
 
 
 class InnerGroup(InlineStatement):
-    possible_child_nodes = [InnerTxn]
+    possible_child_nodes = [InnerTxn, Comment]
     @classmethod
     def consume(cls, compiler, parent):
         node = InnerGroup(compiler.consume_line(), parent, compiler=compiler)
@@ -542,6 +632,17 @@ class InnerGroup(InlineStatement):
                 self.write('itxn_next')
         self.write('itxn_submit')
 
+    def reformat(self):
+        if self.line:
+            output = ''
+            output += self.line + '\n'
+            for n in self.nodes:
+                output += indent(n.reformat())
+            output += 'end'
+            return output
+        else:
+            return self.nodes[0].reformat()
+
 class IfThen(Node):
     possible_child_nodes = [InlineStatement]
     @classmethod
@@ -555,6 +656,11 @@ class IfThen(Node):
 
     def process(self):
         self.write(f'// then:')
+
+    def reformat(self):
+        output = ''
+        output += '\n'.join([indent(n.reformat()) for n in self.nodes])
+        return output
 
 
 class Elif(Node):
@@ -575,6 +681,12 @@ class Elif(Node):
         self.write(self.condition.teal(self.get_scope()))
         self.write(f'bz {self.next_label}')
 
+    def reformat(self):
+        output = ''
+        output += self.line + '\n'
+        output += '\n'.join([indent(n.reformat()) for n in self.nodes])
+        return output
+
 
 class Else(Node):
     possible_child_nodes = [InlineStatement]
@@ -590,6 +702,12 @@ class Else(Node):
 
     def process(self):
         self.write(f'// {self.line}')
+
+    def reformat(self):
+        output = ''
+        output += self.line + '\n'
+        output += '\n'.join([indent(n.reformat()) for n in self.nodes])
+        return output
 
 
 class IfStatement(InlineStatement):
@@ -660,6 +778,16 @@ class IfStatement(InlineStatement):
         self.write(f'{self.end_label}: // end')
         self.compiler.level -= 1
 
+    def reformat(self):
+        output = ''
+        output += self.line + '\n'
+        for n in self.nodes:
+            s = n.reformat()
+            if s:
+                output += s + '\n'
+        output += 'end'
+        return output
+
 
 class ArgsList(Expression):
     arg_pattern = r'(?P<arg_name>[a-z][a-z_0-9]*): (?P<arg_type>int|byte)'
@@ -707,6 +835,13 @@ class Func(InlineStatement):
             slot = self.declare_var(name)
             self.write(f'store {slot} // {name}')
 
+    def reformat(self):
+        output = ''
+        output += self.line + '\n'
+        output += '\n'.join([indent(n.reformat()) for n in self.nodes])
+        output += '\nend'
+        return output
+
 
 class Return(LineStatement):
     pattern = r'return ?(?P<args>([a-zA-Z0-9_](, )?)*)?'
@@ -745,3 +880,7 @@ def compile_program(source, debug=False):
     min_teal, teal_source_map = minify_teal(teal)
     combined_source_map = combine_source_maps(teal_source_map, compiler.source_map)
     return teal, min_teal, compiler.source_map
+
+
+def indent(s):
+    return textwrap.indent(s, '    ')
