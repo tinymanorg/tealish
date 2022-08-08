@@ -4,7 +4,6 @@ import re
 import textwrap
 from typing import get_type_hints
 
-from traitlets import default
 from .expressions import Expression, GenericExpression, Literal
 from .utils import minify_teal, combine_source_maps
 
