@@ -45,17 +45,23 @@ class ExpressionCompiler:
         return self.ops[name]
 
     def lookup_func(self, name):
+        if name not in self.functions:
+            raise KeyError(f'Func "{name}" not declared in current scope')
         self.used_functions.add(name)
         return self.functions[name]
 
     def lookup_var(self, name):
+        if name not in self.slots:
+            raise KeyError(f'Var "{name}" not declared in current scope')
         return self.slots[name]
 
     def write(self, s=''):
         prefix = '  ' * self.level
         self.output.append(prefix + s)
 
-    def get_const(self, name):
+    def lookup_const(self, name):
+        if name not in self.consts:
+            raise KeyError(f'Const "{name}" not declared in current scope')
         return self.consts[name]
             
     def visit(self, node):
@@ -128,17 +134,14 @@ class ExpressionCompiler:
     def handle_variable(self, variable):
         name = variable.name
         slot = self.lookup_var(name)
-        if slot is not None:
-            self.write(f'load {slot} // {name}')
-        else:
-            raise Exception(f'Variable "{name}" not declared in scope')
+        self.write(f'load {slot} // {name}')
     
     def handle_constant(self, constant):
         name = constant.name
         # userdefined constants
         type, value = None, None
         try:
-            type, value = self.get_const(name)
+            type, value = self.lookup_const(name)
         except KeyError:
             try:
                 type, value = self.constants[name]

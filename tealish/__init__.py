@@ -412,6 +412,8 @@ class Assignment(LineStatement):
                 self.write(f'pop // discarding value for _')
             else:
                 slot = self.get_var(name)
+                if slot is None:
+                    raise Exception(f'Var "{name}" not declared in current scope')
                 self.write(f'store {slot} // {name}')
 
 
