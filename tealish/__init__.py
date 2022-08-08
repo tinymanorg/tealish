@@ -822,9 +822,11 @@ class Func(InlineStatement):
                 compiler.consume_line()
                 break
             func.add_child(InlineStatement.consume(compiler, func))
+        if type(func.nodes[-1]) != Return:
+            raise ParseError(f'func must end with a return statement at line {compiler.line_no}!')
         return func
 
-    def process(self):
+    def visit(self):
         self.write(f'// {self.line}')
         self.write(f'{self.label}:')
         for (name, type) in self.args.args[::-1]:
@@ -834,6 +836,8 @@ class Func(InlineStatement):
                 raise Exception(f'Redefinition of variable "{name}" at line {self.line_no}!')
             slot = self.declare_var(name)
             self.write(f'store {slot} // {name}')
+        for i, node in enumerate(self.nodes):
+            node.visit()
 
     def reformat(self):
         output = ''
@@ -846,6 +850,12 @@ class Func(InlineStatement):
 class Return(LineStatement):
     pattern = r'return ?(?P<args>([a-zA-Z0-9_](, )?)*)?'
     args: str
+
+    def __init__(self, line, parent=None, compiler=None) -> None:
+        super().__init__(line, parent, compiler)
+        if not self.is_descendant_of(Func):
+            raise ParseError(f'"return" should only be used in a function! Line {self.line_no}')
+
     def process(self):
         self.write(f'// {self.line}')
         if self.args:
