@@ -861,7 +861,7 @@ class Func(InlineStatement):
 
 
 class Return(LineStatement):
-    pattern = r'return ?(?P<args>([a-zA-Z0-9_](, )?)*)?'
+    pattern = r'return ?(?P<args>.*?)?$'
     args: str
 
     def __init__(self, line, parent=None, compiler=None) -> None:
@@ -872,13 +872,29 @@ class Return(LineStatement):
     def process(self):
         self.write(f'// {self.line}')
         if self.args:
-            for a in self.args.strip().split(',')[::-1]:
+            args = split_return_args(self.args)
+            for a in args[::-1]:
                 arg = a.strip()
                 expression = GenericExpression.parse(arg)
                 self.write(expression.teal(self.get_scope()))
         self.write('retsub')
 
-# handle_program()
+
+def split_return_args(s):
+    parentheses = 0
+    quotes = False
+    for i in range(len(s)):
+        if s[i] == '"':
+            quotes = not quotes
+        if not quotes:
+            if s[i] == '(':
+                parentheses += 1
+            if s[i] == ')':
+                parentheses -= 1
+            if parentheses == 0 and s[i] == ',':
+                return s[:i].strip(), s[i+1:].strip()
+    return [s]
+
 
 def compile_program(source, debug=False):
     source_lines = source.split('\n')
