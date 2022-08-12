@@ -135,7 +135,7 @@ class Node:
         self.compiler.level -= 1
 
     def process(self):
-        print(self)
+        raise NotImplementedError()
 
     def write(self, lines):
         self.compiler.write(lines, self.line_no)
@@ -338,7 +338,7 @@ class LineStatement(InlineStatement):
 
 
 class Comment(LineStatement):
-    pattern = r'#\s*(?P<comment>.*)'
+    pattern = r'#\s*(?P<comment>.*)$'
     comment: str
     def process(self):
         self.write(f'// {self.comment}')
@@ -349,7 +349,7 @@ class Blank(LineStatement):
         self.write('')
 
 class Const(LineStatement):
-    pattern = r'const (?P<type>\bint\b|\bbyte\b) (?P<name>[A-Z][a-zA-Z0-9_]*) = (?P<expression>.*)'
+    pattern = r'const (?P<type>\bint\b|\bbyte\b) (?P<name>[A-Z][a-zA-Z0-9_]*) = (?P<expression>.*)$'
     type: str
     name: str
     expression: Literal
@@ -368,7 +368,7 @@ class Jump(LineStatement):
 
 
 class Exit(LineStatement):
-    pattern = r'exit\((?P<expression>.*)\)'
+    pattern = r'exit\((?P<expression>.*)\)$'
     type: str
     name: str
     expression: GenericExpression
@@ -379,8 +379,7 @@ class Exit(LineStatement):
 
 
 class FunctionCall(LineStatement):
-    # pattern = r'(?P<name>[a-zA-Z_0-9]+)\((?P<expression>.*)\)'
-    pattern = r'(?P<expression>[a-zA-Z_0-9]+\(.*\))'
+    pattern = r'(?P<expression>[a-zA-Z_0-9]+\(.*\))$'
     expression: GenericExpression
     def process(self):
         self.write(f'// {self.line}')
@@ -403,7 +402,7 @@ class Assert(LineStatement):
 
 
 class ByteDeclaration(LineStatement):
-    pattern = r'byte (?P<name>[a-z][a-zA-Z0-9_]*) = (?P<expression>.*)'
+    pattern = r'byte (?P<name>[a-z][a-zA-Z0-9_]*) = (?P<expression>.*)$'
     name: str
     expression: GenericExpression
     def process(self):
@@ -414,20 +413,19 @@ class ByteDeclaration(LineStatement):
 
 
 class IntDeclaration(LineStatement):
-    pattern = r'int (?P<name>[a-z][a-zA-Z0-9_]*)( = (?P<expression>.*))?'
+    pattern = r'int (?P<name>[a-z][a-zA-Z0-9_]*)( = (?P<expression>.*))?$'
     name: str
     expression: GenericExpression
     def process(self):
         slot = self.declare_var(self.name)
         self.write(f'// {self.line} [slot {slot}]')
-        # self.write(f'// var {self.name}: slot {slot}')
         if self.expression:
             self.write(self.expression.teal(self.get_scope()))
             self.write(f'store {slot} // {self.name}')
 
 
 class Assignment(LineStatement):
-    pattern = r'(?P<names>([a-z_][a-zA-Z0-9_]*,?\s*)+) = (?P<expression>.*)'
+    pattern = r'(?P<names>([a-z_][a-zA-Z0-9_]*,?\s*)+) = (?P<expression>.*)$'
     names: str
     expression: GenericExpression
     def process(self):
@@ -446,7 +444,7 @@ class Assignment(LineStatement):
 
 class Block(Statement):
     possible_child_nodes = [Statement]
-    pattern = r'block (?P<name>[a-zA-Z_0-9]+):'
+    pattern = r'block (?P<name>[a-zA-Z_0-9]+):$'
     name: str
 
     def __init__(self, line, parent=None, compiler=None) -> None:
@@ -499,7 +497,7 @@ class SwitchElse(Node):
 
 class Switch(InlineStatement):
     possible_child_nodes = [SwitchOption, SwitchElse]
-    pattern = r'switch (?P<expression>.*):'
+    pattern = r'switch (?P<expression>.*):$'
     expression: GenericExpression
 
     def __init__(self, line, parent=None, compiler=None) -> None:
