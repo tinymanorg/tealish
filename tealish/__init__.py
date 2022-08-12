@@ -357,7 +357,14 @@ class Const(LineStatement):
         scope = self.get_current_scope()
         scope['consts'][self.name] = [self.type, self.expression.value]
 
-class Jump(LineStatement): pass
+class Jump(LineStatement):
+    pattern = r'jump (?P<block_name>.*)$'
+    block_name: str
+
+    def process(self):
+        self.write(f'// {self.line}')
+        b = self.get_block(self.block_name)
+        self.write(f'b {b.label}')
 
 
 class Exit(LineStatement):
