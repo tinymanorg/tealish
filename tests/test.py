@@ -57,6 +57,71 @@ class TestFields(unittest.TestCase):
         self.assertListEqual(teal[:-1], ['pushint 1', 'pushint 2', '+', 'gtxns TypeEnum'])
 
 
+class TestIF(unittest.TestCase):
+
+    def test_pass_simple_if(self):
+        teal = compile_min([
+            'if 1:',
+            'exit(0)',
+            'end',
+        ])
+        self.assertListEqual(teal, ['pushint 1', 'bz l0_end', 
+                                    'pushint 0', 'return', 
+                                    'l0_end: // end'])
+
+    def test_pass_if_not(self):
+        teal = compile_min([
+            'if not 1:',
+            'exit(0)',
+            'end',
+        ])
+        self.assertListEqual(teal, ['pushint 1', 'bnz l0_end', 
+                                    'pushint 0', 'return', 
+                                    'l0_end: // end'])
+
+    def test_pass_if_else(self):
+        teal = compile_min([
+            'if 1:',
+            'exit(0)',
+            'else:',
+            'exit(1)',
+            'end',
+        ])
+        self.assertListEqual(teal, ['pushint 1', 'bz l0_else', 
+                                    'pushint 0', 'return', 'b l0_end',
+                                    'l0_else:', 'pushint 1', 'return', 
+                                    'l0_end: // end'])
+
+    def test_pass_if_elif(self):
+        teal = compile_min([
+            'if 1:',
+            'exit(0)',
+            'elif 2:',
+            'exit(1)',
+            'end',
+        ])
+        self.assertListEqual(teal, ['pushint 1', 'bz l0_elif_0', 
+                                    'pushint 0', 'return', 'b l0_end',
+                                    'l0_elif_0:', 'pushint 2', 'bz l0_end',
+                                    'pushint 1', 'return', 
+                                    'l0_end: // end'])
+
+
+    def test_pass_if_elif_not(self):
+        teal = compile_min([
+            'if 1:',
+            'exit(0)',
+            'elif not 2:',
+            'exit(1)',
+            'end',
+        ])
+        self.assertListEqual(teal, ['pushint 1', 'bz l0_elif_0', 
+                                    'pushint 0', 'return', 'b l0_end',
+                                    'l0_elif_0:', 'pushint 2', 'bnz l0_end',
+                                    'pushint 1', 'return', 
+                                    'l0_end: // end'])
+
+
 class TestAssignment(unittest.TestCase):
 
     def test_assign(self):

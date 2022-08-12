@@ -668,8 +668,9 @@ class IfThen(Node):
 
 class Elif(Node):
     possible_child_nodes = [InlineStatement]
-    pattern = r'elif (?P<condition>.*):'
+    pattern = r'elif ((?P<modifier>not) )?(?P<condition>.*):'
     condition: GenericExpression
+    modifier: str
     @classmethod
     def consume(cls, compiler, parent):
         node = Elif(compiler.consume_line(), parent, compiler=compiler)
@@ -682,7 +683,10 @@ class Elif(Node):
     def process(self):
         self.write(f'// {self.line}')
         self.write(self.condition.teal(self.get_scope()))
-        self.write(f'bz {self.next_label}')
+        if self.modifier == 'not':
+            self.write(f'bnz {self.next_label}')
+        else:
+            self.write(f'bz {self.next_label}')
 
     def reformat(self):
         output = ''
@@ -715,8 +719,9 @@ class Else(Node):
 
 class IfStatement(InlineStatement):
     possible_child_nodes = [IfThen, Elif, Else]
-    pattern = r'if (?P<condition>.*):'
+    pattern = r'if ((?P<modifier>not) )?(?P<condition>.*):$'
     condition: GenericExpression
+    modifier: str
     def __init__(self, line, parent=None, compiler=None) -> None:
         super().__init__(line, parent, compiler)
         self.if_then = None
@@ -767,13 +772,18 @@ class IfStatement(InlineStatement):
         self.write(f'// {self.line}')
         self.compiler.level += 1
         self.write(self.condition.teal(self.get_scope()))
-        self.write(f'bz {next_label}')
+        if self.modifier == 'not':
+            self.write(f'bnz {next_label}')
+        else:
+            self.write(f'bz {next_label}')
         self.if_then.visit()
-        self.write(f'b {self.end_label}')
-        for n in self.elifs:
+        if self.elifs or self.else_:
+            self.write(f'b {self.end_label}')
+        for i, n in enumerate(self.elifs):
             self.write(f'{n.label}:')
             n.visit()
-            self.write(f'b {self.end_label}')
+            if i != (len(self.elifs) - 1) or self.else_:
+                self.write(f'b {self.end_label}')
         if self.else_:
             n = self.else_
             self.write(f'{n.label}:')
