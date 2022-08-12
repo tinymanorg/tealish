@@ -199,6 +199,9 @@ class Node:
             return slots[name]
 
     def declare_var(self, name):
+        slot = self.get_var(name)
+        if slot is not None:
+            raise Exception(f'Redefinition of variable "{name}"')
         scope = self.get_current_scope()
         scope['slots'][name] = self.find_slot()
         return scope['slots'][name]
@@ -866,10 +869,6 @@ class Func(InlineStatement):
         self.write(f'// {self.line}')
         self.write(f'{self.label}:')
         for (name, type) in self.args.args[::-1]:
-            slot = self.get_var(name)
-            if slot is not None:
-                print(self.current_scope)
-                raise Exception(f'Redefinition of variable "{name}" at line {self.line_no}!')
             slot = self.declare_var(name)
             self.write(f'store {slot} // {name}')
         for i, node in enumerate(self.nodes):
