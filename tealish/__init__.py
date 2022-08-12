@@ -33,6 +33,7 @@ class TealishCompiler:
         self.line_no = 0
         self.nodes = []
         self.conditional_count = 0
+        self.error_messages = {}
 
     def consume_line(self):
         if self.line_no == len(self.source_lines):
@@ -318,12 +319,15 @@ class LineStatement(InlineStatement):
             return ByteDeclaration(line, parent, compiler=compiler)
         elif line.startswith('jump '):
             return Jump(line, parent, compiler=compiler)
-        elif line.startswith('exit('):
-            return Exit(line, parent, compiler=compiler)
         elif line.startswith('return'):
             return Return(line, parent, compiler=compiler)
         elif ' = ' in line:
             return Assignment(line, parent, compiler=compiler)
+        # Statement functions
+        elif line.startswith('exit('):
+            return Exit(line, parent, compiler=compiler)
+        elif line.startswith('assert('):
+            return Assert(line, parent, compiler=compiler)
         elif re.match('[a-zA-Z_0-9]+\(.*\)', line):
             return FunctionCall(line, parent, compiler=compiler)
         else:
@@ -374,7 +378,21 @@ class FunctionCall(LineStatement):
     def process(self):
         self.write(f'// {self.line}')
         self.write(self.expression.teal(self.get_scope()))
-        # self.write(f'{self.name}')
+
+
+class Assert(LineStatement):
+    pattern = r'assert\((?P<arg>.*?)(, "(?P<message>.*?)")?\)$'
+    arg: GenericExpression
+    message: str
+
+    def process(self):
+        self.write(f'// {self.line}')
+        self.write(self.arg.teal(self.get_scope()))
+        if self.message:
+            self.compiler.error_messages[self.line_no] = self.message
+            self.write(f'assert // {self.message}')
+        else:
+            self.write(f'assert')
 
 
 class ByteDeclaration(LineStatement):
