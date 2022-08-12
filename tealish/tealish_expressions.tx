@@ -2,7 +2,13 @@
 Expression:  Math | Group | FunctionCall | Field | Value;
 Group: ('(' math=Math ')');
 Math: a=Value op=MathOp b=Value;
-MathOp: '+' | '-' | '*' | '/' | '==' | '>=' | '<=' | '>' | '<' | '!=' | '&&' | '||' | 'b+' | 'b-' | 'b/' | 'b*' | 'b%';
+MathOp: '+' | '-' | '*' | '/' | '%'
+    | '==' | '>=' | '<=' | '>' | '<' | '!=' | '!'
+    | '&&' | '||' 
+    | '|' | '%' | '^' | '~'
+    | 'b+' | 'b-' | 'b/' | 'b*' | 'b%'
+    | 'b==' | 'b!=' | 'b>=' | 'b<=' | 'b>' | 'b<'
+    | 'b|' | 'b&' | 'b^' | 'b~';
 FunctionCall: 
     name=Name 
     ('(' 
