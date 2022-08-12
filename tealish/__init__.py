@@ -61,6 +61,8 @@ class TealishCompiler:
         self.nodes.append(node)
 
     def compile(self):
+        if not self.nodes:
+            self.parse()
         for node in self.nodes:
             node.visit()
         return self.output
@@ -891,6 +893,14 @@ def compile_program(source, debug=False):
     min_teal, teal_source_map = minify_teal(teal)
     combined_source_map = combine_source_maps(teal_source_map, compiler.source_map)
     return teal, min_teal, compiler.source_map
+
+
+def compile_lines(source_lines):
+    compiler = TealishCompiler(source_lines)
+    compiler.parse()
+    compiler.compile()
+    teal_lines = compiler.output
+    return teal_lines
 
 
 def indent(s):

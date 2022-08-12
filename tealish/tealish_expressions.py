@@ -120,7 +120,10 @@ class ExpressionCompiler:
             if x.__class__.__name__ == 'Constant':
                 immediates[i] = x.name
         immediate_args = ' '.join(map(str, immediates))
-        self.write(f'{func_call.name} {immediate_args}')
+        if immediate_args:
+            self.write(f'{func_call.name} {immediate_args}')
+        else:
+            self.write(f'{func_call.name}')
 
     def handle_exit(self, node):
         self.visit(node.arg)
@@ -174,6 +177,16 @@ class ExpressionCompiler:
     def handle_txnarrayfield(self, expr):
         self.write(f'txn {expr.field} {expr.arrayIndex}')
 
+    def handle_negativegroupindex(self, expr):
+        self.write(f'txn GroupIndex')
+        self.write(f'pushint {expr.index}')
+        self.write('-')
+
+    def handle_positivegroupindex(self, expr):
+        self.write(f'txn GroupIndex')
+        self.write(f'pushint {expr.index}')
+        self.write('+')
+
     def handle_grouptxnfield(self, expr):
         if type(expr.index) != int:
             # index is an expression that needs to be evaluated
@@ -181,6 +194,8 @@ class ExpressionCompiler:
             self.write(f'gtxns {expr.field}')
         else:
             # index is a constant
+            assert expr.index >= 0, 'Group index < 0'
+            assert expr.index < 16, 'Group index > 16'
             self.write(f'gtxn {expr.index} {expr.field}')
 
     def handle_grouptxnarrayfield(self, expr):
@@ -190,6 +205,7 @@ class ExpressionCompiler:
             self.write(f'gtxnsa {expr.field} {expr.arrayIndex}')
         else:
             # index is a constant
+            assert expr.index >= 0 and expr.index < 16
             self.write(f'gtxna {expr.index} {expr.field} {expr.arrayIndex}')
 
     def handle_innertxnfield(self, expr):

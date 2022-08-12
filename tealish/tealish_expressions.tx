@@ -13,7 +13,7 @@ Field: TxnArrayField | TxnField | InnerTxnArrayField | InnerTxnField | GroupTxnF
 FieldName: /([A-Z][A-Za-z_]+)/;
 TxnField: 'Txn.' field=FieldName;
 TxnArrayField: 'Txn.' field=FieldName '[' arrayIndex=INT ']';
-GroupTxnField: 'Gtxn[' index=Expression '].' field=FieldName;
+GroupTxnField: 'Gtxn[' index=GroupIndex '].' field=FieldName;
 GroupTxnArrayField: 'Gtxn[' index=Expression '].' '[' arrayIndex=INT ']';
 InnerTxnField: 'Itxn.' field=FieldName;
 InnerTxnArrayField: 'Itxn.' field=FieldName '[' arrayIndex=INT ']';
@@ -22,3 +22,6 @@ Value: FunctionCall | Field | Group | INT | STRING | Constant | Variable;
 Variable: name=Name;
 Constant: name=/([A-Z][A-Za-z_0-9]+)/;
 Name: (/([a-z][A-Za-z_0-9]*)/ | /_/);
+GroupIndex: NegativeGroupIndex | PositiveGroupIndex | Expression;
+NegativeGroupIndex: '-' index=INT;
+PositiveGroupIndex: '+' index=INT;
