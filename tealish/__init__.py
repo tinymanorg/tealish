@@ -1,18 +1,18 @@
-from collections import defaultdict
-import sys
 import re
+import sys
 import textwrap
+from collections import defaultdict
 from typing import get_type_hints
 
 from .expressions import Expression, GenericExpression, Literal
-from .utils import minify_teal, combine_source_maps
-
+from .utils import combine_source_maps, minify_teal
 
 line_no = 0
 level = 0
 current_output_line = 1
 output = []
 source_map = {}
+
 
 class ParseError(Exception):
     pass
@@ -86,6 +86,7 @@ class TealishCompiler:
 class Node:
     pattern = ''
     possible_child_nodes = []
+
     def __init__(self, line, parent=None, compiler=None) -> None:
         self.parent = parent
         self.current_scope = None
@@ -229,7 +230,7 @@ class Node:
     def get_block(self, name):
         block = self.get_blocks().get(name)
         # if block:
-            # self.used_blocks.add(block.label)
+        #     self.used_blocks.add(block.label)
         return block
 
     def is_descendant_of(self, node_class):
@@ -242,7 +243,6 @@ class Node:
 
     def reformat(self):
         raise NotImplementedError(f'reformat() not implemented for {self} for line {self.line_no}')
-
 
     def __repr__(self):
         return self.__class__.__name__
@@ -272,6 +272,7 @@ class Statement(Node):
 
 class Program(Node):
     possible_child_nodes = [Statement]
+
     def __init__(self, line, parent=None, compiler=None) -> None:
         super().__init__(line, parent, compiler)
         self.new_scope('')
@@ -343,6 +344,7 @@ class LineStatement(InlineStatement):
 class Comment(LineStatement):
     pattern = r'#\s*(?P<comment>.*)$'
     comment: str
+
     def process(self):
         self.write(f'// {self.comment}')
 
@@ -351,11 +353,13 @@ class Blank(LineStatement):
     def process(self):
         self.write('')
 
+
 class Const(LineStatement):
     pattern = r'const (?P<type>\bint\b|\bbyte\b) (?P<name>[A-Z][a-zA-Z0-9_]*) = (?P<expression>.*)$'
     type: str
     name: str
     expression: Literal
+
     def process(self):
         scope = self.get_current_scope()
         scope['consts'][self.name] = [self.type, self.expression.value]
@@ -375,6 +379,7 @@ class Exit(LineStatement):
     type: str
     name: str
     expression: GenericExpression
+
     def process(self):
         self.write(f'// {self.line}')
         self.write(self.expression.teal(self.get_scope()))
@@ -384,6 +389,7 @@ class Exit(LineStatement):
 class FunctionCall(LineStatement):
     pattern = r'(?P<expression>[a-zA-Z_0-9]+\(.*\))$'
     expression: GenericExpression
+
     def process(self):
         self.write(f'// {self.line}')
         self.write(self.expression.teal(self.get_scope()))
@@ -405,20 +411,23 @@ class Assert(LineStatement):
 
 
 class ByteDeclaration(LineStatement):
-    pattern = r'byte (?P<name>[a-z][a-zA-Z0-9_]*) = (?P<expression>.*)$'
+    pattern = r'byte (?P<name>[a-z][a-zA-Z0-9_]*)( = (?P<expression>.*))?$'
     name: str
     expression: GenericExpression
+
     def process(self):
         slot = self.declare_var(self.name)
-        self.write(f'// {self.line}')
-        self.write(self.expression.teal(self.get_scope()))
-        self.write(f'store {slot} // {self.name}')
+        self.write(f'// {self.line} [slot {slot}]')
+        if self.expression:
+            self.write(self.expression.teal(self.get_scope()))
+            self.write(f'store {slot} // {self.name}')
 
 
 class IntDeclaration(LineStatement):
     pattern = r'int (?P<name>[a-z][a-zA-Z0-9_]*)( = (?P<expression>.*))?$'
     name: str
     expression: GenericExpression
+
     def process(self):
         slot = self.declare_var(self.name)
         self.write(f'// {self.line} [slot {slot}]')
@@ -431,6 +440,7 @@ class Assignment(LineStatement):
     pattern = r'(?P<names>([a-z_][a-zA-Z0-9_]*,?\s*)+) = (?P<expression>.*)$'
     names: str
     expression: GenericExpression
+
     def process(self):
         self.write(f'// {self.line}')
         self.write(self.expression.teal(self.get_scope()))
@@ -482,8 +492,8 @@ class Block(Statement):
 
 
 class SwitchOption(Node):
-    pattern = r'(?P<value>.*): (?P<block_name>.*)'
-    value: Literal
+    pattern = r'(?P<expression>.*): (?P<block_name>.*)'
+    expression: GenericExpression
     block_name: str
 
     def reformat(self):
@@ -533,7 +543,7 @@ class Switch(InlineStatement):
         self.write(f'// {self.line}')
         for i, node in enumerate(self.options):
             self.write(self.expression.teal(self.get_scope()))
-            self.write(node.value.teal())
+            self.write(node.expression.teal(self.get_scope()))
             self.write('==')
             b = self.get_block(node.block_name)
             self.write(f'bnz {b.label}')
@@ -563,6 +573,7 @@ class TealLine(Node):
 
 class Teal(InlineStatement):
     possible_child_nodes = [TealLine]
+
     @classmethod
     def consume(cls, compiler, parent):
         node = Teal(compiler.consume_line(), parent, compiler=compiler)
@@ -594,6 +605,7 @@ class InnerTxnFieldSetter(InlineStatement):
 
 class InnerTxn(InlineStatement):
     possible_child_nodes = [InnerTxnFieldSetter]
+
     @classmethod
     def consume(cls, compiler, parent):
         node = InnerTxn(compiler.consume_line(), parent, compiler=compiler)
@@ -672,8 +684,10 @@ class InnerGroup(InlineStatement):
         else:
             return self.nodes[0].reformat()
 
+
 class IfThen(Node):
     possible_child_nodes = [InlineStatement]
+
     @classmethod
     def consume(cls, compiler, parent):
         node = IfThen('', parent, compiler=compiler)
@@ -697,6 +711,7 @@ class Elif(Node):
     pattern = r'elif ((?P<modifier>not) )?(?P<condition>.*):'
     condition: GenericExpression
     modifier: str
+
     @classmethod
     def consume(cls, compiler, parent):
         node = Elif(compiler.consume_line(), parent, compiler=compiler)
@@ -724,6 +739,7 @@ class Elif(Node):
 class Else(Node):
     possible_child_nodes = [InlineStatement]
     pattern = r'else:'
+
     @classmethod
     def consume(cls, compiler, parent):
         node = Else(compiler.consume_line(), parent, compiler=compiler)
@@ -748,6 +764,7 @@ class IfStatement(InlineStatement):
     pattern = r'if ((?P<modifier>not) )?(?P<condition>.*):$'
     condition: GenericExpression
     modifier: str
+
     def __init__(self, line, parent=None, compiler=None) -> None:
         super().__init__(line, parent, compiler)
         self.if_then = None
@@ -784,7 +801,7 @@ class IfStatement(InlineStatement):
             elif compiler.peek().startswith('elif '):
                 if_statement.add_elif(Elif.consume(compiler, if_statement))
             elif compiler.peek().startswith('else:'):
-                 if_statement.add_else(Else.consume(compiler, if_statement))
+                if_statement.add_else(Else.consume(compiler, if_statement))
         return if_statement
 
     def visit(self):
@@ -832,6 +849,7 @@ class ArgsList(Expression):
     arg_pattern = r'(?P<arg_name>[a-z][a-z_0-9]*): (?P<arg_type>int|byte)'
     pattern = rf'(?P<args>({arg_pattern}(, )?)*)'
     args: str
+
     def __init__(self, string) -> None:
         super().__init__(string)
         self.args = re.findall(self.arg_pattern, string)
@@ -914,7 +932,7 @@ def split_return_args(s):
             if s[i] == ')':
                 parentheses -= 1
             if parentheses == 0 and s[i] == ',':
-                return s[:i].strip(), s[i+1:].strip()
+                return [s[:i].strip()] + split_return_args(s[i+1:].strip())
     return [s]
 
 

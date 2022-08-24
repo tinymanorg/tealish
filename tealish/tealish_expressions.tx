@@ -4,7 +4,7 @@ Group: ('(' math=Math ')');
 Math: a=Value op=MathOp b=Value;
 MathOp: '+' | '-' | '*' | '/' | '%'
     | '==' | '>=' | '<=' | '>' | '<' | '!=' | '!'
-    | '&&' | '||' 
+    | '&&' | '||'
     | '|' | '%' | '^' | '~'
     | 'b+' | 'b-' | 'b/' | 'b*' | 'b%'
     | 'b==' | 'b!=' | 'b>=' | 'b<=' | 'b>' | 'b<'
@@ -15,12 +15,12 @@ FunctionCall:
     args*=Expression[',']
     ')')
 ;
-Field: TxnArrayField | TxnField | InnerTxnArrayField | InnerTxnField | GroupTxnField | GroupTxnArrayField | GlobalField;
+Field: TxnArrayField | TxnField | InnerTxnArrayField | InnerTxnField | GroupTxnArrayField | GroupTxnField | GlobalField;
 FieldName: /([A-Z][A-Za-z_]+)/;
 TxnField: 'Txn.' field=FieldName;
 TxnArrayField: 'Txn.' field=FieldName '[' arrayIndex=INT ']';
 GroupTxnField: 'Gtxn[' index=GroupIndex '].' field=FieldName;
-GroupTxnArrayField: 'Gtxn[' index=Expression '].' '[' arrayIndex=INT ']';
+GroupTxnArrayField: 'Gtxn[' index=Expression '].' field=FieldName '[' arrayIndex=INT ']';
 InnerTxnField: 'Itxn.' field=FieldName;
 InnerTxnArrayField: 'Itxn.' field=FieldName '[' arrayIndex=INT ']';
 GlobalField: 'Global.' field=FieldName;

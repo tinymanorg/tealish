@@ -1,9 +1,10 @@
-import json
-import sys
-import logging
 import importlib.resources
-import tealish
+import json
+import logging
+
 from textx.metamodel import metamodel_from_file
+
+import tealish
 from .tealish_builtins import constants
 
 logger = logging.getLogger(__name__)
