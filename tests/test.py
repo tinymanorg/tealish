@@ -13,6 +13,36 @@ def compile_min(p):
 
 class TestFields(unittest.TestCase):
 
+    def test_txn_array_index_0(self):
+        teal = compile_min([
+            'assert(Txn.Accounts[0])'
+        ])
+        self.assertEqual(teal[0], 'txna Accounts 0')
+
+    def test_txn_array_index_expression(self):
+        teal = compile_min([
+            'assert(Txn.Accounts[1 + 1])'
+        ])
+        self.assertEqual(teal[:-1], ['pushint 1', 'pushint 1', '+', 'txnas Accounts'])
+
+    def test_group_txn_array_index_0(self):
+        teal = compile_min([
+            'assert(Gtxn[0].Accounts[0])'
+        ])
+        self.assertEqual(teal[:-1], ['gtxna 0 Accounts 0'])
+
+    def test_group_txn_array_index_expression(self):
+        teal = compile_min([
+            'assert(Gtxn[0].Accounts[1 + 1])'
+        ])
+        self.assertEqual(teal[:-1], ['pushint 1', 'pushint 1', '+', 'gtxnas 0 Accounts'])
+
+    def test_group_txn_index_expression_array_index_expression(self):
+        teal = compile_min([
+            'assert(Gtxn[1 + 1].Accounts[1 + 1])'
+        ])
+        self.assertEqual(teal[:-1], ['pushint 1', 'pushint 1', '+', 'pushint 1', 'pushint 1', '+', 'gtxnsas Accounts'])
+
     def test_group_index_0(self):
         teal = compile_min([
             'assert(Gtxn[0].TypeEnum)'
@@ -154,11 +184,10 @@ class TestAssignment(unittest.TestCase):
         self.assertEqual(e.exception.args[0], 'Var "x" not declared in current scope at line 1')
 
     def test_fail_invalid(self):
-        with self.assertRaises(ParseError):
+        with self.assertRaises(Exception):
             teal = compile_min([
                 'int balanceexists, balance = asset_holding_get(AssetBalance, 0, 123)'
             ])
-            print(teal)
 
 
 class TestAssert(unittest.TestCase):

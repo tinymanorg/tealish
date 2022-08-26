@@ -176,7 +176,13 @@ class ExpressionCompiler:
         self.write(f'txn {expr.field}')
 
     def handle_txnarrayfield(self, expr):
-        self.write(f'txn {expr.field} {expr.arrayIndex}')
+        if type(expr.arrayIndex) != int:
+            # index is an expression that needs to be evaluated
+            self.visit(expr.arrayIndex)
+            self.write(f'txnas {expr.field}')
+        else:
+            # index is a constant
+            self.write(f'txna {expr.field} {expr.arrayIndex}')
 
     def handle_negativegroupindex(self, expr):
         self.write(f'txn GroupIndex')
@@ -203,11 +209,23 @@ class ExpressionCompiler:
         if type(expr.index) != int:
             # index is an expression that needs to be evaluated
             self.visit(expr.index)
-            self.write(f'gtxnsa {expr.field} {expr.arrayIndex}')
+            if type(expr.arrayIndex) != int:
+                # arrayIndex is an expression that needs to be evaluated
+                self.visit(expr.arrayIndex)
+                self.write(f'gtxnsas {expr.field}')
+            else:
+                # arrayIndex is a constant
+                self.write(f'gtxnsa {expr.field} {expr.arrayIndex}')
         else:
             # index is a constant
             assert expr.index >= 0 and expr.index < 16
-            self.write(f'gtxna {expr.index} {expr.field} {expr.arrayIndex}')
+            if type(expr.arrayIndex) != int:
+                # arrayIndex is an expression that needs to be evaluated
+                self.visit(expr.arrayIndex)
+                self.write(f'gtxnas {expr.index} {expr.field}')
+            else:
+                # arrayIndex is a constant
+                self.write(f'gtxna {expr.index} {expr.field} {expr.arrayIndex}')
 
     def handle_innertxnfield(self, expr):
         self.write(f'itxn {expr.field}')
