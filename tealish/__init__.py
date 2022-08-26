@@ -34,6 +34,7 @@ class TealishCompiler:
         self.nodes = []
         self.conditional_count = 0
         self.error_messages = {}
+        self.max_slot = 0
 
     def consume_line(self):
         if self.line_no == len(self.source_lines):
@@ -204,8 +205,15 @@ class Node:
         if slot is not None:
             raise Exception(f'Redefinition of variable "{name}"')
         scope = self.get_current_scope()
-        scope['slots'][name] = self.find_slot()
-        return scope['slots'][name]
+        if 'func__' in scope['name']:
+            # If this var is declared in a function then use the global max slot + 1
+            # This is to prevent functions using overlapping slots
+            slot = self.compiler.max_slot + 1
+        else:
+            slot = self.find_slot()
+        self.compiler.max_slot = max(self.compiler.max_slot, slot)
+        scope['slots'][name] = slot
+        return slot
 
     def find_slot(self):
         scope = self.get_current_scope()
@@ -867,9 +875,7 @@ class Func(InlineStatement):
         scope = self.get_current_scope()
         scope['functions'][self.name] = self
         self.label = scope['name'] + '__func__' + self.name
-        # Funcs have their own scopes with a restricted slot range to prevent overlap with other slot usage
-        # However currently all Funcs share the same slot range so calling a func from a func may overwrite slots
-        self.new_scope('func__' + self.name, slot_range=[201, 255])
+        self.new_scope('func__' + self.name)
 
     @classmethod
     def consume(cls, compiler, parent):
