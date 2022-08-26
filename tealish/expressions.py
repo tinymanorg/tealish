@@ -12,6 +12,7 @@ ENUM = r'[A-Z][a-zA-Z]+'
 
 class Expression:
     pattern = r''
+
     def __init__(self, string) -> None:
         self.string = string
         try:
@@ -100,6 +101,7 @@ class FunctionCall(Expression):
     pattern = rf'(?P<name>[a-zA-Z_0-9]+)\((?P<args>.)*\)$'
     name: str
     args: str
+
     def teal(self):
         return self.args.teal() + [f'{self.name}']
 
