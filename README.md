@@ -28,6 +28,13 @@ app_global_put("last_update", Global.Round)
 exit(1)
 ```
 
+## Compiling
+
+```
+    tealish example.tl
+```
+This will produce `example.teal`, `example.min.teal` and `example.map.json` in the `build` subdirectory.
+
 ## Starter Template
 
 ```python
