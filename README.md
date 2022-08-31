@@ -35,6 +35,11 @@ exit(1)
 ```
 This will produce `example.teal`, `example.min.teal` and `example.map.json` in the `build` subdirectory.
 
+## Editor Support
+
+A VS Code extension for syntax highlighting of Tealish & TEAL is available [here](https://www.dropbox.com/s/zn3swrfxkyyelpi/tealish-0.0.1.vsix?dl=0)
+
+
 ## Starter Template
 
 ```python
