@@ -199,9 +199,11 @@ class Node:
         slots = self.get_slots()
         if name in slots:
             return slots[name]
+        else:
+            return (None, None)
 
-    def declare_var(self, name):
-        slot = self.get_var(name)
+    def declare_var(self, name, type):
+        slot, _ = self.get_var(name)
         if slot is not None:
             raise Exception(f'Redefinition of variable "{name}"')
         scope = self.get_current_scope()
@@ -212,7 +214,7 @@ class Node:
         else:
             slot = self.find_slot()
         self.compiler.max_slot = max(self.compiler.max_slot, slot)
-        scope['slots'][name] = slot
+        scope['slots'][name] = [slot, type]
         return slot
 
     def find_slot(self):
@@ -221,7 +223,7 @@ class Node:
         used_slots = [False] * 255
         slots = self.get_slots()
         for k in slots:
-            slot = slots[k]
+            slot = slots[k][0]
             used_slots[slot] = True
         for i, _ in enumerate(used_slots):
             if not used_slots[i]:
@@ -390,7 +392,8 @@ class Exit(LineStatement):
 
     def process(self):
         self.write(f'// {self.line}')
-        self.write(self.expression.teal(self.get_scope()))
+        self.expression.process(self.get_scope())
+        self.write(self.expression.teal())
         self.write('return')
 
 
@@ -400,7 +403,8 @@ class FunctionCall(LineStatement):
 
     def process(self):
         self.write(f'// {self.line}')
-        self.write(self.expression.teal(self.get_scope()))
+        self.expression.process(self.get_scope())
+        self.write(self.expression.teal())
 
 
 class Assert(LineStatement):
@@ -409,8 +413,9 @@ class Assert(LineStatement):
     message: str
 
     def process(self):
+        self.arg.process(self.get_scope())
         self.write(f'// {self.line}')
-        self.write(self.arg.teal(self.get_scope()))
+        self.write(self.arg.teal())
         if self.message:
             self.compiler.error_messages[self.line_no] = self.message
             self.write(f'assert // {self.message}')
@@ -424,10 +429,12 @@ class ByteDeclaration(LineStatement):
     expression: GenericExpression
 
     def process(self):
-        slot = self.declare_var(self.name)
+        slot = self.declare_var(self.name, 'byte')
         self.write(f'// {self.line} [slot {slot}]')
         if self.expression:
-            self.write(self.expression.teal(self.get_scope()))
+            self.expression.process(self.get_scope())
+            assert self.expression.type in ('byte', 'any'), f'Incorrect type for byte assignment. Expected byte, got {self.expression.type}'
+            self.write(self.expression.teal())
             self.write(f'store {slot} // {self.name}')
 
 
@@ -437,10 +444,12 @@ class IntDeclaration(LineStatement):
     expression: GenericExpression
 
     def process(self):
-        slot = self.declare_var(self.name)
+        slot = self.declare_var(self.name, 'int')
         self.write(f'// {self.line} [slot {slot}]')
         if self.expression:
-            self.write(self.expression.teal(self.get_scope()))
+            self.expression.process(self.get_scope())
+            assert self.expression.type in ('int', 'any'), f'Incorrect type for int assignment. Expected int, got {self.expression.type}'
+            self.write(self.expression.teal())
             self.write(f'store {slot} // {self.name}')
 
 
@@ -450,16 +459,22 @@ class Assignment(LineStatement):
     expression: GenericExpression
 
     def process(self):
+        self.expression.process(self.get_scope())
         self.write(f'// {self.line}')
-        self.write(self.expression.teal(self.get_scope()))
-        for name in self.names.split(','):
-            name = name.strip()
+        self.write(self.expression.teal())
+        t = self.expression.type
+        types = t if type(t) == list else [t]
+        names = [s.strip() for s in self.names.split(',')]
+        assert len(types) == len(names), f"Incorrect number of names ({len(names)}) for values ({len(types)}) in assignment"
+        for i, name in enumerate(names):
             if name == '_':
                 self.write(f'pop // discarding value for _')
             else:
-                slot = self.get_var(name)
+                # TODO: we have types for vars now. We should somehow make sure the expression is the correct type
+                slot, t = self.get_var(name)
                 if slot is None:
                     raise Exception(f'Var "{name}" not declared in current scope')
+                assert types[i] == 'any' or types[i] == t, f'Incorrect type for {t} assignment. Expected {t}, got {types[i]}'
                 self.write(f'store {slot} // {name}')
 
 
@@ -549,9 +564,11 @@ class Switch(InlineStatement):
 
     def visit(self):
         self.write(f'// {self.line}')
+        self.expression.process(self.get_scope())
         for i, node in enumerate(self.options):
-            self.write(self.expression.teal(self.get_scope()))
-            self.write(node.expression.teal(self.get_scope()))
+            node.expression.process(self.get_scope())
+            self.write(self.expression.teal())
+            self.write(node.expression.teal())
             self.write('==')
             b = self.get_block(node.block_name)
             self.write(f'bnz {b.label}')
@@ -644,11 +661,13 @@ class InnerTxn(InlineStatement):
                     array_fields[node.field_name].append(node)
                 else:
                     raise ParseError(f'Inccorrect field array index {index} (expected {n}) at line {self.compiler.line_no}!')
-            self.write(node.expression.teal(self.get_scope()))
+            node.expression.process(self.get_scope())
+            self.write(node.expression.teal())
             self.write(f'itxn_field {node.field_name}')
         for a in array_fields.values():
             for node in a:
-                self.write(node.expression.teal(self.get_scope()))
+                node.expression.process(self.get_scope())
+                self.write(node.expression.teal())
                 self.write(f'itxn_field {node.field_name}')
 
     def reformat(self):
@@ -731,7 +750,8 @@ class Elif(Node):
 
     def process(self):
         self.write(f'// {self.line}')
-        self.write(self.condition.teal(self.get_scope()))
+        self.condition.process(self.get_scope())
+        self.write(self.condition.teal())
         if self.modifier == 'not':
             self.write(f'bnz {self.next_label}')
         else:
@@ -822,7 +842,8 @@ class IfStatement(InlineStatement):
         self.nodes[-1].next_label = self.end_label
         self.write(f'// {self.line}')
         self.compiler.level += 1
-        self.write(self.condition.teal(self.get_scope()))
+        self.condition.process(self.get_scope())
+        self.write(self.condition.teal())
         if self.modifier == 'not':
             self.write(f'bnz {next_label}')
         else:
@@ -876,6 +897,7 @@ class Func(InlineStatement):
         scope['functions'][self.name] = self
         self.label = scope['name'] + '__func__' + self.name
         self.new_scope('func__' + self.name)
+        self.returns = list(filter(None, [s.strip() for s in self.returns.split(',')]))
 
     @classmethod
     def consume(cls, compiler, parent):
@@ -893,7 +915,7 @@ class Func(InlineStatement):
         self.write(f'// {self.line}')
         self.write(f'{self.label}:')
         for (name, type) in self.args.args[::-1]:
-            slot = self.declare_var(name)
+            slot = self.declare_var(name, type)
             self.write(f'store {slot} // {name}')
         for i, node in enumerate(self.nodes):
             node.visit()
@@ -922,7 +944,8 @@ class Return(LineStatement):
             for a in args[::-1]:
                 arg = a.strip()
                 expression = GenericExpression.parse(arg)
-                self.write(expression.teal(self.get_scope()))
+                expression.process(self.get_scope())
+                self.write(expression.teal())
         self.write('retsub')
 
 

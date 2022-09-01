@@ -1,5 +1,5 @@
 import unittest
-from tealish import ParseError, compile_lines, minify_teal, TealishCompiler
+from tealish import CompileError, ParseError, compile_lines, minify_teal, TealishCompiler
 import tealish
 
 
@@ -233,35 +233,35 @@ class TestFunctionReturn(unittest.TestCase):
 
     def test_pass_return_literal(self):
         teal = compile_lines([
-            'func f():',
+            'func f() int:',
             'return 1',
             'end',
         ])
 
     def test_pass_return_two_literals(self):
         teal = compile_lines([
-            'func f():',
+            'func f() int, int:',
             'return 1, 2',
             'end',
         ])
 
     def test_pass_return_math_expression(self):
         teal = compile_lines([
-            'func f():',
+            'func f() int:',
             'return 1 + 2',
             'end',
         ])
 
     def test_pass_return_two_math_expressions(self):
         teal = compile_lines([
-            'func f():',
+            'func f() int, int:',
             'return 1 + 2, 3 + 1',
             'end',
         ])
 
     def test_pass_return_bytes_with_comma(self):
         teal = compile_min([
-            'func f():',
+            'func f() byte:',
             'return "1,2,3"',
             'end',
         ])
@@ -269,8 +269,69 @@ class TestFunctionReturn(unittest.TestCase):
 
     def test_pass_return_two_func_calls(self):
         teal = compile_min([
-            'func f():',
+            'func f() int, int:',
             'return sqrt(25), exp(5, 2)',
             'end',
         ])
         self.assertListEqual(teal[1:], ['pushint 5', 'pushint 2', 'exp', 'pushint 25', 'sqrt', 'retsub'])
+
+
+class TestTypeCheck(unittest.TestCase):
+
+    def test_debug(self):
+        teal = compile_min([
+            'assert(2)',
+            'assert(1 + 2)',
+            'assert(itob(1))',
+        ])
+
+    def test_pass_1(self):
+        teal = compile_min([
+        'assert(1 + 2)',
+        ])
+
+    def test_pass_2(self):
+        teal = compile_min([
+        'int a = 3',
+        'assert(btoi(itob(1)) + a)'
+        ])
+
+    def test_pass_3(self):
+        teal = compile_min([
+        'assert(Txn.Sender == Txn.Receiver)'
+        ])
+
+    def test_fail_1(self):
+        with self.assertRaises(Exception) as e:
+            teal = compile_min([
+                'byte x = sqrt(25)'
+            ])
+        self.assertIn('Incorrect type for byte assignment. Expected byte, got int', str(e.exception))
+
+    def test_fail_2(self):
+        with self.assertRaises(Exception):
+            teal = compile_min([
+                'assert(sqrt("abc"))'
+            ])
+
+    def test_fail_3(self):
+        with self.assertRaises(Exception):
+            teal = compile_min([
+                'assert(itob(1) + 2)'
+            ])
+
+    def test_fail_4(self):
+        with self.assertRaises(Exception) as e:
+            teal = compile_min([
+                'int x',
+                'x = itob(2)'
+            ])
+        self.assertIn('Incorrect type for int assignment. Expected int, got byte', str(e.exception))
+
+    def test_fail_5(self):
+        with self.assertRaises(Exception) as e:
+            teal = compile_min([
+                'byte b',
+                'b = 2'
+            ])
+        self.assertIn('Incorrect type for byte assignment. Expected byte, got int', str(e.exception))

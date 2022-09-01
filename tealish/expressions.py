@@ -43,6 +43,9 @@ class Expression:
     def teal(self):
         raise NotImplementedError()
 
+    def type(self):
+        raise NotImplementedError()
+
 
 class GenericExpression(Expression):
     @classmethod
@@ -57,9 +60,15 @@ class GenericExpression(Expression):
         expr.expression = expression
         return expr
     
-    def teal(self, scope):
-        return self.expression.compile(scope)
+    def process(self, scope):
+        self.expression.process(scope)
+    
+    def teal(self):
+        return self.expression.teal()
 
+    @property
+    def type(self):
+        return self.expression.node.type
 
 class Literal(Expression):
     pattern = rf'(?P<value>{LITERAL_BYTE}|{LITERAL_INT}|{ENUM})$'
@@ -79,6 +88,9 @@ class LiteralInt(Expression):
     def teal(self):
         return [f'pushint {self.value}']
 
+    def type(self):
+        return 'int'
+
 
 class Enum(Expression):
     pattern = rf'(?P<value>{ENUM})$'
@@ -88,6 +100,9 @@ class Enum(Expression):
         i = constants[self.value][1]
         return [f'pushint {i} // {self.value}']
 
+    def type(self):
+        return 'int'
+
 
 class LiteralByte(Expression):
     pattern = rf'(?P<value>{LITERAL_BYTE})$'
@@ -96,12 +111,7 @@ class LiteralByte(Expression):
     def teal(self):
         return [f'pushbytes {self.value}']
 
+    def type(self):
+        return 'byte'
 
-class FunctionCall(Expression):
-    pattern = rf'(?P<name>[a-zA-Z_0-9]+)\((?P<args>.)*\)$'
-    name: str
-    args: str
-
-    def teal(self):
-        return self.args.teal() + [f'{self.name}']
 
