@@ -1,7 +1,6 @@
 import unittest
 from unittest import expectedFailure
 
-import tealish
 from tealish import CompileError, ParseError, compile_lines, minify_teal, TealishCompiler
 
 
@@ -116,8 +115,8 @@ class TestIF(unittest.TestCase):
             'exit(0)',
             'end',
         ])
-        self.assertListEqual(teal, ['pushint 1', 'bz l0_end', 
-                                    'pushint 0', 'return', 
+        self.assertListEqual(teal, ['pushint 1', 'bz l0_end',
+                                    'pushint 0', 'return',
                                     'l0_end: // end'])
 
     def test_pass_if_not(self):
@@ -126,8 +125,8 @@ class TestIF(unittest.TestCase):
             'exit(0)',
             'end',
         ])
-        self.assertListEqual(teal, ['pushint 1', 'bnz l0_end', 
-                                    'pushint 0', 'return', 
+        self.assertListEqual(teal, ['pushint 1', 'bnz l0_end',
+                                    'pushint 0', 'return',
                                     'l0_end: // end'])
 
     def test_pass_if_else(self):
@@ -138,9 +137,9 @@ class TestIF(unittest.TestCase):
             'exit(1)',
             'end',
         ])
-        self.assertListEqual(teal, ['pushint 1', 'bz l0_else', 
+        self.assertListEqual(teal, ['pushint 1', 'bz l0_else',
                                     'pushint 0', 'return', 'b l0_end',
-                                    'l0_else:', 'pushint 1', 'return', 
+                                    'l0_else:', 'pushint 1', 'return',
                                     'l0_end: // end'])
 
     def test_pass_if_elif(self):
@@ -151,12 +150,11 @@ class TestIF(unittest.TestCase):
             'exit(1)',
             'end',
         ])
-        self.assertListEqual(teal, ['pushint 1', 'bz l0_elif_0', 
+        self.assertListEqual(teal, ['pushint 1', 'bz l0_elif_0',
                                     'pushint 0', 'return', 'b l0_end',
                                     'l0_elif_0:', 'pushint 2', 'bz l0_end',
-                                    'pushint 1', 'return', 
+                                    'pushint 1', 'return',
                                     'l0_end: // end'])
-
 
     def test_pass_if_elif_not(self):
         teal = compile_min([
@@ -166,10 +164,10 @@ class TestIF(unittest.TestCase):
             'exit(1)',
             'end',
         ])
-        self.assertListEqual(teal, ['pushint 1', 'bz l0_elif_0', 
+        self.assertListEqual(teal, ['pushint 1', 'bz l0_elif_0',
                                     'pushint 0', 'return', 'b l0_end',
                                     'l0_elif_0:', 'pushint 2', 'bnz l0_end',
-                                    'pushint 1', 'return', 
+                                    'pushint 1', 'return',
                                     'l0_end: // end'])
 
 

@@ -1,7 +1,6 @@
 import json
 from pathlib import Path
 import sys
-import os
 from tealish import compile_program
 
 

@@ -68,7 +68,7 @@ class TealishCompiler:
         for node in self.nodes:
             node.visit()
         return self.output
-    
+
     def traverse(self, node=None, visitor=None):
         if node is None:
             node = self.nodes[0]
@@ -125,7 +125,7 @@ class Node:
     def consume(cls, compiler, parent):
         line = compiler.consume_line()
         return cls(line, parent=parent, compiler=compiler)
-        
+
     def visit(self):
         try:
             self.process()
@@ -349,7 +349,7 @@ class LineStatement(InlineStatement):
             return Exit(line, parent, compiler=compiler)
         elif line.startswith('assert('):
             return Assert(line, parent, compiler=compiler)
-        elif re.match('[a-zA-Z_0-9]+\(.*\)', line):
+        elif re.match(r'[a-zA-Z_0-9]+\(.*\)', line):
             return FunctionCall(line, parent, compiler=compiler)
         else:
             raise ParseError(f'Unexpected line statement: "{line}" at {compiler.line_no}.')
@@ -436,7 +436,7 @@ class Assert(LineStatement):
             self.compiler.error_messages[self.line_no] = self.message
             self.write(f'assert // {self.message}')
         else:
-            self.write(f'assert')
+            self.write('assert')
 
 
 class BytesDeclaration(LineStatement):
@@ -484,7 +484,7 @@ class Assignment(LineStatement):
         assert len(types) == len(names), f"Incorrect number of names ({len(names)}) for values ({len(types)}) in assignment"
         for i, name in enumerate(names):
             if name == '_':
-                self.write(f'pop // discarding value for _')
+                self.write('pop // discarding value for _')
             else:
                 # TODO: we have types for vars now. We should somehow make sure the expression is the correct type
                 slot, t = self.get_var(name)
@@ -744,7 +744,7 @@ class IfThen(Node):
         return node
 
     def process(self):
-        self.write(f'// then:')
+        self.write('// then:')
 
     def reformat(self):
         output = ''
@@ -820,7 +820,7 @@ class IfStatement(InlineStatement):
         self.conditional_index = compiler.conditional_count
         compiler.conditional_count += 1
         self.end_label = f'l{self.conditional_index}_end'
-        
+
     def add_if_then(self, node):
         node.label = ''
         self.if_then = node
@@ -853,7 +853,7 @@ class IfStatement(InlineStatement):
 
     def visit(self):
         for i, node in enumerate(self.nodes[:-1]):
-            node.next_label = self.nodes[i+1].label
+            node.next_label = self.nodes[i + 1].label
         if len(self.nodes) > 1:
             next_label = self.nodes[1].label
         else:
@@ -980,7 +980,7 @@ def split_return_args(s):
             if s[i] == ')':
                 parentheses -= 1
             if parentheses == 0 and s[i] == ',':
-                return [s[:i].strip()] + split_return_args(s[i+1:].strip())
+                return [s[:i].strip()] + split_return_args(s[i + 1:].strip())
     return [s]
 
 
@@ -1005,7 +1005,7 @@ def compile_program(source, debug=False):
         for i in range(0, len(teal)):
             print(' '.join([str(i + 1), str(compiler.source_map[i + 1]), teal[i]]))
     min_teal, teal_source_map = minify_teal(teal)
-    combined_source_map = combine_source_maps(teal_source_map, compiler.source_map)
+    _ = combine_source_maps(teal_source_map, compiler.source_map)
     return teal, min_teal, compiler.source_map
 
 

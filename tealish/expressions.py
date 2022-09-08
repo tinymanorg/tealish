@@ -1,5 +1,5 @@
 import re
-from typing import List, get_type_hints
+from typing import get_type_hints
 from .tealish_expressions import ExpressionCompiler
 from .tealish_builtins import constants
 
@@ -52,23 +52,24 @@ class GenericExpression(Expression):
     def parse(cls, string):
         try:
             expression = ExpressionCompiler(string)
-        except Exception as e:
+        except Exception:
             # print(string)
             # raise e
             raise Exception(f'Cannot parse "{string}" as Expression')
         expr = cls(string)
         expr.expression = expression
         return expr
-    
+
     def process(self, scope):
         self.expression.process(scope)
-    
+
     def teal(self):
         return self.expression.teal()
 
     @property
     def type(self):
         return self.expression.node.type
+
 
 class Literal(Expression):
     pattern = rf'(?P<value>{LITERAL_BYTES}|{LITERAL_INT}|{ENUM})$'
@@ -113,5 +114,3 @@ class LiteralBytes(Expression):
 
     def type(self):
         return 'bytes'
-
-

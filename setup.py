@@ -1,6 +1,5 @@
-import codecs
-import os
 from setuptools import find_packages, setup
+
 PACKAGE_NAME = "tealish"
 VERSION = "0.0.1"
 DESCRIPTION = "The Tealish language for the Algorand Virtual Machine."
