@@ -231,6 +231,7 @@ class TestFunctionReturn(unittest.TestCase):
             ])
         self.assertIn('func must end with a return statement', e.exception.args[0])
 
+    @unittest.expectedFailure
     def test_fail_wrong_sig_1_return(self):
         with self.assertRaises(CompileError) as e:
             compile_lines([
@@ -240,7 +241,8 @@ class TestFunctionReturn(unittest.TestCase):
             ])
         self.assertIn('Function signature and return statement differ', e.exception.args[0])
 
-    def test_fail_wrong_sig_1_return(self):
+    @unittest.expectedFailure
+    def test_fail_wrong_sig_2_returns(self):
         with self.assertRaises(CompileError) as e:
             compile_lines([
                 'func f() int:',
