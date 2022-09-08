@@ -1,6 +1,8 @@
 import unittest
-from tealish import CompileError, ParseError, compile_lines, minify_teal, TealishCompiler
+from unittest import expectedFailure
+
 import tealish
+from tealish import CompileError, ParseError, compile_lines, minify_teal, TealishCompiler
 
 
 def compile_min(p):
@@ -231,7 +233,7 @@ class TestFunctionReturn(unittest.TestCase):
             ])
         self.assertIn('func must end with a return statement', e.exception.args[0])
 
-    @unittest.expectedFailure
+    @expectedFailure
     def test_fail_wrong_sig_1_return(self):
         with self.assertRaises(CompileError) as e:
             compile_lines([
@@ -241,7 +243,7 @@ class TestFunctionReturn(unittest.TestCase):
             ])
         self.assertIn('Function signature and return statement differ', e.exception.args[0])
 
-    @unittest.expectedFailure
+    @expectedFailure
     def test_fail_wrong_sig_2_returns(self):
         with self.assertRaises(CompileError) as e:
             compile_lines([
@@ -355,3 +357,198 @@ class TestTypeCheck(unittest.TestCase):
                 'b = 2'
             ])
         self.assertIn('Incorrect type for bytes assignment. Expected bytes, got int', str(e.exception))
+
+
+class TestInnerGroup(unittest.TestCase):
+
+    def test_pass_simple_inner_group(self):
+        teal = compile_min([
+            'inner_group:',
+
+            'inner_txn:',
+            'TypeEnum: Axfer',
+            'Fee: 0',
+            'AssetReceiver: Txn.Sender',
+            'XferAsset: 10',
+            'AssetAmount: 2000000',
+            'end',
+
+            'inner_txn:',
+            'TypeEnum: Appl',
+            'Fee: 2000',
+            'ApplicationID: 1',
+            'ApplicationArgs[0]: "swap"',
+            'ApplicationArgs[1]: 30',
+            'ApplicationArgs[2]: "fixed-input"',
+            'Accounts[0]: Txn.Accounts[1]',
+            'Assets[0]: Txn.Assets[0]',
+            'Assets[1]: Txn.Assets[1]',
+            'end',
+
+            'end',
+        ])
+        self.assertListEqual(
+            teal,
+            [
+                'itxn_begin',
+                'pushint 4 // Axfer',
+                'itxn_field TypeEnum',
+                'pushint 0',
+                'itxn_field Fee',
+                'txn Sender',
+                'itxn_field AssetReceiver',
+                'pushint 10',
+                'itxn_field XferAsset',
+                'pushint 2000000',
+                'itxn_field AssetAmount',
+                'itxn_next',
+                'pushint 6 // Appl',
+                'itxn_field TypeEnum',
+                'pushint 2000',
+                'itxn_field Fee',
+                'pushint 1',
+                'itxn_field ApplicationID',
+                'pushbytes "swap"',
+                'itxn_field ApplicationArgs',
+                'pushint 30',
+                'itxn_field ApplicationArgs',
+                'pushbytes "fixed-input"',
+                'itxn_field ApplicationArgs',
+                'txna Accounts 1',
+                'itxn_field Accounts',
+                'txna Assets 0',
+                'itxn_field Assets',
+                'txna Assets 1',
+                'itxn_field Assets',
+                'itxn_submit'
+            ]
+        )
+
+    def test_pass_inner_group_with_if(self):
+        teal = compile_min([
+            'int asset_id',
+            'inner_group:',
+            'if asset_id:',
+
+            'inner_txn:',
+            'TypeEnum: Axfer',
+            'Fee: 0',
+            'AssetReceiver: Txn.Sender',
+            'XferAsset: asset_id',
+            'AssetAmount: 2000000',
+            'end',
+
+            'else:',
+
+            'inner_txn:',
+            'TypeEnum: Pay',
+            'Fee: 0',
+            'Receiver: Txn.Sender',
+            'XferAsset: asset_id',
+            'Amount: 2000000',
+            'end',
+
+            'end',
+
+            'inner_txn:',
+            'TypeEnum: Appl',
+            'Fee: 2000',
+            'ApplicationID: 1',
+            'ApplicationArgs[0]: "swap"',
+            'ApplicationArgs[1]: 30',
+            'ApplicationArgs[2]: "fixed-input"',
+            'Accounts[0]: Txn.Accounts[1]',
+            'Assets[0]: Txn.Assets[0]',
+            'Assets[1]: Txn.Assets[1]',
+            'end',
+
+            'end',
+        ])
+        self.assertListEqual(
+            teal,
+            [
+                'itxn_begin',
+                'load 0 // asset_id',
+                'bz l0_else',
+                'pushint 4 // Axfer',
+                'itxn_field TypeEnum',
+                'pushint 0',
+                'itxn_field Fee',
+                'txn Sender',
+                'itxn_field AssetReceiver',
+                'load 0 // asset_id',
+                'itxn_field XferAsset',
+                'pushint 2000000',
+                'itxn_field AssetAmount',
+                'b l0_end',
+                'l0_else:',
+                'pushint 1 // Pay',
+                'itxn_field TypeEnum',
+                'pushint 0',
+                'itxn_field Fee',
+                'txn Sender',
+                'itxn_field Receiver',
+                'load 0 // asset_id',
+                'itxn_field XferAsset',
+                'pushint 2000000',
+                'itxn_field Amount',
+                'l0_end: // end',
+                'itxn_next',
+                'pushint 6 // Appl',
+                'itxn_field TypeEnum',
+                'pushint 2000',
+                'itxn_field Fee',
+                'pushint 1',
+                'itxn_field ApplicationID',
+                'pushbytes "swap"',
+                'itxn_field ApplicationArgs',
+                'pushint 30',
+                'itxn_field ApplicationArgs',
+                'pushbytes "fixed-input"',
+                'itxn_field ApplicationArgs',
+                'txna Accounts 1',
+                'itxn_field Accounts',
+                'txna Assets 0',
+                'itxn_field Assets',
+                'txna Assets 1',
+                'itxn_field Assets',
+                'itxn_submit'
+            ]
+        )
+
+    def test_pass_inner_group_with_statement(self):
+        teal = compile_min([
+            'int a',
+            'int b',
+            'inner_group:',
+            'int c = a + b',
+            'inner_txn:',
+            'TypeEnum: Axfer',
+            'Fee: 0',
+            'AssetReceiver: Txn.Sender',
+            'XferAsset: c',
+            'AssetAmount: 2000000',
+            'end',
+            'end',
+        ])
+        self.assertListEqual(
+            teal,
+            [
+                'itxn_begin',
+                'load 0 // a',
+                'load 1 // b',
+                '+',
+                'store 2 // c',
+                'pushint 4 // Axfer',
+                'itxn_field TypeEnum',
+                'pushint 0',
+                'itxn_field Fee',
+                'txn Sender',
+                'itxn_field AssetReceiver',
+                'load 2 // c',
+                'itxn_field XferAsset',
+                'pushint 2000000',
+                'itxn_field AssetAmount',
+                'itxn_submit'
+            ]
+        )
