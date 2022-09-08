@@ -8,9 +8,28 @@ from tealish import CompileError, ParseError, compile_lines, minify_teal, Tealis
 def compile_min(p):
     teal = compile_lines(p)
     min_teal, _ = minify_teal(teal)
-    # remove 'pragma' line
-    output = min_teal[1:]
-    return output
+    return min_teal
+
+
+class TestTealVersion(unittest.TestCase):
+
+    def test_one_character(self):
+        teal = compile_min([
+            '#pragma version 6'
+        ])
+        self.assertEqual(teal[0], '#pragma version 6')
+
+    def test_multiple_characters(self):
+        teal = compile_min([
+            '#pragma version 12'
+        ])
+        self.assertEqual(teal[0], '#pragma version 12')
+
+    def test_invalid_version(self):
+        with self.assertRaises(ParseError):
+            compile_min([
+                '#pragma version a'
+            ])
 
 
 class TestFields(unittest.TestCase):
@@ -178,7 +197,7 @@ class TestAssignment(unittest.TestCase):
         self.assertListEqual(teal, ['pushint 0', 'pushint 123', 'asset_holding_get AssetBalance', 'store 0 // exists', 'store 1 // balance'])
 
     def test_fail_assign_without_declare(self):
-        with self.assertRaises(tealish.CompileError) as e:
+        with self.assertRaises(CompileError) as e:
             teal = compile_min([
                 'x = 1'
             ])
@@ -186,8 +205,8 @@ class TestAssignment(unittest.TestCase):
         self.assertEqual(e.exception.args[0], 'Var "x" not declared in current scope at line 1')
 
     def test_fail_invalid(self):
-        with self.assertRaises(Exception):
-            teal = compile_min([
+        with self.assertRaises(ParseError):
+            compile_min([
                 'int balanceexists, balance = asset_holding_get(AssetBalance, 0, 123)'
             ])
 
@@ -195,30 +214,30 @@ class TestAssignment(unittest.TestCase):
 class TestAssert(unittest.TestCase):
 
     def test_pass_assert_with_message(self):
-        teal = compile_lines(['assert(1, "Error 1")'])
-        self.assertListEqual(teal[2:], ['pushint 1', 'assert // Error 1'])
+        teal = compile_min(['assert(1, "Error 1")'])
+        self.assertListEqual(teal, ['pushint 1', 'assert // Error 1'])
 
     def test_pass_assert_with_message_collection(self):
         compiler = TealishCompiler(['assert(0)', 'assert(1, "Error 1")'])
-        teal = compiler.compile()
+        compiler.compile()
         self.assertDictEqual(compiler.error_messages, {2: 'Error 1'})
 
     def test_pass_simple_assert(self):
-        teal = compile_lines(['assert(1)'])
-        self.assertListEqual(teal[2:], ['pushint 1', 'assert'])
+        teal = compile_min(['assert(1)'])
+        self.assertListEqual(teal, ['pushint 1', 'assert'])
 
     def test_pass_assert_with_group_expression(self):
-        teal = compile_lines(['assert(1 && (2 >= 1))'])
+        compile_lines(['assert(1 && (2 >= 1))'])
 
     def test_pass_1(self):
-        teal = compile_lines(['int x = balance(0)'])
-        self.assertListEqual(teal[2:], ['pushint 0', 'balance', 'store 0 // x'])
+        teal = compile_min(['int x = balance(0)'])
+        self.assertListEqual(teal, ['pushint 0', 'balance', 'store 0 // x'])
 
 
 class TestFunctionReturn(unittest.TestCase):
 
     def test_pass(self):
-        teal = compile_lines([
+        compile_lines([
             'func f():',
             'return',
             'end',
@@ -254,28 +273,28 @@ class TestFunctionReturn(unittest.TestCase):
         self.assertIn('Function signature and return statement differ', e.exception.args[0])
 
     def test_pass_return_literal(self):
-        teal = compile_lines([
+        compile_lines([
             'func f() int:',
             'return 1',
             'end',
         ])
 
     def test_pass_return_two_literals(self):
-        teal = compile_lines([
+        compile_lines([
             'func f() int, int:',
             'return 1, 2',
             'end',
         ])
 
     def test_pass_return_math_expression(self):
-        teal = compile_lines([
+        compile_lines([
             'func f() int:',
             'return 1 + 2',
             'end',
         ])
 
     def test_pass_return_two_math_expressions(self):
-        teal = compile_lines([
+        compile_lines([
             'func f() int, int:',
             'return 1 + 2, 3 + 1',
             'end',
@@ -301,58 +320,58 @@ class TestFunctionReturn(unittest.TestCase):
 class TestTypeCheck(unittest.TestCase):
 
     def test_debug(self):
-        teal = compile_min([
+        compile_min([
             'assert(2)',
             'assert(1 + 2)',
             'assert(itob(1))',
         ])
 
     def test_pass_1(self):
-        teal = compile_min([
-        'assert(1 + 2)',
+        compile_min([
+            'assert(1 + 2)',
         ])
 
     def test_pass_2(self):
-        teal = compile_min([
-        'int a = 3',
-        'assert(btoi(itob(1)) + a)'
+        compile_min([
+            'int a = 3',
+            'assert(btoi(itob(1)) + a)'
         ])
 
     def test_pass_3(self):
-        teal = compile_min([
-        'assert(Txn.Sender == Txn.Receiver)'
+        compile_min([
+            'assert(Txn.Sender == Txn.Receiver)'
         ])
 
     def test_fail_1(self):
-        with self.assertRaises(Exception) as e:
-            teal = compile_min([
+        with self.assertRaises(CompileError) as e:
+            compile_min([
                 'bytes x = sqrt(25)'
             ])
         self.assertIn('Incorrect type for bytes assignment. Expected bytes, got int', str(e.exception))
 
     def test_fail_2(self):
-        with self.assertRaises(Exception):
-            teal = compile_min([
+        with self.assertRaises(CompileError):
+            compile_min([
                 'assert(sqrt("abc"))'
             ])
 
     def test_fail_3(self):
-        with self.assertRaises(Exception):
-            teal = compile_min([
+        with self.assertRaises(CompileError):
+            compile_min([
                 'assert(itob(1) + 2)'
             ])
 
     def test_fail_4(self):
-        with self.assertRaises(Exception) as e:
-            teal = compile_min([
+        with self.assertRaises(CompileError) as e:
+            compile_min([
                 'int x',
                 'x = itob(2)'
             ])
         self.assertIn('Incorrect type for int assignment. Expected int, got bytes', str(e.exception))
 
     def test_fail_5(self):
-        with self.assertRaises(Exception) as e:
-            teal = compile_min([
+        with self.assertRaises(CompileError) as e:
+            compile_min([
                 'bytes b',
                 'b = 2'
             ])

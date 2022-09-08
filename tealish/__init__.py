@@ -100,7 +100,7 @@ class Node:
         try:
             self.matches = re.match(self.pattern, self.line).groupdict()
         except AttributeError:
-            raise Exception(f'Pattern ({self.pattern}) does not match for {self} for line "{self.line}"')
+            raise ParseError(f'Pattern ({self.pattern}) does not match for {self} for line "{self.line}"')
         type_hints = get_type_hints(self.__class__)
         for name, expr_class in type_hints.items():
             if name in self.matches:
@@ -306,7 +306,6 @@ class Program(Node):
         return node
 
     def visit(self):
-        self.write(f'#pragma version 7')
         for n in self.nodes:
             n.visit()
 
@@ -326,7 +325,9 @@ class LineStatement(InlineStatement):
     def consume(cls, compiler, parent):
         line = compiler.consume_line()
         if line.startswith('#pragma'):
-            return Blank(line, parent, compiler=compiler)
+            if compiler.line_no != 1:
+                raise ParseError(f'Teal version must be specified in the first line of the program: "{line}" at {compiler.line_no}.')
+            return TealVersion(line, parent, compiler=compiler)
         elif line.startswith('#'):
             return Comment(line, parent, compiler=compiler)
         elif line == '':
@@ -357,6 +358,14 @@ class LineStatement(InlineStatement):
         return self.line
 
 
+class TealVersion(LineStatement):
+    pattern = r'#pragma version (?P<version>\d+)$'
+    version: int
+
+    def process(self):
+        self.write(f'#pragma version {self.version}')
+
+
 class Comment(LineStatement):
     pattern = r'#\s*(?P<comment>.*)$'
     comment: str
@@ -379,6 +388,7 @@ class Const(LineStatement):
     def process(self):
         scope = self.get_current_scope()
         scope['consts'][self.name] = [self.type, self.expression.value]
+
 
 class Jump(LineStatement):
     pattern = r'jump (?P<block_name>.*)$'
