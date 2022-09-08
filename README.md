@@ -207,11 +207,11 @@ Functions are used to define reusable pieces of functionality. They can take arg
 
 * Declaration
     - `int x`
-    - `byte b`
+    - `bytes b`
     - `int x = 1`
-    - `byte b = "ABC"`
+    - `bytes b = "ABC"`
     - `const int FOO = 1`
-    - `const byte BAR = "ABC"`
+    - `const bytes BAR = "ABC"`
 * Assignment
     - `x = 1`
     - `b = "ABC"`

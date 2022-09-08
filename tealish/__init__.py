@@ -329,8 +329,8 @@ class LineStatement(InlineStatement):
             return Const(line, parent, compiler=compiler)
         elif line.startswith('int '):
             return IntDeclaration(line, parent, compiler=compiler)
-        elif line.startswith('byte '):
-            return ByteDeclaration(line, parent, compiler=compiler)
+        elif line.startswith('bytes '):
+            return BytesDeclaration(line, parent, compiler=compiler)
         elif line.startswith('jump '):
             return Jump(line, parent, compiler=compiler)
         elif line.startswith('return'):
@@ -365,7 +365,7 @@ class Blank(LineStatement):
 
 
 class Const(LineStatement):
-    pattern = r'const (?P<type>\bint\b|\bbyte\b) (?P<name>[A-Z][a-zA-Z0-9_]*) = (?P<expression>.*)$'
+    pattern = r'const (?P<type>\bint\b|\bbytes\b) (?P<name>[A-Z][a-zA-Z0-9_]*) = (?P<expression>.*)$'
     type: str
     name: str
     expression: Literal
@@ -423,17 +423,17 @@ class Assert(LineStatement):
             self.write(f'assert')
 
 
-class ByteDeclaration(LineStatement):
-    pattern = r'byte (?P<name>[a-z][a-zA-Z0-9_]*)( = (?P<expression>.*))?$'
+class BytesDeclaration(LineStatement):
+    pattern = r'bytes (?P<name>[a-z][a-zA-Z0-9_]*)( = (?P<expression>.*))?$'
     name: str
     expression: GenericExpression
 
     def process(self):
-        slot = self.declare_var(self.name, 'byte')
+        slot = self.declare_var(self.name, 'bytes')
         self.write(f'// {self.line} [slot {slot}]')
         if self.expression:
             self.expression.process(self.get_scope())
-            assert self.expression.type in ('byte', 'any'), f'Incorrect type for byte assignment. Expected byte, got {self.expression.type}'
+            assert self.expression.type in ('bytes', 'any'), f'Incorrect type for bytes assignment. Expected bytes, got {self.expression.type}'
             self.write(self.expression.teal())
             self.write(f'store {slot} // {self.name}')
 
@@ -875,7 +875,7 @@ class IfStatement(InlineStatement):
 
 
 class ArgsList(Expression):
-    arg_pattern = r'(?P<arg_name>[a-z][a-z_0-9]*): (?P<arg_type>int|byte)'
+    arg_pattern = r'(?P<arg_name>[a-z][a-z_0-9]*): (?P<arg_type>int|bytes)'
     pattern = rf'(?P<args>({arg_pattern}(, )?)*)'
     args: str
 

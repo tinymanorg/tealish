@@ -231,6 +231,24 @@ class TestFunctionReturn(unittest.TestCase):
             ])
         self.assertIn('func must end with a return statement', e.exception.args[0])
 
+    def test_fail_wrong_sig_1_return(self):
+        with self.assertRaises(CompileError) as e:
+            compile_lines([
+                'func f():',
+                'return 1',
+                'end',
+            ])
+        self.assertIn('Function signature and return statement differ', e.exception.args[0])
+
+    def test_fail_wrong_sig_1_return(self):
+        with self.assertRaises(CompileError) as e:
+            compile_lines([
+                'func f() int:',
+                'return 1, 2',
+                'end',
+            ])
+        self.assertIn('Function signature and return statement differ', e.exception.args[0])
+
     def test_pass_return_literal(self):
         teal = compile_lines([
             'func f() int:',
@@ -261,7 +279,7 @@ class TestFunctionReturn(unittest.TestCase):
 
     def test_pass_return_bytes_with_comma(self):
         teal = compile_min([
-            'func f() byte:',
+            'func f() bytes:',
             'return "1,2,3"',
             'end',
         ])
@@ -304,9 +322,9 @@ class TestTypeCheck(unittest.TestCase):
     def test_fail_1(self):
         with self.assertRaises(Exception) as e:
             teal = compile_min([
-                'byte x = sqrt(25)'
+                'bytes x = sqrt(25)'
             ])
-        self.assertIn('Incorrect type for byte assignment. Expected byte, got int', str(e.exception))
+        self.assertIn('Incorrect type for bytes assignment. Expected bytes, got int', str(e.exception))
 
     def test_fail_2(self):
         with self.assertRaises(Exception):
@@ -326,12 +344,12 @@ class TestTypeCheck(unittest.TestCase):
                 'int x',
                 'x = itob(2)'
             ])
-        self.assertIn('Incorrect type for int assignment. Expected int, got byte', str(e.exception))
+        self.assertIn('Incorrect type for int assignment. Expected int, got bytes', str(e.exception))
 
     def test_fail_5(self):
         with self.assertRaises(Exception) as e:
             teal = compile_min([
-                'byte b',
+                'bytes b',
                 'b = 2'
             ])
-        self.assertIn('Incorrect type for byte assignment. Expected byte, got int', str(e.exception))
+        self.assertIn('Incorrect type for bytes assignment. Expected bytes, got int', str(e.exception))

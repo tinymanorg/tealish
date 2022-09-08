@@ -19,10 +19,10 @@ class Integer(Node):
         return [f'pushint {self.value}']
 
 
-class Byte(Node):
+class Bytes(Node):
     def __init__(self, value, parent=None) -> None:
         self.value = value
-        self.type = 'byte'
+        self.type = 'bytes'
 
     def process(self, compiler):
         pass
@@ -62,7 +62,7 @@ class Constant(Node):
     def teal(self):
         if self.type == 'int':
             return [f'pushint {self.value} // {self.name}']
-        elif self.type == 'byte':
+        elif self.type == 'bytes':
             return [f'pushbytes {self.value} // {self.name}']
         else:
             raise Exception('Unexpected const type')
@@ -79,7 +79,7 @@ class Math(Node):
         self.b.process(compiler)
         compiler.check_arg_types(self.op, [self.a, self.b])
         op = compiler.lookup_op(self.op)
-        self.type = {'B': 'byte', 'U': 'int', '.': 'any'}[op.get('Returns', '')]
+        self.type = {'B': 'bytes', 'U': 'int', '.': 'any'}[op.get('Returns', '')]
     
     def teal(self):
         return self.a.teal() + self.b.teal() + [f'{self.op}']
@@ -144,7 +144,7 @@ class FunctionCall(Node):
         self.op = op
         immediates = self.args[:(op['Size'] - 1)]
         num_args = len(op.get('Args', ''))
-        arg_types = [{'B': 'byte', 'U': 'int', '.': 'any'}[x] for x in op.get('Args', '')]
+        arg_types = [{'B': 'bytes', 'U': 'int', '.': 'any'}[x] for x in op.get('Args', '')]
         self.args = self.args[(op['Size'] - 1):]
         if len(self.args) != num_args:
             raise Exception(f'Expected {num_args} args for {op["Name"]}!')
@@ -157,7 +157,7 @@ class FunctionCall(Node):
             elif x.__class__.__name__ == 'Integer':
                 immediates[i] = x.value
         self.immediate_args = ' '.join(map(str, immediates))
-        returns = [{'B': 'byte', 'U': 'int', '.': 'any'}[x] for x in op.get('Returns', '')][::-1]
+        returns = [{'B': 'bytes', 'U': 'int', '.': 'any'}[x] for x in op.get('Returns', '')][::-1]
         self.type = returns[0] if len(returns) == 1 else returns
 
     def process_special_call(self, compiler):
@@ -360,7 +360,7 @@ def class_provider(name):
         'Math': Math,
         'Group': Group,
         'Integer': Integer,
-        'Byte': Byte,
+        'Bytes': Bytes,
         'FunctionCall': FunctionCall,
         'TxnField': TxnField,
         'TxnArrayField': TxnArrayField,
