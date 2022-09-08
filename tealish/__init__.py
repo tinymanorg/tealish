@@ -667,9 +667,10 @@ class InnerTxn(InlineStatement):
                     array_fields[node.field_name].append(node)
                 else:
                     raise ParseError(f'Inccorrect field array index {index} (expected {n}) at line {self.compiler.line_no}!')
-            node.expression.process(self.get_scope())
-            self.write(node.expression.teal())
-            self.write(f'itxn_field {node.field_name}')
+            else:
+                node.expression.process(self.get_scope())
+                self.write(node.expression.teal())
+                self.write(f'itxn_field {node.field_name}')
         for a in array_fields.values():
             for node in a:
                 node.expression.process(self.get_scope())
