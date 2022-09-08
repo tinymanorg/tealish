@@ -251,6 +251,12 @@ class Node:
             p = p.parent
         return False
 
+    def has_child_node(self, node_class):
+        for node in self.nodes:
+            if isinstance(node, node_class) or node.has_child_node(node_class):
+                return True
+        return False
+
     def reformat(self):
         raise NotImplementedError(f'reformat() not implemented for {self} for line {self.line_no}')
 
@@ -644,7 +650,7 @@ class InnerTxn(InlineStatement):
                 node.add_child(InnerTxnFieldSetter(compiler.consume_line(), node, compiler=compiler))
 
         # If this InnerTxn is not in a InnerGroup we make it a InnerGroup of 1
-        if type(parent) != InnerGroup:
+        if not cls.is_descendant_of(node, InnerGroup):
             group = InnerGroup('', parent, compiler=compiler)
             group.add_child(node)
             return group
@@ -680,7 +686,8 @@ class InnerTxn(InlineStatement):
 
 
 class InnerGroup(InlineStatement):
-    possible_child_nodes = [InnerTxn, Comment]
+    possible_child_nodes = [Statement]
+
     @classmethod
     def consume(cls, compiler, parent):
         node = InnerGroup(compiler.consume_line(), parent, compiler=compiler)
@@ -688,7 +695,7 @@ class InnerGroup(InlineStatement):
             if compiler.peek().startswith('end'):
                 compiler.consume_line()
                 break
-            node.add_child(InnerTxn.consume(compiler, node))
+            node.add_child(Statement.consume(compiler, node))
         return node
 
     def visit(self):
@@ -697,7 +704,8 @@ class InnerGroup(InlineStatement):
         for i, node in enumerate(self.nodes):
             node.visit()
             if i < (len(self.nodes) - 1):
-                self.write('itxn_next')
+                if isinstance(node, InnerTxn) or node.has_child_node(InnerTxn):
+                    self.write('itxn_next')
         self.write('itxn_submit')
 
     def reformat(self):
