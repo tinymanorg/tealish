@@ -4,7 +4,7 @@ from .tealish_expressions import ExpressionCompiler
 from .tealish_builtins import constants
 
 LITERAL_INT = r'[0-9]+'
-LITERAL_BYTE = r'"(.+)"'
+LITERAL_BYTES = r'"(.+)"'
 VARIABLE_NAME = r'[a-z_][a-zA-Z0-9_]*'
 FIELD_NAME = r'[A-Z][A-Za-z_]+'
 ENUM = r'[A-Z][a-zA-Z]+'
@@ -71,11 +71,11 @@ class GenericExpression(Expression):
         return self.expression.node.type
 
 class Literal(Expression):
-    pattern = rf'(?P<value>{LITERAL_BYTE}|{LITERAL_INT}|{ENUM})$'
+    pattern = rf'(?P<value>{LITERAL_BYTES}|{LITERAL_INT}|{ENUM})$'
 
     @classmethod
     def parse(cls, string):
-        for expr in [LiteralInt, LiteralByte, Enum]:
+        for expr in [LiteralInt, LiteralBytes, Enum]:
             if expr.match(string):
                 return expr.parse(string)
         raise Exception(f'Cannot parse "{string}" as Literal')
@@ -104,14 +104,14 @@ class Enum(Expression):
         return 'int'
 
 
-class LiteralByte(Expression):
-    pattern = rf'(?P<value>{LITERAL_BYTE})$'
+class LiteralBytes(Expression):
+    pattern = rf'(?P<value>{LITERAL_BYTES})$'
     value: str
 
     def teal(self):
         return [f'pushbytes {self.value}']
 
     def type(self):
-        return 'byte'
+        return 'bytes'
 
 

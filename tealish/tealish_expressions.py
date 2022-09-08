@@ -26,7 +26,7 @@ with importlib.resources.path(tealish, 'tealish_expressions.tx') as p:
 def type_lookup(a):
     return {
         '.': 'any',
-        'B': 'byte',
+        'B': 'bytes',
         'U': 'int',
         '': 'None',
     }[a]
