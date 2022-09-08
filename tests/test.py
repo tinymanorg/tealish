@@ -244,7 +244,7 @@ class TestFunctionReturn(unittest.TestCase):
         self.assertIn('Function signature and return statement differ', e.exception.args[0])
 
     @expectedFailure
-    def test_fail_wrong_sig_2_return(self):
+    def test_fail_wrong_sig_2_returns(self):
         with self.assertRaises(CompileError) as e:
             compile_lines([
                 'func f() int:',
