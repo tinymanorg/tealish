@@ -18,5 +18,6 @@ def cli():
         with open(output_filename, 'w') as f:
             f.write(output)
 
+
 if __name__ == '__main__':
     cli()

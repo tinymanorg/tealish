@@ -1,4 +1,3 @@
-
 class Node:
     def process(self, compiler):
         pass
@@ -14,7 +13,7 @@ class Integer(Node):
 
     def process(self, compiler):
         pass
-    
+
     def teal(self):
         return [f'pushint {self.value}']
 
@@ -26,7 +25,7 @@ class Bytes(Node):
 
     def process(self, compiler):
         pass
-    
+
     def teal(self):
         return [f'pushbytes "{self.value}"']
 
@@ -37,7 +36,7 @@ class Variable(Node):
 
     def process(self, compiler):
         self.slot, self.type = compiler.lookup_var(self.name)
-    
+
     def teal(self):
         return [f'load {self.slot} // {self.name}']
 
@@ -80,7 +79,7 @@ class Math(Node):
         compiler.check_arg_types(self.op, [self.a, self.b])
         op = compiler.lookup_op(self.op)
         self.type = {'B': 'bytes', 'U': 'int', '.': 'any'}[op.get('Returns', '')]
-    
+
     def teal(self):
         return self.a.teal() + self.b.teal() + [f'{self.op}']
 
@@ -92,7 +91,7 @@ class Group(Node):
     def process(self, compiler):
         self.math.process(compiler)
         self.type = self.math.type
-    
+
     def teal(self):
         return self.math.teal()
 
@@ -124,7 +123,7 @@ class FunctionCall(Node):
             return self.process_special_call(compiler)
         else:
             raise Exception(f'Unknown function or opcode "{self.name}"')
-    
+
     def process_user_defined_func_call(self, compiler, func):
         self.func_call_type = 'user_defined'
         self.func = func
@@ -144,7 +143,7 @@ class FunctionCall(Node):
         self.op = op
         immediates = self.args[:(op['Size'] - 1)]
         num_args = len(op.get('Args', ''))
-        arg_types = [{'B': 'bytes', 'U': 'int', '.': 'any'}[x] for x in op.get('Args', '')]
+
         self.args = self.args[(op['Size'] - 1):]
         if len(self.args) != num_args:
             raise Exception(f'Expected {num_args} args for {op["Name"]}!')
@@ -164,7 +163,7 @@ class FunctionCall(Node):
         self.func_call_type = 'special'
         for arg in self.args:
             arg.process(compiler)
-    
+
     def teal_op_call(self):
         teal = []
         for arg in self.args:
@@ -207,7 +206,7 @@ class TxnField(Node):
 
     def process(self, compiler):
         self.type = compiler.get_field_type('txn', self.field)
-    
+
     def teal(self):
         return [f'txn {self.field}']
 
@@ -223,7 +222,7 @@ class TxnArrayField(Node):
         if type(self.arrayIndex) != Integer:
             # index is an expression that needs to be evaluated
             self.arrayIndex.process(compiler)
-    
+
     def teal(self):
         teal = []
         if type(self.arrayIndex) != Integer:
@@ -246,7 +245,7 @@ class GroupTxnField(Node):
         if type(self.index) != Integer:
             # index is an expression that needs to be evaluated
             self.index.process(compiler)
-    
+
     def teal(self):
         teal = []
         if type(self.index) != Integer:
@@ -275,7 +274,7 @@ class GroupTxnArrayField(Node):
             self.index.process(compiler)
         if type(self.arrayIndex) != Integer:
             self.arrayIndex.process(compiler)
-    
+
     def teal(self):
         teal = []
         if type(self.index) != Integer:
@@ -305,7 +304,7 @@ class PositiveGroupIndex(Node):
     def __init__(self, index, parent=None) -> None:
         self.index = index
         self.type = 'int'
-    
+
     def teal(self):
         teal = [
             'txn GroupIndex',
@@ -319,7 +318,7 @@ class NegativeGroupIndex(Node):
     def __init__(self, index, parent=None) -> None:
         self.index = index
         self.type = 'int'
-    
+
     def teal(self):
         teal = [
             'txn GroupIndex',
@@ -336,7 +335,7 @@ class GlobalField(Node):
 
     def process(self, compiler):
         self.type = compiler.get_field_type('global', self.field)
-    
+
     def teal(self):
         return [f'global {self.field}']
 
@@ -348,7 +347,7 @@ class InnerTxnField(Node):
 
     def process(self, compiler):
         self.type = compiler.get_field_type('txn', self.field)
-    
+
     def teal(self):
         return [f'itxn {self.field}']
 

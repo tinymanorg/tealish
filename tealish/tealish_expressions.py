@@ -66,7 +66,7 @@ class ExpressionCompiler:
         for i, arg in enumerate(args):
             if arg.type != 'any' and arg_types[i] != 'any' and arg.type != arg_types[i]:
                 raise Exception(f'Incorrect type {arg.type} for arg {i} of {name}. Expected {arg_types[i]}')
-    
+
     def get_field_type(self, namespace, name):
         if 'txn' in namespace:
             return self.txn_fields[name]
