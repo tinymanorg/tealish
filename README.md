@@ -9,31 +9,46 @@ The generated Teal should not be surprising - the Tealish writer should be able 
 
 Tealish is not a general purpose programming language. It is designed specifically for writing contracts for the AVM, optimizing for common patterns. 
 
+## Status
+Tealish is has been used to write large production contracts but it is not currently considered Production Ready for general use. It may have unexpected behavior outside of the scenarios it has been used for until now.
+
+
 ## Minimal Example
+A simple example demonstrating assertions, state, if statements and inner transactions:
 
 ```python
-#pragma version 7
+#pragma version 6
 
-if Txn.ApplicationID == 0:
-    # Allow creating the app
+if Txn.OnCompletion == UpdateApplication:
+    assert(Txn.Sender == Global.CreatorAddress)
     exit(1)
 end
 
-# Only allow NoOp app calls
 assert(Txn.OnCompletion == NoOp)
-# Only allow the creator to update the data
-assert(Txn.Sender == Global.CreatorAddress, "Incorrect Sender!")
-app_global_put("data", Txn.ApplicationArgs[0])
-app_global_put("last_update", Global.Round)
+
+int counter = app_global_get("counter")
+counter = counter + 1
+app_global_put("counter", counter)
+
+if counter == 10:
+    inner_txn:
+        TypeEnum: Pay
+        Receiver: Txn.Sender
+        Amount: 10000000
+    end
+elif counter > 10:
+    exit(0)
+end
+
 exit(1)
 ```
 
 ## Compiling
 
 ```
-    tealish example.tl
+    tealish examples/counter_prize.tl
 ```
-This will produce `example.teal`, `example.min.teal` and `example.map.json` in the `build` subdirectory.
+This will produce [`counter_prize.teal`](examples/build/counter_prize.teal), [`counter_prize.min.teal`](examples/build/counter_prize.min.teal) and [`counter_prize.map.json`](examples/build/counter_prize.map.json) in the [`build`](examples/build/) subdirectory.
 
 ## Editor Support
 
