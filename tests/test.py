@@ -569,3 +569,97 @@ class TestInnerGroup(unittest.TestCase):
                 'itxn_submit'
             ]
         )
+
+
+class TestOperators(unittest.TestCase):
+
+    def test_binary(self):
+        teal = compile_min([
+            'assert(1 || 2)'
+        ])
+        self.assertEqual(teal, [
+            'pushint 1',
+            'pushint 2',
+            '||',
+            'assert',
+        ])
+
+    def test_unary_literal_int(self):
+        teal = compile_min([
+            'assert(!1)'
+        ])
+        self.assertEqual(teal, [
+            'pushint 1',
+            '!',
+            'assert',
+        ])
+
+    def test_unary_literal_bytes(self):
+        teal = compile_min([
+            'assert(b~"\x00\x00\x00\x00\x00\x00\x00\x00")'
+        ])
+        self.assertEqual(teal, [
+            'pushbytes "\x00\x00\x00\x00\x00\x00\x00\x00"',
+            'b~',
+            'assert',
+        ])
+
+    def test_unary_variable(self):
+        teal = compile_min([
+            'int x = 1',
+            'assert(!x)',
+        ])
+        self.assertEqual(teal, [
+            'pushint 1',
+            'store 0 // x',
+            'load 0 // x',
+            '!',
+            'assert',
+        ])
+
+    def test_unary_functioncall(self):
+        teal = compile_min([
+            'assert(!sqrt(25))',
+        ])
+        self.assertEqual(teal, [
+            'pushint 25',
+            'sqrt',
+            '!',
+            'assert',
+        ])
+
+    def test_unary_group(self):
+        teal = compile_min([
+            'assert(!(0 || 1))',
+        ])
+        self.assertEqual(teal, [
+            'pushint 0',
+            'pushint 1',
+            '||',
+            '!',
+            'assert',
+        ])
+
+    def test_binary_with_unary_b(self):
+        teal = compile_min([
+            'assert(1 || !1)'
+        ])
+        self.assertEqual(teal, [
+            'pushint 1',
+            'pushint 1',
+            '!',
+            '||',
+            'assert',
+        ])
+
+    def test_binary_with_unary_a(self):
+        teal = compile_min([
+            'assert(!1 || 1)'
+        ])
+        self.assertEqual(teal, [
+            'pushint 1',
+            '!',
+            'pushint 1',
+            '||',
+            'assert',
+        ])
