@@ -176,6 +176,7 @@ Functions are used to define reusable pieces of functionality. They can take arg
     switch Txn.OnCompletion:
         NoOp: main
         OptIn: optin
+    end
     ```
 - InnerTxn
     ```
