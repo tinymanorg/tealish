@@ -2,6 +2,7 @@ import unittest
 from unittest import expectedFailure
 
 from tealish import CompileError, ParseError, compile_lines, minify_teal, TealishCompiler
+from tealish.tealish_expressions import compile_expression
 
 
 def compile_min(p):
@@ -34,77 +35,52 @@ class TestTealVersion(unittest.TestCase):
 class TestFields(unittest.TestCase):
 
     def test_txn_array_index_0(self):
-        teal = compile_min([
-            'assert(Txn.Accounts[0])'
-        ])
-        self.assertEqual(teal[0], 'txna Accounts 0')
+        teal = compile_expression('Txn.Accounts[0]')
+        self.assertEqual(teal, ['txna Accounts 0'])
 
     def test_txn_array_index_expression(self):
-        teal = compile_min([
-            'assert(Txn.Accounts[1 + 1])'
-        ])
-        self.assertEqual(teal[:-1], ['pushint 1', 'pushint 1', '+', 'txnas Accounts'])
+        teal = compile_expression('Txn.Accounts[1 + 1]')
+        self.assertEqual(teal, ['pushint 1', 'pushint 1', '+', 'txnas Accounts'])
 
     def test_group_txn_array_index_0(self):
-        teal = compile_min([
-            'assert(Gtxn[0].Accounts[0])'
-        ])
-        self.assertEqual(teal[:-1], ['gtxna 0 Accounts 0'])
+        teal = compile_expression('Gtxn[0].Accounts[0]')
+        self.assertEqual(teal, ['gtxna 0 Accounts 0'])
 
     def test_group_txn_array_index_expression(self):
-        teal = compile_min([
-            'assert(Gtxn[0].Accounts[1 + 1])'
-        ])
-        self.assertEqual(teal[:-1], ['pushint 1', 'pushint 1', '+', 'gtxnas 0 Accounts'])
+        teal = compile_expression('Gtxn[0].Accounts[1 + 1]')
+        self.assertEqual(teal, ['pushint 1', 'pushint 1', '+', 'gtxnas 0 Accounts'])
 
     def test_group_txn_index_expression_array_index_expression(self):
-        teal = compile_min([
-            'assert(Gtxn[1 + 1].Accounts[1 + 1])'
-        ])
-        self.assertEqual(teal[:-1], ['pushint 1', 'pushint 1', '+', 'pushint 1', 'pushint 1', '+', 'gtxnsas Accounts'])
+        teal = compile_expression('Gtxn[1 + 1].Accounts[1 + 1]')
+        self.assertEqual(teal, ['pushint 1', 'pushint 1', '+', 'pushint 1', 'pushint 1', '+', 'gtxnsas Accounts'])
 
     def test_group_index_0(self):
-        teal = compile_min([
-            'assert(Gtxn[0].TypeEnum)'
-        ])
-        self.assertEqual(teal[0], 'gtxn 0 TypeEnum')
+        teal = compile_expression('Gtxn[0].TypeEnum')
+        self.assertEqual(teal, ['gtxn 0 TypeEnum'])
 
     def test_group_index_1(self):
-        teal = compile_min([
-            'assert(Gtxn[1].TypeEnum)'
-        ])
-        self.assertEqual(teal[0], 'gtxn 1 TypeEnum')
+        teal = compile_expression('Gtxn[1].TypeEnum')
+        self.assertEqual(teal, ['gtxn 1 TypeEnum'])
 
     def test_group_index_15(self):
-        teal = compile_min([
-            'assert(Gtxn[15].TypeEnum)'
-        ])
-        self.assertEqual(teal[0], 'gtxn 15 TypeEnum')
+        teal = compile_expression('Gtxn[15].TypeEnum')
+        self.assertEqual(teal, ['gtxn 15 TypeEnum'])
 
     def test_group_index_negative(self):
-        teal = compile_min([
-            'assert(Gtxn[-1].TypeEnum)'
-        ])
-        self.assertListEqual(teal[:-1], ['txn GroupIndex', 'pushint 1', '-', 'gtxns TypeEnum'])
+        teal = compile_expression('Gtxn[-1].TypeEnum')
+        self.assertListEqual(teal, ['txn GroupIndex', 'pushint 1', '-', 'gtxns TypeEnum'])
 
     def test_group_index_positive(self):
-        teal = compile_min([
-            'assert(Gtxn[+1].TypeEnum)'
-        ])
-        self.assertListEqual(teal[:-1], ['txn GroupIndex', 'pushint 1', '+', 'gtxns TypeEnum'])
+        teal = compile_expression('Gtxn[+1].TypeEnum')
+        self.assertListEqual(teal, ['txn GroupIndex', 'pushint 1', '+', 'gtxns TypeEnum'])
 
     def test_group_index_var(self):
-        teal = compile_min([
-            'int index = 1',
-            'assert(Gtxn[index].TypeEnum)'
-        ])
-        self.assertListEqual(teal[-3:-1], ['load 0 // index', 'gtxns TypeEnum'])
+        teal = compile_expression('Gtxn[index].TypeEnum', scope={'slots': {'index': (0, 'int')}})
+        self.assertListEqual(teal, ['load 0 // index', 'gtxns TypeEnum'])
 
     def test_group_index_expression(self):
-        teal = compile_min([
-            'assert(Gtxn[1 + 2].TypeEnum)'
-        ])
-        self.assertListEqual(teal[:-1], ['pushint 1', 'pushint 2', '+', 'gtxns TypeEnum'])
+        teal = compile_expression('Gtxn[1 + 2].TypeEnum')
+        self.assertListEqual(teal, ['pushint 1', 'pushint 2', '+', 'gtxns TypeEnum'])
 
 
 class TestIF(unittest.TestCase):
@@ -321,7 +297,6 @@ class TestTypeCheck(unittest.TestCase):
         compile_min([
             'assert(2)',
             'assert(1 + 2)',
-            'assert(itob(1))',
         ])
 
     def test_pass_1(self):
@@ -574,92 +549,68 @@ class TestInnerGroup(unittest.TestCase):
 class TestOperators(unittest.TestCase):
 
     def test_binary(self):
-        teal = compile_min([
-            'assert(1 || 2)'
-        ])
+        teal = compile_expression('1 || 2')
         self.assertEqual(teal, [
             'pushint 1',
             'pushint 2',
             '||',
-            'assert',
         ])
 
     def test_unary_literal_int(self):
-        teal = compile_min([
-            'assert(!1)'
-        ])
+        teal = compile_expression('!1')
         self.assertEqual(teal, [
             'pushint 1',
             '!',
-            'assert',
         ])
 
     def test_unary_literal_bytes(self):
-        teal = compile_min([
-            'assert(b~"\x00\x00\x00\x00\x00\x00\x00\x00")'
-        ])
+        teal = compile_expression('b~"\x00\x00\x00\x00\x00\x00\x00\x00"')
         self.assertEqual(teal, [
             'pushbytes "\x00\x00\x00\x00\x00\x00\x00\x00"',
             'b~',
-            'assert',
         ])
 
     def test_unary_variable(self):
-        teal = compile_min([
-            'int x = 1',
-            'assert(!x)',
-        ])
+        teal = compile_expression('!x', scope={'slots': {'x': (0, 'int')}})
         self.assertEqual(teal, [
-            'pushint 1',
-            'store 0 // x',
             'load 0 // x',
             '!',
-            'assert',
         ])
 
     def test_unary_functioncall(self):
-        teal = compile_min([
-            'assert(!sqrt(25))',
-        ])
+        teal = compile_expression('!sqrt(25)')
         self.assertEqual(teal, [
             'pushint 25',
             'sqrt',
             '!',
-            'assert',
         ])
 
     def test_unary_group(self):
-        teal = compile_min([
-            'assert(!(0 || 1))',
-        ])
+        teal = compile_expression('!(0 || 1)')
         self.assertEqual(teal, [
             'pushint 0',
             'pushint 1',
             '||',
             '!',
-            'assert',
         ])
 
     def test_binary_with_unary_b(self):
-        teal = compile_min([
-            'assert(1 || !1)'
-        ])
+        teal = compile_expression('1 || !1')
         self.assertEqual(teal, [
             'pushint 1',
             'pushint 1',
             '!',
             '||',
-            'assert',
         ])
 
     def test_binary_with_unary_a(self):
         teal = compile_min([
             'assert(!1 || 1)'
         ])
+        teal = compile_expression('!1 || 1')
         self.assertEqual(teal, [
             'pushint 1',
             '!',
             'pushint 1',
             '||',
-            'assert',
         ])
