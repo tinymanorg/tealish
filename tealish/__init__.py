@@ -217,6 +217,11 @@ class Node:
         scope['slots'][name] = [slot, type]
         return slot
 
+    def del_var(self, name):
+        scope = self.get_current_scope()
+        if name in scope['slots']:
+            del scope['slots'][name]
+
     def find_slot(self):
         scope = self.get_current_scope()
         min, max = scope['slot_range']
@@ -244,12 +249,15 @@ class Node:
         return block
 
     def is_descendant_of(self, node_class):
+        return self.find_parent(node_class) != None
+
+    def find_parent(self, node_class):
         p = self.parent
         while p:
             if isinstance(p, node_class):
-                return True
+                return p
             p = p.parent
-        return False
+        return None
 
     def has_child_node(self, node_class):
         for node in self.nodes:
@@ -276,6 +284,8 @@ class Statement(Node):
             return Func.consume(compiler, parent)
         elif line.startswith('if '):
             return IfStatement.consume(compiler, parent)
+        elif line.startswith('while '):
+            return WhileStatement.consume(compiler, parent)
         elif line.startswith('teal:'):
             return Teal.consume(compiler, parent)
         elif line.startswith('inner_group:'):
@@ -344,6 +354,8 @@ class LineStatement(InlineStatement):
             return Return(line, parent, compiler=compiler)
         elif ' = ' in line:
             return Assignment(line, parent, compiler=compiler)
+        elif line.startswith('break'):
+            return Break(line, parent, compiler=compiler)
         # Statement functions
         elif line.startswith('exit('):
             return Exit(line, parent, compiler=compiler)
@@ -879,6 +891,70 @@ class IfStatement(InlineStatement):
             n = self.else_
             self.write(f'{n.label}:')
             n.visit()
+        self.write(f'{self.end_label}: // end')
+        self.compiler.level -= 1
+
+    def reformat(self):
+        output = ''
+        output += self.line + '\n'
+        for n in self.nodes:
+            s = n.reformat()
+            if s:
+                output += s + '\n'
+        output += 'end'
+        return output
+
+
+class Break(LineStatement):
+    pattern = r'break$'
+
+    def __init__(self, line, parent=None, compiler=None) -> None:
+        super().__init__(line, parent, compiler)
+        self.parent_loop = self.find_parent(WhileStatement)
+        if self.parent_loop is None:
+            raise ParseError(f'"break" should only be used in a while loop! Line {self.line_no}')
+
+    def process(self):
+        self.write(f'// {self.line}')
+        self.write(f'b {self.parent_loop.end_label}')
+
+
+class WhileStatement(InlineStatement):
+    possible_child_nodes = [InlineStatement]
+    pattern = r'while ((?P<modifier>not) )?(?P<condition>.*):$'
+    condition: GenericExpression
+    modifier: str
+
+    def __init__(self, line, parent=None, compiler=None) -> None:
+        super().__init__(line, parent, compiler)
+        self.conditional_index = compiler.conditional_count
+        compiler.conditional_count += 1
+        self.start_label = f'l{self.conditional_index}_while'
+        self.end_label = f'l{self.conditional_index}_end'
+
+    @classmethod
+    def consume(cls, compiler, parent):
+        node = WhileStatement(compiler.consume_line(), parent, compiler=compiler)
+        while True:
+            if compiler.peek() == 'end':
+                compiler.consume_line()
+                break
+            node.add_child(InlineStatement.consume(compiler, node))
+        return node
+
+    def visit(self):
+        self.write(f'// {self.line}')
+        self.write(f'{self.start_label}:')
+        self.compiler.level += 1
+        self.condition.process(self.get_scope())
+        self.write(self.condition.teal())
+        if self.modifier == 'not':
+            self.write(f'bnz {self.end_label}')
+        else:
+            self.write(f'bz {self.end_label}')
+        for n in self.nodes:
+            n.visit()
+        self.write(f'b {self.start_label}')
         self.write(f'{self.end_label}: // end')
         self.compiler.level -= 1
 

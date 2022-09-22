@@ -569,3 +569,60 @@ class TestInnerGroup(unittest.TestCase):
                 'itxn_submit'
             ]
         )
+
+
+class TestWhile(unittest.TestCase):
+
+    def test_pass_simple(self):
+        teal = compile_min([
+            'int x = 1',
+            'while x < 10:',
+                'x = x + 1',
+            'end',
+        ])
+        self.assertListEqual(teal, [
+            'pushint 1',
+            'store 0 // x',
+            'l0_while:',
+            'load 0 // x',
+            'pushint 10',
+            '<',
+            'bz l0_end',
+            'load 0 // x',
+            'pushint 1',
+            '+',
+            'store 0 // x',
+            'b l0_while',
+            'l0_end: // end'
+        ])
+
+    def test_pass_while_break(self):
+        teal = compile_min([
+            'int x = 1',
+            'while 1:',
+                'x = x + 1',
+                'break',
+            'end',
+        ])
+        self.assertListEqual(teal, [
+            'pushint 1',
+            'store 0 // x',
+            'l0_while:',
+            'pushint 1',
+            'bz l0_end',
+            'load 0 // x',
+            'pushint 1',
+            '+',
+            'store 0 // x',
+            'b l0_end',
+            'b l0_while',
+            'l0_end: // end'
+        ])
+
+    def test_fail_break_outside_while(self):
+        with self.assertRaises(ParseError) as e:
+            compile_min([
+                'int x = 1',
+                'break',
+            ])
+        self.assertIn('"break" should only be used in a while loop!', str(e.exception))
