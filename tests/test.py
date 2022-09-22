@@ -207,6 +207,13 @@ class TestAssert(unittest.TestCase):
         teal = compile_min(['int x = balance(0)'])
         self.assertListEqual(teal, ['pushint 0', 'balance', 'store 0 // x'])
 
+    def test_fail_wrong_type(self):
+        with self.assertRaises(CompileError) as e:
+            compile_min([
+                'assert("abc")'
+            ])
+        self.assertIn('Incorrect type for assert. Expected int, got bytes', str(e.exception))
+
 
 class TestFunctionReturn(unittest.TestCase):
 

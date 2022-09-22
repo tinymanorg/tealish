@@ -430,6 +430,7 @@ class Assert(LineStatement):
 
     def process(self):
         self.arg.process(self.get_scope())
+        assert self.arg.type in ('int', 'any'), f'Incorrect type for assert. Expected int, got {self.arg.type}'
         self.write(f'// {self.line}')
         self.write(self.arg.teal())
         if self.message:
