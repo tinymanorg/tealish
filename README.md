@@ -178,6 +178,25 @@ Functions are used to define reusable pieces of functionality. They can take arg
         OptIn: optin
     end
     ```
+- While Loops
+    ```
+    int x = 0
+    while x < 10:
+        x += 1
+        log(itob(x))
+    end
+    ```
+- For Loops
+    ```
+    for i in 0:10:
+        log(itob(i))
+    end
+    ```
+    ```
+    for _ in 0:10:
+        log("*")
+    end
+    ```
 - InnerTxn
     ```
     inner_txn:
