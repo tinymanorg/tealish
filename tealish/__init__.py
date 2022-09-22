@@ -111,6 +111,7 @@ class Node:
                         value = self.matches[name]
                     setattr(self, name, value)
                 except Exception as e:
+                    raise
                     raise ParseError(str(e) + f' at line {self.compiler.line_no}')
 
     def add_child(self, node):
@@ -286,6 +287,8 @@ class Statement(Node):
             return IfStatement.consume(compiler, parent)
         elif line.startswith('while '):
             return WhileStatement.consume(compiler, parent)
+        elif line.startswith('for '):
+            return ForStatement.consume(compiler, parent)
         elif line.startswith('teal:'):
             return Teal.consume(compiler, parent)
         elif line.startswith('inner_group:'):
@@ -644,6 +647,10 @@ class Teal(InlineStatement):
             output += indent(n.reformat())
         output += 'end'
         return output
+    
+    def visit(self):
+        for n in self.nodes:
+            n.visit()
 
 
 class InnerTxnFieldSetter(InlineStatement):
@@ -955,6 +962,92 @@ class WhileStatement(InlineStatement):
         for n in self.nodes:
             n.visit()
         self.write(f'b {self.start_label}')
+        self.write(f'{self.end_label}: // end')
+        self.compiler.level -= 1
+
+    def reformat(self):
+        output = ''
+        output += self.line + '\n'
+        for n in self.nodes:
+            s = n.reformat()
+            if s:
+                output += s + '\n'
+        output += 'end'
+        return output
+
+
+class ForStatement(InlineStatement):
+    possible_child_nodes = [InlineStatement]
+    pattern = r'for (?P<var>[a-z_][a-zA-Z0-9_]*) in (?P<start>[a-zA-Z0-9_]+):(?P<end>[a-zA-Z0-9_]+):$'
+    var: str
+    start: GenericExpression
+    end: GenericExpression
+
+    def __init__(self, line, parent=None, compiler=None) -> None:
+        super().__init__(line, parent, compiler)
+        self.conditional_index = compiler.conditional_count
+        compiler.conditional_count += 1
+        self.start_label = f'l{self.conditional_index}_for'
+        self.end_label = f'l{self.conditional_index}_end'
+
+    @classmethod
+    def consume(cls, compiler, parent):
+        node = ForStatement(compiler.consume_line(), parent, compiler=compiler)
+        while True:
+            if compiler.peek() == 'end':
+                compiler.consume_line()
+                break
+            node.add_child(InlineStatement.consume(compiler, node))
+        return node
+
+    def visit(self):
+        if self.var == '_':
+            self.visit_implicit_counter()
+        else:
+            self.visit_explicit_counter()
+
+    def visit_explicit_counter(self):
+        self.write(f'// {self.line}')
+        self.compiler.level += 1
+        self.start.process(self.get_scope())
+        self.end.process(self.get_scope())
+        self.write(self.start.teal())
+        slot = self.declare_var(self.var, 'int')
+        self.write(f'store {slot} // {self.var}')
+        self.write(f'{self.start_label}:')
+        self.write(f'load {slot} // {self.var}')
+        self.write(self.end.teal())
+        self.write(f'==')
+        self.write(f'bnz {self.end_label}')
+        for n in self.nodes:
+            n.visit()
+        self.write(f'load {slot} // {self.var}')
+        self.write(f'pushint 1')
+        self.write(f'+')
+        self.write(f'store {slot} // {self.var}')
+        self.write(f'b {self.start_label}')
+        self.write(f'{self.end_label}: // end')
+        self.del_var(self.var)
+        self.compiler.level -= 1
+
+    def visit_implicit_counter(self):
+        self.write(f'// {self.line}')
+        self.compiler.level += 1
+        self.start.process(self.get_scope())
+        self.end.process(self.get_scope())
+        self.write(self.start.teal())
+        self.write('dup')
+        self.write(f'{self.start_label}:')
+        self.write(self.end.teal())
+        self.write(f'==')
+        self.write(f'bnz {self.end_label}')
+        for n in self.nodes:
+            n.visit()
+        self.write(f'pushint 1')
+        self.write(f'+')
+        self.write('dup')
+        self.write(f'b {self.start_label}')
+        self.write('pop')
         self.write(f'{self.end_label}: // end')
         self.compiler.level -= 1
 

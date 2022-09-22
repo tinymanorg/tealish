@@ -626,3 +626,54 @@ class TestWhile(unittest.TestCase):
                 'break',
             ])
         self.assertIn('"break" should only be used in a while loop!', str(e.exception))
+
+
+class TestForLoop(unittest.TestCase):
+
+    def test_pass_implicit(self):
+        teal = compile_min([
+            'for _ in 0:10:',
+                'log("a")',
+            'end',
+        ])
+        self.assertListEqual(teal, [
+            'pushint 0',
+            'dup',
+            'l0_for:',
+            'pushint 10',
+            '==',
+            'bnz l0_end',
+            'pushbytes "a"',
+            'log',
+            'pushint 1',
+            '+',
+            'dup',
+            'b l0_for',
+            'pop',
+            'l0_end: // end'
+        ])
+
+
+    def test_pass_explicit(self):
+        teal = compile_min([
+            'for i in 0:10:',
+                'log("a")',
+            'end',
+        ])
+        self.assertListEqual(teal, [
+            'pushint 0',
+            'store 0 // i',
+            'l0_for:',
+            'load 0 // i',
+            'pushint 10',
+            '==',
+            'bnz l0_end',
+            'pushbytes "a"',
+            'log',
+            'load 0 // i',
+            'pushint 1',
+            '+',
+            'store 0 // i',
+            'b l0_for',
+            'l0_end: // end'
+        ])
