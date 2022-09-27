@@ -67,7 +67,22 @@ class Constant(Node):
             raise Exception('Unexpected const type')
 
 
-class Math(Node):
+class UnaryOp(Node):
+    def __init__(self, op, a, parent=None) -> None:
+        self.a = a
+        self.op = op
+
+    def process(self, compiler):
+        self.a.process(compiler)
+        compiler.check_arg_types(self.op, [self.a])
+        op = compiler.lookup_op(self.op)
+        self.type = {'B': 'bytes', 'U': 'int', '.': 'any'}[op.get('Returns', '')]
+
+    def teal(self):
+        return self.a.teal() + [f'{self.op}']
+
+
+class BinaryOp(Node):
     def __init__(self, a, b, op, parent=None) -> None:
         self.a = a
         self.b = b
@@ -85,15 +100,15 @@ class Math(Node):
 
 
 class Group(Node):
-    def __init__(self, math, parent=None) -> None:
-        self.math = math
+    def __init__(self, expression, parent=None) -> None:
+        self.expression = expression
 
     def process(self, compiler):
-        self.math.process(compiler)
-        self.type = self.math.type
+        self.expression.process(compiler)
+        self.type = self.expression.type
 
     def teal(self):
-        return self.math.teal()
+        return self.expression.teal()
 
 
 class FunctionCall(Node):
@@ -356,7 +371,8 @@ def class_provider(name):
     classes = {
         'Variable': Variable,
         'Constant': Constant,
-        'Math': Math,
+        'UnaryOp': UnaryOp,
+        'BinaryOp': BinaryOp,
         'Group': Group,
         'Integer': Integer,
         'Bytes': Bytes,
