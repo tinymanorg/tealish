@@ -182,7 +182,7 @@ Functions are used to define reusable pieces of functionality. They can take arg
     ```
     int x = 0
     while x < 10:
-        x += 1
+        x = x + 1
         log(itob(x))
     end
     ```
