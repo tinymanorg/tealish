@@ -621,3 +621,111 @@ class TestOperators(unittest.TestCase):
             'pushint 1',
             '||',
         ])
+
+
+class TestWhile(unittest.TestCase):
+
+    def test_pass_simple(self):
+        teal = compile_min([
+            'int x = 1',
+            'while x < 10:',
+                'x = x + 1',
+            'end',
+        ])
+        self.assertListEqual(teal, [
+            'pushint 1',
+            'store 0 // x',
+            'l0_while:',
+            'load 0 // x',
+            'pushint 10',
+            '<',
+            'bz l0_end',
+            'load 0 // x',
+            'pushint 1',
+            '+',
+            'store 0 // x',
+            'b l0_while',
+            'l0_end: // end'
+        ])
+
+    def test_pass_while_break(self):
+        teal = compile_min([
+            'int x = 1',
+            'while 1:',
+                'x = x + 1',
+                'break',
+            'end',
+        ])
+        self.assertListEqual(teal, [
+            'pushint 1',
+            'store 0 // x',
+            'l0_while:',
+            'pushint 1',
+            'bz l0_end',
+            'load 0 // x',
+            'pushint 1',
+            '+',
+            'store 0 // x',
+            'b l0_end',
+            'b l0_while',
+            'l0_end: // end'
+        ])
+
+    def test_fail_break_outside_while(self):
+        with self.assertRaises(ParseError) as e:
+            compile_min([
+                'int x = 1',
+                'break',
+            ])
+        self.assertIn('"break" should only be used in a while loop!', str(e.exception))
+
+
+class TestForLoop(unittest.TestCase):
+
+    def test_pass_implicit(self):
+        teal = compile_min([
+            'for _ in 0:10:',
+                'log("a")',
+            'end',
+        ])
+        self.assertListEqual(teal, [
+            'pushint 0',
+            'dup',
+            'l0_for:',
+            'pushint 10',
+            '==',
+            'bnz l0_end',
+            'pushbytes "a"',
+            'log',
+            'pushint 1',
+            '+',
+            'dup',
+            'b l0_for',
+            'pop',
+            'l0_end: // end'
+        ])
+
+
+    def test_pass_explicit(self):
+        teal = compile_min([
+            'for i in 0:10:',
+                'log("a")',
+            'end',
+        ])
+        self.assertListEqual(teal, [
+            'pushint 0',
+            'store 0 // i',
+            'l0_for:',
+            'load 0 // i',
+            'pushint 10',
+            '==',
+            'bnz l0_end',
+            'pushbytes "a"',
+            'log',
+            'load 0 // i',
+            'pushint 1',
+            '+',
+            'store 0 // i',
+            'b l0_for',
+            'l0_end: // end'
+        ])
