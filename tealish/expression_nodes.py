@@ -121,6 +121,8 @@ class FunctionCall(Node):
 
     def process(self, compiler):
         func = None
+        if self.name in ('error', 'push', 'pop'):
+            return self.process_special_call(compiler)
         try:
             func = compiler.lookup_func(self.name)
         except KeyError:
@@ -133,9 +135,6 @@ class FunctionCall(Node):
             pass
         if func:
             return self.process_op_call(compiler, func)
-
-        if self.name in ('error', 'push', 'pop'):
-            return self.process_special_call(compiler)
         else:
             raise Exception(f'Unknown function or opcode "{self.name}"')
 
@@ -176,6 +175,7 @@ class FunctionCall(Node):
 
     def process_special_call(self, compiler):
         self.func_call_type = 'special'
+        self.type = 'any'
         for arg in self.args:
             arg.process(compiler)
 
