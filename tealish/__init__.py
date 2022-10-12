@@ -250,7 +250,7 @@ class Node:
         return block
 
     def is_descendant_of(self, node_class):
-        return self.find_parent(node_class) != None
+        return self.find_parent(node_class) is not None
 
     def find_parent(self, node_class):
         p = self.parent
@@ -648,7 +648,7 @@ class Teal(InlineStatement):
             output += indent(n.reformat())
         output += 'end'
         return output
-    
+
     def visit(self):
         for n in self.nodes:
             n.visit()
@@ -1018,13 +1018,13 @@ class ForStatement(InlineStatement):
         self.write(f'{self.start_label}:')
         self.write(f'load {slot} // {self.var}')
         self.write(self.end.teal())
-        self.write(f'==')
+        self.write('==')
         self.write(f'bnz {self.end_label}')
         for n in self.nodes:
             n.visit()
         self.write(f'load {slot} // {self.var}')
-        self.write(f'pushint 1')
-        self.write(f'+')
+        self.write('pushint 1')
+        self.write('+')
         self.write(f'store {slot} // {self.var}')
         self.write(f'b {self.start_label}')
         self.write(f'{self.end_label}: // end')
@@ -1040,12 +1040,12 @@ class ForStatement(InlineStatement):
         self.write('dup')
         self.write(f'{self.start_label}:')
         self.write(self.end.teal())
-        self.write(f'==')
+        self.write('==')
         self.write(f'bnz {self.end_label}')
         for n in self.nodes:
             n.visit()
-        self.write(f'pushint 1')
-        self.write(f'+')
+        self.write('pushint 1')
+        self.write('+')
         self.write('dup')
         self.write(f'b {self.start_label}')
         self.write('pop')

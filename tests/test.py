@@ -629,7 +629,7 @@ class TestWhile(unittest.TestCase):
         teal = compile_min([
             'int x = 1',
             'while x < 10:',
-                'x = x + 1',
+            'x = x + 1',
             'end',
         ])
         self.assertListEqual(teal, [
@@ -652,8 +652,8 @@ class TestWhile(unittest.TestCase):
         teal = compile_min([
             'int x = 1',
             'while 1:',
-                'x = x + 1',
-                'break',
+            'x = x + 1',
+            'break',
             'end',
         ])
         self.assertListEqual(teal, [
@@ -685,7 +685,7 @@ class TestForLoop(unittest.TestCase):
     def test_pass_implicit(self):
         teal = compile_min([
             'for _ in 0:10:',
-                'log("a")',
+            'log("a")',
             'end',
         ])
         self.assertListEqual(teal, [
@@ -705,11 +705,10 @@ class TestForLoop(unittest.TestCase):
             'l0_end: // end'
         ])
 
-
     def test_pass_explicit(self):
         teal = compile_min([
             'for i in 0:10:',
-                'log("a")',
+            'log("a")',
             'end',
         ])
         self.assertListEqual(teal, [
