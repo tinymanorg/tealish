@@ -17,6 +17,7 @@ setup(
     include_package_data=True,
     package_data={"tealish": ["*.tx", "*.json"]},
     install_requires=["textX >= 3.0.0"],
+    python_requires=">=3.5",
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "Intended Audience :: Developers",
@@ -29,6 +30,8 @@ setup(
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
     ],
     entry_points={
         'console_scripts': [
