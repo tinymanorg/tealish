@@ -3,15 +3,15 @@ from typing import get_type_hints
 from .tealish_expressions import ExpressionCompiler
 from .tealish_builtins import constants
 
-LITERAL_INT = r'[0-9]+'
+LITERAL_INT = r"[0-9]+"
 LITERAL_BYTES = r'"(.+)"'
-VARIABLE_NAME = r'[a-z_][a-zA-Z0-9_]*'
-FIELD_NAME = r'[A-Z][A-Za-z_]+'
-ENUM = r'[A-Z][a-zA-Z]+'
+VARIABLE_NAME = r"[a-z_][a-zA-Z0-9_]*"
+FIELD_NAME = r"[A-Z][A-Za-z_]+"
+ENUM = r"[A-Z][a-zA-Z]+"
 
 
 class Expression:
-    pattern = r''
+    pattern = r""
 
     def __init__(self, string) -> None:
         self.string = string
@@ -19,11 +19,13 @@ class Expression:
             self.matches = re.match(self.pattern, self.string).groupdict()
             # print(self, self.matches)
         except Exception:
-            raise Exception(f'String "{string}" cannot be parsed as {self.__class__.__name__}')
+            raise Exception(
+                f'String "{string}" cannot be parsed as {self.__class__.__name__}'
+            )
 
         type_hints = get_type_hints(self.__class__)
         for name, expr_class in type_hints.items():
-            if hasattr(expr_class, 'parse'):
+            if hasattr(expr_class, "parse"):
                 value = expr_class.parse(self.matches[name])
             else:
                 value = self.matches[name]
@@ -72,7 +74,7 @@ class GenericExpression(Expression):
 
 
 class Literal(Expression):
-    pattern = rf'(?P<value>{LITERAL_BYTES}|{LITERAL_INT}|{ENUM})$'
+    pattern = rf"(?P<value>{LITERAL_BYTES}|{LITERAL_INT}|{ENUM})$"
 
     @classmethod
     def parse(cls, string):
@@ -83,34 +85,34 @@ class Literal(Expression):
 
 
 class LiteralInt(Expression):
-    pattern = rf'(?P<value>{LITERAL_INT})$'
+    pattern = rf"(?P<value>{LITERAL_INT})$"
     value: int
 
     def teal(self):
-        return [f'pushint {self.value}']
+        return [f"pushint {self.value}"]
 
     def type(self):
-        return 'int'
+        return "int"
 
 
 class Enum(Expression):
-    pattern = rf'(?P<value>{ENUM})$'
+    pattern = rf"(?P<value>{ENUM})$"
     value: str
 
     def teal(self):
         i = constants[self.value][1]
-        return [f'pushint {i} // {self.value}']
+        return [f"pushint {i} // {self.value}"]
 
     def type(self):
-        return 'int'
+        return "int"
 
 
 class LiteralBytes(Expression):
-    pattern = rf'(?P<value>{LITERAL_BYTES})$'
+    pattern = rf"(?P<value>{LITERAL_BYTES})$"
     value: str
 
     def teal(self):
-        return [f'pushbytes {self.value}']
+        return [f"pushbytes {self.value}"]
 
     def type(self):
-        return 'bytes'
+        return "bytes"

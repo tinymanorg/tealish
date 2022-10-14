@@ -32,9 +32,9 @@ setup(
         "Programming Language :: Python :: 3.10",
     ],
     entry_points={
-        'console_scripts': [
-            'tealish = tealish.run:cli',
-            'tealishfmt = tealish.fmt:cli',
+        "console_scripts": [
+            "tealish = tealish.run:cli",
+            "tealishfmt = tealish.fmt:cli",
         ],
     },
 )

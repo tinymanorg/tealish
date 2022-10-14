@@ -11,13 +11,15 @@ from .expression_nodes import class_provider
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-lang_spec = json.loads(importlib.resources.read_text(package=tealish, resource='langspec.json'))
-with importlib.resources.path(tealish, 'tealish_expressions.tx') as p:
+lang_spec = json.loads(
+    importlib.resources.read_text(package=tealish, resource="langspec.json")
+)
+with importlib.resources.path(tealish, "tealish_expressions.tx") as p:
     tealish_mm = metamodel_from_file(
         p,
         use_regexp_group=True,
         skipws=True,
-        ws=' \t',
+        ws=" \t",
         debug=False,
         classes=class_provider,
     )
@@ -25,10 +27,10 @@ with importlib.resources.path(tealish, 'tealish_expressions.tx') as p:
 
 def type_lookup(a):
     return {
-        '.': 'any',
-        'B': 'bytes',
-        'U': 'int',
-        '': 'None',
+        ".": "any",
+        "B": "bytes",
+        "U": "int",
+        "": "None",
     }[a]
 
 
@@ -40,21 +42,31 @@ class ExpressionCompiler:
         self.output = []
         self.set_scope(scope)
         self.lang_spec = lang_spec
-        self.ops = {op['Name']: op for op in self.lang_spec['Ops']}
-        self.txn_fields = dict(zip(self.ops['txn']['ArgEnum'], map(type_lookup, self.ops['txn']['ArgEnumTypes'])))
-        self.global_fields = dict(zip(self.ops['global']['ArgEnum'], map(type_lookup, self.ops['global']['ArgEnumTypes'])))
+        self.ops = {op["Name"]: op for op in self.lang_spec["Ops"]}
+        self.txn_fields = dict(
+            zip(
+                self.ops["txn"]["ArgEnum"],
+                map(type_lookup, self.ops["txn"]["ArgEnumTypes"]),
+            )
+        )
+        self.global_fields = dict(
+            zip(
+                self.ops["global"]["ArgEnum"],
+                map(type_lookup, self.ops["global"]["ArgEnumTypes"]),
+            )
+        )
         self.used_functions = set()
         self.node = tealish_mm.model_from_str(source)
 
     def set_scope(self, scope):
-        self.functions = scope.get('functions', {})
-        self.consts = scope.get('consts', {})
-        self.slots = scope.get('slots', {})
+        self.functions = scope.get("functions", {})
+        self.consts = scope.get("consts", {})
+        self.slots = scope.get("slots", {})
 
     def process(self, scope=None):
         if scope is not None:
             self.set_scope(scope)
-        if hasattr(self.node, 'process'):
+        if hasattr(self.node, "process"):
             self.node.process(self)
 
     def teal(self):
@@ -62,15 +74,17 @@ class ExpressionCompiler:
 
     def check_arg_types(self, name, args):
         op = self.lookup_op(name)
-        arg_types = [type_lookup(x) for x in op.get('Args', '')]
+        arg_types = [type_lookup(x) for x in op.get("Args", "")]
         for i, arg in enumerate(args):
-            if arg.type != 'any' and arg_types[i] != 'any' and arg.type != arg_types[i]:
-                raise Exception(f'Incorrect type {arg.type} for arg {i} of {name}. Expected {arg_types[i]}')
+            if arg.type != "any" and arg_types[i] != "any" and arg.type != arg_types[i]:
+                raise Exception(
+                    f"Incorrect type {arg.type} for arg {i} of {name}. Expected {arg_types[i]}"
+                )
 
     def get_field_type(self, namespace, name):
-        if 'txn' in namespace:
+        if "txn" in namespace:
             return self.txn_fields[name]
-        elif namespace == 'global':
+        elif namespace == "global":
             return self.global_fields[name]
 
     def lookup_op(self, name):

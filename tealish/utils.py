@@ -1,4 +1,3 @@
-
 def minify_teal(teal_lines):
     source_map = {}
     n = 1
@@ -7,8 +6,8 @@ def minify_teal(teal_lines):
     for i, line in enumerate(teal_lines):
         i = i + 1
         line = line.strip()
-        if not (not line or line.startswith('//')):
-            if line.split('//')[0].strip().endswith(':'):
+        if not (not line or line.startswith("//")):
+            if line.split("//")[0].strip().endswith(":"):
                 # duplicate labels get compressed into 1
                 if previous_line_is_label:
                     continue
