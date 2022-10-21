@@ -5,15 +5,21 @@ from tealish import (
     CompileError,
     ParseError,
     compile_lines,
-    minify_teal,
     TealishCompiler,
 )
+from tealish.utils import strip_comments
 from tealish.tealish_expressions import compile_expression
 
 
 def compile_min(p):
     teal = compile_lines(p)
-    min_teal, _ = minify_teal(teal)
+    min_teal = strip_comments(teal)
+    return min_teal
+
+
+def compile_expression_min(p, **kwargs):
+    teal = compile_expression(p, **kwargs)
+    min_teal = strip_comments(teal)
     return min_teal
 
 
@@ -33,23 +39,23 @@ class TestTealVersion(unittest.TestCase):
 
 class TestFields(unittest.TestCase):
     def test_txn_array_index_0(self):
-        teal = compile_expression("Txn.Accounts[0]")
+        teal = compile_expression_min("Txn.Accounts[0]")
         self.assertEqual(teal, ["txna Accounts 0"])
 
     def test_txn_array_index_expression(self):
-        teal = compile_expression("Txn.Accounts[1 + 1]")
+        teal = compile_expression_min("Txn.Accounts[1 + 1]")
         self.assertEqual(teal, ["pushint 1", "pushint 1", "+", "txnas Accounts"])
 
     def test_group_txn_array_index_0(self):
-        teal = compile_expression("Gtxn[0].Accounts[0]")
+        teal = compile_expression_min("Gtxn[0].Accounts[0]")
         self.assertEqual(teal, ["gtxna 0 Accounts 0"])
 
     def test_group_txn_array_index_expression(self):
-        teal = compile_expression("Gtxn[0].Accounts[1 + 1]")
+        teal = compile_expression_min("Gtxn[0].Accounts[1 + 1]")
         self.assertEqual(teal, ["pushint 1", "pushint 1", "+", "gtxnas 0 Accounts"])
 
     def test_group_txn_index_expression_array_index_expression(self):
-        teal = compile_expression("Gtxn[1 + 1].Accounts[1 + 1]")
+        teal = compile_expression_min("Gtxn[1 + 1].Accounts[1 + 1]")
         self.assertEqual(
             teal,
             [
@@ -64,37 +70,37 @@ class TestFields(unittest.TestCase):
         )
 
     def test_group_index_0(self):
-        teal = compile_expression("Gtxn[0].TypeEnum")
+        teal = compile_expression_min("Gtxn[0].TypeEnum")
         self.assertEqual(teal, ["gtxn 0 TypeEnum"])
 
     def test_group_index_1(self):
-        teal = compile_expression("Gtxn[1].TypeEnum")
+        teal = compile_expression_min("Gtxn[1].TypeEnum")
         self.assertEqual(teal, ["gtxn 1 TypeEnum"])
 
     def test_group_index_15(self):
-        teal = compile_expression("Gtxn[15].TypeEnum")
+        teal = compile_expression_min("Gtxn[15].TypeEnum")
         self.assertEqual(teal, ["gtxn 15 TypeEnum"])
 
     def test_group_index_negative(self):
-        teal = compile_expression("Gtxn[-1].TypeEnum")
+        teal = compile_expression_min("Gtxn[-1].TypeEnum")
         self.assertListEqual(
             teal, ["txn GroupIndex", "pushint 1", "-", "gtxns TypeEnum"]
         )
 
     def test_group_index_positive(self):
-        teal = compile_expression("Gtxn[+1].TypeEnum")
+        teal = compile_expression_min("Gtxn[+1].TypeEnum")
         self.assertListEqual(
             teal, ["txn GroupIndex", "pushint 1", "+", "gtxns TypeEnum"]
         )
 
     def test_group_index_var(self):
-        teal = compile_expression(
+        teal = compile_expression_min(
             "Gtxn[index].TypeEnum", scope={"slots": {"index": (0, "int")}}
         )
-        self.assertListEqual(teal, ["load 0 // index", "gtxns TypeEnum"])
+        self.assertListEqual(teal, ["load 0", "gtxns TypeEnum"])
 
     def test_group_index_expression(self):
-        teal = compile_expression("Gtxn[1 + 2].TypeEnum")
+        teal = compile_expression_min("Gtxn[1 + 2].TypeEnum")
         self.assertListEqual(teal, ["pushint 1", "pushint 2", "+", "gtxns TypeEnum"])
 
 
@@ -108,7 +114,7 @@ class TestIF(unittest.TestCase):
             ]
         )
         self.assertListEqual(
-            teal, ["pushint 1", "bz l0_end", "pushint 0", "return", "l0_end: // end"]
+            teal, ["pushint 1", "bz l0_end", "pushint 0", "return", "l0_end:"]
         )
 
     def test_pass_if_not(self):
@@ -120,7 +126,7 @@ class TestIF(unittest.TestCase):
             ]
         )
         self.assertListEqual(
-            teal, ["pushint 1", "bnz l0_end", "pushint 0", "return", "l0_end: // end"]
+            teal, ["pushint 1", "bnz l0_end", "pushint 0", "return", "l0_end:"]
         )
 
     def test_pass_if_else(self):
@@ -144,7 +150,7 @@ class TestIF(unittest.TestCase):
                 "l0_else:",
                 "pushint 1",
                 "return",
-                "l0_end: // end",
+                "l0_end:",
             ],
         )
 
@@ -171,7 +177,7 @@ class TestIF(unittest.TestCase):
                 "bz l0_end",
                 "pushint 1",
                 "return",
-                "l0_end: // end",
+                "l0_end:",
             ],
         )
 
@@ -198,7 +204,7 @@ class TestIF(unittest.TestCase):
                 "bnz l0_end",
                 "pushint 1",
                 "return",
-                "l0_end: // end",
+                "l0_end:",
             ],
         )
 
@@ -206,11 +212,11 @@ class TestIF(unittest.TestCase):
 class TestAssignment(unittest.TestCase):
     def test_assign(self):
         teal = compile_min(["int x = 1"])
-        self.assertListEqual(teal, ["pushint 1", "store 0 // x"])
+        self.assertListEqual(teal, ["pushint 1", "store 0"])
 
     def test_declare_assign(self):
         teal = compile_min(["int x", "x = 1"])
-        self.assertListEqual(teal, ["pushint 1", "store 0 // x"])
+        self.assertListEqual(teal, ["pushint 1", "store 0"])
 
     def test_double_assign(self):
         teal = compile_min(
@@ -226,8 +232,8 @@ class TestAssignment(unittest.TestCase):
                 "pushint 0",
                 "pushint 123",
                 "asset_holding_get AssetBalance",
-                "store 0 // exists",
-                "store 1 // balance",
+                "store 0",
+                "store 1",
             ],
         )
 
@@ -249,7 +255,7 @@ class TestAssignment(unittest.TestCase):
 class TestAssert(unittest.TestCase):
     def test_pass_assert_with_message(self):
         teal = compile_min(['assert(1, "Error 1")'])
-        self.assertListEqual(teal, ["pushint 1", "assert // Error 1"])
+        self.assertListEqual(teal, ["pushint 1", "assert"])
 
     def test_pass_assert_with_message_collection(self):
         compiler = TealishCompiler(["assert(0)", 'assert(1, "Error 1")'])
@@ -265,7 +271,7 @@ class TestAssert(unittest.TestCase):
 
     def test_pass_1(self):
         teal = compile_min(["int x = balance(0)"])
-        self.assertListEqual(teal, ["pushint 0", "balance", "store 0 // x"])
+        self.assertListEqual(teal, ["pushint 0", "balance", "store 0"])
 
     def test_fail_wrong_type(self):
         with self.assertRaises(CompileError) as e:
@@ -468,7 +474,7 @@ class TestInnerGroup(unittest.TestCase):
             teal,
             [
                 "itxn_begin",
-                "pushint 4 // Axfer",
+                "pushint 4",
                 "itxn_field TypeEnum",
                 "pushint 0",
                 "itxn_field Fee",
@@ -479,7 +485,7 @@ class TestInnerGroup(unittest.TestCase):
                 "pushint 2000000",
                 "itxn_field AssetAmount",
                 "itxn_next",
-                "pushint 6 // Appl",
+                "pushint 6",
                 "itxn_field TypeEnum",
                 "pushint 2000",
                 "itxn_field Fee",
@@ -541,33 +547,33 @@ class TestInnerGroup(unittest.TestCase):
             teal,
             [
                 "itxn_begin",
-                "load 0 // asset_id",
+                "load 0",
                 "bz l0_else",
-                "pushint 4 // Axfer",
+                "pushint 4",
                 "itxn_field TypeEnum",
                 "pushint 0",
                 "itxn_field Fee",
                 "txn Sender",
                 "itxn_field AssetReceiver",
-                "load 0 // asset_id",
+                "load 0",
                 "itxn_field XferAsset",
                 "pushint 2000000",
                 "itxn_field AssetAmount",
                 "b l0_end",
                 "l0_else:",
-                "pushint 1 // Pay",
+                "pushint 1",
                 "itxn_field TypeEnum",
                 "pushint 0",
                 "itxn_field Fee",
                 "txn Sender",
                 "itxn_field Receiver",
-                "load 0 // asset_id",
+                "load 0",
                 "itxn_field XferAsset",
                 "pushint 2000000",
                 "itxn_field Amount",
-                "l0_end: // end",
+                "l0_end:",
                 "itxn_next",
-                "pushint 6 // Appl",
+                "pushint 6",
                 "itxn_field TypeEnum",
                 "pushint 2000",
                 "itxn_field Fee",
@@ -610,17 +616,17 @@ class TestInnerGroup(unittest.TestCase):
             teal,
             [
                 "itxn_begin",
-                "load 0 // a",
-                "load 1 // b",
+                "load 0",
+                "load 1",
                 "+",
-                "store 2 // c",
-                "pushint 4 // Axfer",
+                "store 2",
+                "pushint 4",
                 "itxn_field TypeEnum",
                 "pushint 0",
                 "itxn_field Fee",
                 "txn Sender",
                 "itxn_field AssetReceiver",
-                "load 2 // c",
+                "load 2",
                 "itxn_field XferAsset",
                 "pushint 2000000",
                 "itxn_field AssetAmount",
@@ -631,7 +637,7 @@ class TestInnerGroup(unittest.TestCase):
 
 class TestOperators(unittest.TestCase):
     def test_binary(self):
-        teal = compile_expression("1 || 2")
+        teal = compile_expression_min("1 || 2")
         self.assertEqual(
             teal,
             [
@@ -642,7 +648,7 @@ class TestOperators(unittest.TestCase):
         )
 
     def test_unary_literal_int(self):
-        teal = compile_expression("!1")
+        teal = compile_expression_min("!1")
         self.assertEqual(
             teal,
             [
@@ -652,7 +658,7 @@ class TestOperators(unittest.TestCase):
         )
 
     def test_unary_literal_bytes(self):
-        teal = compile_expression('b~"\x00\x00\x00\x00\x00\x00\x00\x00"')
+        teal = compile_expression_min('b~"\x00\x00\x00\x00\x00\x00\x00\x00"')
         self.assertEqual(
             teal,
             [
@@ -662,17 +668,17 @@ class TestOperators(unittest.TestCase):
         )
 
     def test_unary_variable(self):
-        teal = compile_expression("!x", scope={"slots": {"x": (0, "int")}})
+        teal = compile_expression_min("!x", scope={"slots": {"x": (0, "int")}})
         self.assertEqual(
             teal,
             [
-                "load 0 // x",
+                "load 0",
                 "!",
             ],
         )
 
     def test_unary_functioncall(self):
-        teal = compile_expression("!sqrt(25)")
+        teal = compile_expression_min("!sqrt(25)")
         self.assertEqual(
             teal,
             [
@@ -683,7 +689,7 @@ class TestOperators(unittest.TestCase):
         )
 
     def test_unary_group(self):
-        teal = compile_expression("!(0 || 1)")
+        teal = compile_expression_min("!(0 || 1)")
         self.assertEqual(
             teal,
             [
@@ -695,7 +701,7 @@ class TestOperators(unittest.TestCase):
         )
 
     def test_binary_with_unary_b(self):
-        teal = compile_expression("1 || !1")
+        teal = compile_expression_min("1 || !1")
         self.assertEqual(
             teal,
             [
@@ -708,7 +714,7 @@ class TestOperators(unittest.TestCase):
 
     def test_binary_with_unary_a(self):
         teal = compile_min(["assert(!1 || 1)"])
-        teal = compile_expression("!1 || 1")
+        teal = compile_expression_min("!1 || 1")
         self.assertEqual(
             teal,
             [
@@ -734,18 +740,18 @@ class TestWhile(unittest.TestCase):
             teal,
             [
                 "pushint 1",
-                "store 0 // x",
+                "store 0",
                 "l0_while:",
-                "load 0 // x",
+                "load 0",
                 "pushint 10",
                 "<",
                 "bz l0_end",
-                "load 0 // x",
+                "load 0",
                 "pushint 1",
                 "+",
-                "store 0 // x",
+                "store 0",
                 "b l0_while",
-                "l0_end: // end",
+                "l0_end:",
             ],
         )
 
@@ -763,17 +769,17 @@ class TestWhile(unittest.TestCase):
             teal,
             [
                 "pushint 1",
-                "store 0 // x",
+                "store 0",
                 "l0_while:",
                 "pushint 1",
                 "bz l0_end",
-                "load 0 // x",
+                "load 0",
                 "pushint 1",
                 "+",
-                "store 0 // x",
+                "store 0",
                 "b l0_end",
                 "b l0_while",
-                "l0_end: // end",
+                "l0_end:",
             ],
         )
 
@@ -813,7 +819,7 @@ class TestForLoop(unittest.TestCase):
                 "dup",
                 "b l0_for",
                 "pop",
-                "l0_end: // end",
+                "l0_end:",
             ],
         )
 
@@ -829,19 +835,19 @@ class TestForLoop(unittest.TestCase):
             teal,
             [
                 "pushint 0",
-                "store 0 // i",
+                "store 0",
                 "l0_for:",
-                "load 0 // i",
+                "load 0",
                 "pushint 10",
                 "==",
                 "bnz l0_end",
                 'pushbytes "a"',
                 "log",
-                "load 0 // i",
+                "load 0",
                 "pushint 1",
                 "+",
-                "store 0 // i",
+                "store 0",
                 "b l0_for",
-                "l0_end: // end",
+                "l0_end:",
             ],
         )

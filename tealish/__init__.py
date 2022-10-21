@@ -1,11 +1,10 @@
 import re
-import sys
 import textwrap
 from collections import defaultdict
 from typing import get_type_hints
 
 from .expressions import Expression, GenericExpression, Literal
-from .utils import combine_source_maps, minify_teal
+from .utils import TealishMap
 
 line_no = 0
 level = 0
@@ -81,6 +80,12 @@ class TealishCompiler:
         if not self.nodes:
             self.parse()
         return self.nodes[0].reformat()
+
+    def get_map(self):
+        map = TealishMap()
+        map.teal_tealish = dict(self.source_map)
+        map.errors = dict(self.error_messages)
+        return map
 
 
 class Node:
@@ -1193,29 +1198,11 @@ def split_return_args(s):
     return [s]
 
 
-def compile_program(source, debug=False):
+def compile_program(source):
     source_lines = source.split("\n")
     compiler = TealishCompiler(source_lines)
-    try:
-        compiler.parse()
-    except ParseError as e:
-        print(e)
-        sys.exit(1)
-    except Exception:
-        print(f"Line: {compiler.line_no}")
-        raise
-    try:
-        compiler.compile()
-    except CompileError as e:
-        print(e)
-        sys.exit(1)
-    teal = compiler.output + [""]
-    if debug:
-        for i in range(0, len(teal)):
-            print(" ".join([str(i + 1), str(compiler.source_map[i + 1]), teal[i]]))
-    min_teal, teal_source_map = minify_teal(teal)
-    _ = combine_source_maps(teal_source_map, compiler.source_map)
-    return teal, min_teal, compiler.source_map
+    teal = compiler.compile()
+    return teal, compiler.get_map()
 
 
 def compile_lines(source_lines):
@@ -1224,6 +1211,14 @@ def compile_lines(source_lines):
     compiler.compile()
     teal_lines = compiler.output
     return teal_lines
+
+
+def reformat_program(source):
+    source_lines = source.split("\n")
+    compiler = TealishCompiler(source_lines)
+    output = compiler.reformat()
+    output = output.strip() + "\n"
+    return output
 
 
 def indent(s):
