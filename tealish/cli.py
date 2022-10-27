@@ -2,6 +2,12 @@ import json
 import pathlib
 import click
 from tealish import CompileError, ParseError, compile_program, reformat_program
+from tealish.langspec import (
+    fetch_langspec,
+    get_active_langspec,
+    packaged_lang_spec,
+    local_lang_spec,
+)
 from tealish.build import assemble_with_goal, assemble_with_algod
 
 
@@ -152,14 +158,31 @@ def langspec_update():
 @click.argument("url", type=str)
 def langspec_fetch(url):
     """Fetch a specific langpsec.json file and use it for the current project"""
-    raise NotImplementedError()
+    langspec = fetch_langspec(url)
+    with open("langspec.json", "w") as f:
+        json.dump(langspec.as_dict(), f)
 
 
 @click.command()
-@click.argument("url", type=str)
+@click.argument("url", type=str, default="")
 def langspec_diff(url):
     """Show the differences between the current local langpsec.json file and the one packaged with this version Tealish"""
-    raise NotImplementedError()
+
+    if url:
+        local_name = url
+        base_langspec = get_active_langspec()
+        new_langspec = fetch_langspec(url)
+    else:
+        local_name = "./langspec.json"
+        base_langspec = packaged_lang_spec
+        new_langspec = local_lang_spec
+
+    new_ops = new_langspec.new_ops(base_langspec)
+    if new_ops:
+        click.echo(f"New ops @ {local_name}:")
+    for op in new_ops:
+        sig = new_langspec.ops[op]["sig"]
+        click.echo(f"{sig}")
 
 
 langspec.add_command(langspec_update, "update")
