@@ -155,10 +155,10 @@ def langspec_update():
 
 
 @click.command()
-@click.argument("url", type=str)
-def langspec_fetch(url):
-    """Fetch a specific langpsec.json file and use it for the current project"""
-    langspec = fetch_langspec(url)
+@click.argument("url_or_branch", type=str)
+def langspec_fetch(url_or_branch):
+    """Fetch a specific langspec.json file and use it for the current project. Can be a URL or branch name of go-algorand"""
+    langspec = fetch_langspec(url_or_branch)
     with open("langspec.json", "w") as f:
         json.dump(langspec.as_dict(), f)
 
@@ -166,7 +166,7 @@ def langspec_fetch(url):
 @click.command()
 @click.argument("url", type=str, default="")
 def langspec_diff(url):
-    """Show the differences between the current local langpsec.json file and the one packaged with this version Tealish"""
+    """Show the differences between the current local langpspec.json file and the one packaged with this version Tealish"""
 
     if url:
         local_name = url
