@@ -149,24 +149,33 @@ def langspec():
 
 
 @click.command()
-def langspec_update():
+@click.pass_context
+def langspec_update(ctx):
     """Support new Teal opcodes by updating the langspec.json file from go-algorand master branch"""
-    raise NotImplementedError()
+    ctx.invoke(langspec_fetch, url_or_branch="master")
 
 
 @click.command()
 @click.argument("url_or_branch", type=str)
-def langspec_fetch(url_or_branch):
+@click.pass_context
+def langspec_fetch(ctx, url_or_branch):
     """Fetch a specific langspec.json file and use it for the current project. Can be a URL or branch name of go-algorand"""
-    langspec = fetch_langspec(url_or_branch)
+    new_langspec = fetch_langspec(url_or_branch)
     with open("langspec.json", "w") as f:
-        json.dump(langspec.as_dict(), f)
+        json.dump(new_langspec.as_dict(), f)
+
+    new_ops = new_langspec.new_ops(packaged_lang_spec)
+    if new_ops:
+        click.echo(f"New ops @ {url_or_branch}:")
+    for op in new_ops:
+        sig = new_langspec.ops[op]["sig"]
+        click.echo(f"{sig}")
 
 
 @click.command()
 @click.argument("url", type=str, default="")
 def langspec_diff(url):
-    """Show the differences between the current local langpspec.json file and the one packaged with this version Tealish"""
+    """Show the differences between the current local langspec.json file and the one packaged with this version Tealish"""
 
     if url:
         local_name = url
