@@ -1,11 +1,8 @@
-from base64 import b64decode
 import json
 import pathlib
-import subprocess
 import click
 from tealish import CompileError, ParseError, compile_program, reformat_program
-from algosdk.source_map import SourceMap
-from algosdk.v2client.algod import AlgodClient
+from tealish.build import assemble_with_goal, assemble_with_algod
 
 
 def _build(path, assembler=None, algod_url=None, quiet=False):
@@ -24,6 +21,7 @@ def _build(path, assembler=None, algod_url=None, quiet=False):
         if not quiet:
             click.echo(f"Compiling {path} to {teal_filename}")
         teal, tealish_map = _compile_program(open(path).read())
+        teal_string = "\n".join(teal + [""])
         with open(teal_filename, "w") as f:
             f.write("\n".join(teal + [""]))
 
@@ -35,34 +33,26 @@ def _build(path, assembler=None, algod_url=None, quiet=False):
                         f"Assembling {teal_filename} to {tok_filename} using goal"
                     )
                 try:
-                    subprocess.check_output(
-                        ["goal", "clerk", "compile", teal_filename, "--map"]
-                    )
-                except FileNotFoundError:
-                    raise click.ClickException("goal not found in path")
-                except subprocess.CalledProcessError as e:
-                    raise click.ClickException(e.output)
-                algod_sourcemap = json.load(open(str(teal_filename) + ".tok.map"))
+                    bytecode, sourcemap = assemble_with_goal(teal_string)
+                except Exception as e:
+                    raise click.ClickException(e)
             elif assembler == "algod":
-                token = ""
-                if "#" in algod_url:
-                    algod_url, token = algod_url.split("#")
                 if not quiet:
                     click.echo(
                         f"Assembling {teal_filename} to {tok_filename} using algod ({algod_url})"
                     )
-                algod = AlgodClient(token, algod_url)
-                result = algod.compile("\n".join(teal), source_map=True)
-                bytecode = b64decode(result["result"])
-                with open(tok_filename, "wb") as f:
-                    f.write(bytecode)
-                algod_sourcemap = result["sourcemap"]
+                try:
+                    bytecode, sourcemap = assemble_with_algod(teal_string, algod_url)
+                except Exception as e:
+                    raise click.ClickException(e)
             elif assembler == "sandbox":
                 raise click.ClickException("Sandbox is not supported yet.")
             else:
                 raise Exception()
+            with open(tok_filename, "wb") as f:
+                f.write(bytecode)
             # Source Map
-            tealish_map.update_from_teal_sourcemap(SourceMap(algod_sourcemap))
+            tealish_map.update_from_teal_sourcemap(sourcemap)
             map_filename = output_path / f"{base_filename}.map.json"
             if not quiet:
                 click.echo(f"Writing source map to {map_filename}")
