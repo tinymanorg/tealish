@@ -183,7 +183,7 @@ We would need to implement the following:
 - array slices
 
 
-## Public Methods
+## Public Methods
 
 Many contracts implicitly or explicitly have the concept of methods or operations that can be 'called' by clients. The convention has been to use the first application argument to signify the method name (this is required in ARC4 compliant contracts). It could be useful to define a Tealish language feature for methods that differentiates them from `func` and `block`. 
 
@@ -198,3 +198,27 @@ The router would be called explicitly somewhere in the program, possibly in mult
 When `method`s are used Tealish or external tools could inspect the `method` signatures to generate documentation & machine readable specifications (e.g for ABI).
 
 It would never be required for a Tealish program to use `method`s, just as it is not required for a Teal program to be ABI compatible.
+
+
+A rough example with methods and a router and some potential decorator syntax for specifying group transaction requirements:
+
+```
+
+if Txn.OnCompletion == NoOp:
+    abi_router()
+else:
+    ...
+
+method bootstrap(asset_1_id: asset, asset_2_id: asset):
+    ...
+    return
+end
+
+
+@require_txn(Axfer, -1)
+method swap(pool_address: account, asset_1_id: asset, asset_2_id: asset, mode: bytes, min_output: int) int:
+    ....
+    return output_amount
+end
+
+```
