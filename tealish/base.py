@@ -1,38 +1,15 @@
-import importlib.resources
-import json
-
-import tealish
 from tealish.errors import CompileError
 from .tealish_builtins import constants
+from .langspec import get_active_langspec
 
 
-lang_spec = json.loads(
-    importlib.resources.read_text(package=tealish, resource="langspec.json")
-)
-
-
-def type_lookup(a):
-    return {
-        ".": "any",
-        "B": "bytes",
-        "U": "int",
-        "": "None",
-    }[a]
-
-
-ops = {op["Name"]: op for op in lang_spec["Ops"]}
-txn_fields = dict(
-    zip(ops["txn"]["ArgEnum"], map(type_lookup, ops["txn"]["ArgEnumTypes"]))
-)
-global_fields = dict(
-    zip(ops["global"]["ArgEnum"], map(type_lookup, ops["global"]["ArgEnumTypes"]))
-)
+lang_spec = get_active_langspec()
 
 
 def lookup_op(name):
-    if name not in ops:
+    if name not in lang_spec.ops:
         raise KeyError(f'Op "{name}" does not exist!')
-    return ops[name]
+    return lang_spec.ops[name]
 
 
 def lookup_constant(name):
@@ -43,14 +20,14 @@ def lookup_constant(name):
 
 def get_field_type(namespace, name):
     if "txn" in namespace:
-        return txn_fields[name]
+        return lang_spec.txn_fields[name]
     elif namespace == "global":
-        return global_fields[name]
+        return lang_spec.global_fields[name]
 
 
 def check_arg_types(name, args):
     op = lookup_op(name)
-    arg_types = [type_lookup(x) for x in op.get("Args", "")]
+    arg_types = arg_types = op["arg_types"]
     for i, arg in enumerate(args):
         if arg.type != "any" and arg_types[i] != "any" and arg.type != arg_types[i]:
             raise Exception(

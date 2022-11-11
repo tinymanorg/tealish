@@ -1,8 +1,5 @@
-import sys
-
-from .utils import combine_source_maps, minify_teal
-from .errors import ParseError, CompileError
 from .nodes import Program
+from .utils import TealishMap
 
 
 class TealWriter:
@@ -105,33 +102,18 @@ class TealishCompiler:
             self.process()
         return self.nodes[0].tealish(formatter)
 
+    def get_map(self):
+        map = TealishMap()
+        map.teal_tealish = dict(self.source_map)
+        map.errors = dict(self.error_messages)
+        return map
 
-def compile_program(source, debug=False):
+
+def compile_program(source):
     source_lines = source.split("\n")
     compiler = TealishCompiler(source_lines)
-    try:
-        compiler.parse()
-    except ParseError as e:
-        print(e)
-        sys.exit(1)
-    except Exception:
-        print(f"Line: {compiler.line_no}")
-        raise
-    try:
-        compiler.compile()
-    except CompileError as e:
-        print(e)
-        sys.exit(1)
-    except Exception as e:
-        print(e)
-        sys.exit(1)
-    teal = compiler.output + [""]
-    if debug:
-        for i in range(0, len(teal)):
-            print(" ".join([str(i + 1), str(compiler.source_map[i + 1]), teal[i]]))
-    min_teal, teal_source_map = minify_teal(teal)
-    _ = combine_source_maps(teal_source_map, compiler.source_map)
-    return teal, min_teal, compiler.source_map, compiler.error_messages
+    teal = compiler.compile()
+    return teal, compiler.get_map()
 
 
 def compile_lines(source_lines):
@@ -140,3 +122,11 @@ def compile_lines(source_lines):
     compiler.compile()
     teal_lines = compiler.output
     return teal_lines
+
+
+def reformat_program(source):
+    source_lines = source.split("\n")
+    compiler = TealishCompiler(source_lines)
+    output = compiler.reformat()
+    output = output.strip() + "\n"
+    return output
