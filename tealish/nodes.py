@@ -1111,10 +1111,10 @@ class ForStatement(InlineStatement):
         writer.write(self, f"load {self.var_slot} // {self.var}")
         writer.write(self, self.end)
         writer.write(self, "==")
-        writer.write(self, "bnz {self.end_label}")
+        writer.write(self, f"bnz {self.end_label}")
         for n in self.child_nodes:
             n.write_teal(writer)
-        writer.write(self, "load {self.var_slot} // {self.var}")
+        writer.write(self, f"load {self.var_slot} // {self.var}")
         writer.write(self, "pushint 1")
         writer.write(self, "+")
         writer.write(self, f"store {self.var_slot} // {self.var}")

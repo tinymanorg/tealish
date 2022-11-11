@@ -12,12 +12,12 @@ def cli():
     else:
         output_filename = sys.argv[2]
 
-    if output_filename == '-':
+    if output_filename == "-":
         print(output)
     else:
-        with open(output_filename, 'w') as f:
+        with open(output_filename, "w") as f:
             f.write(output)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     cli()

@@ -17,6 +17,7 @@ setup(
     include_package_data=True,
     package_data={"tealish": ["*.tx", "*.json"]},
     install_requires=["textX >= 3.0.0"],
+    python_requires=">=3.7",
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "Intended Audience :: Developers",
@@ -25,15 +26,15 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.5",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
     ],
     entry_points={
-        'console_scripts': [
-            'tealish = tealish.run:cli',
-            'tealishfmt = tealish.fmt:cli',
+        "console_scripts": [
+            "tealish = tealish.run:cli",
+            "tealishfmt = tealish.fmt:cli",
         ],
     },
 )

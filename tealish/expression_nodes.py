@@ -12,7 +12,7 @@ class Integer(BaseNode):
         writer.write(self, f"pushint {self.value}")
 
     def _tealish(self, formatter=None):
-        return f"{self.value}"
+        return f"pushint {self.value}"
 
 
 class Bytes(BaseNode):
@@ -237,14 +237,6 @@ class FunctionCall(BaseNode):
             self.write_teal_op_call(writer)
         elif self.func_call_type == "special":
             self.write_teal_special_call(writer)
-
-    def teal(self):
-        if self.func_call_type == "user_defined":
-            return self.teal_user_defined_func_call()
-        elif self.func_call_type == "op":
-            return self.teal_op_call()
-        elif self.func_call_type == "special":
-            return self.teal_special_call()
 
     def _tealish(self, formatter=None):
         args = [a.tealish(formatter) for a in self.args]
