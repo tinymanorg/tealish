@@ -1,15 +1,35 @@
 import sys
-import textwrap
 
 from .utils import combine_source_maps, minify_teal
 from .errors import ParseError, CompileError
 from .nodes import Program
 
-line_no = 0
-level = 0
-current_output_line = 1
-output = []
-source_map = {}
+
+class TealWriter:
+    def __init__(self) -> None:
+        self.level = 0
+        self.output = []
+        self.source_map = {}
+        self.current_output_line = 1
+        self.current_input_line = 1
+
+    def write(self, parent, node_or_teal):
+        parent._teal = []
+        if hasattr(node_or_teal, "write_teal"):
+            node = node_or_teal
+            i = len(self.output)
+            node.write_teal(self)
+            parent._teal += self.output[i:]
+        else:
+            teal = node_or_teal
+            parent._teal.append(teal)
+            prefix = "  " * self.level
+            self.output.append(prefix + teal)
+            if hasattr(parent, "line_no"):
+                self.current_input_line = parent.line_no
+            self.source_map[self.current_output_line] = self.current_input_line
+            parent.teal_line_no = self.current_output_line
+            self.current_output_line += 1
 
 
 class TealishCompiler:
@@ -24,6 +44,8 @@ class TealishCompiler:
         self.conditional_count = 0
         self.error_messages = {}
         self.max_slot = 0
+        self.writer = TealWriter()
+        self.processed = False
 
     def consume_line(self):
         if self.line_no == len(self.source_lines):
@@ -51,14 +73,21 @@ class TealishCompiler:
         node = Program.consume(self, None)
         self.nodes.append(node)
 
+    def process(self):
+        for node in self.nodes:
+            node.process()
+        self.processed = True
+
     def compile(self):
         if not self.nodes:
             self.parse()
+        if not self.processed:
+            self.process()
         for node in self.nodes:
-            node.process()
-        for node in self.nodes:
-            node.write_teal()
-        return self.output
+            node.write_teal(self.writer)
+        self.source_map = self.writer.source_map
+        self.output = self.writer.output
+        return self.writer.output
 
     def traverse(self, node=None, visitor=None):
         if node is None:
@@ -69,10 +98,12 @@ class TealishCompiler:
             for n in node.nodes:
                 self.traverse(n, visitor)
 
-    def reformat(self):
+    def reformat(self, formatter=None):
         if not self.nodes:
             self.parse()
-        return self.nodes[0].reformat()
+        if not self.processed:
+            self.process()
+        return self.nodes[0].tealish(formatter)
 
 
 def compile_program(source, debug=False):
@@ -91,6 +122,9 @@ def compile_program(source, debug=False):
     except CompileError as e:
         print(e)
         sys.exit(1)
+    except Exception as e:
+        print(e)
+        sys.exit(1)
     teal = compiler.output + [""]
     if debug:
         for i in range(0, len(teal)):
@@ -106,7 +140,3 @@ def compile_lines(source_lines):
     compiler.compile()
     teal_lines = compiler.output
     return teal_lines
-
-
-def indent(s):
-    return textwrap.indent(s, "    ")
