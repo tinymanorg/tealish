@@ -88,16 +88,6 @@ class Node(BaseNode):
             else name,
         }
 
-    # def html(self, tealish):
-    #     newline = False
-    #     if tealish[-1] == "\n":
-    #         newline = True
-    #         tealish = tealish[:-1]
-    #     output = f"<span class=\"node {self.__class__.__name__}\">{tealish}</span>"
-    #     if newline:
-    #         output += "\n"
-    #     return output
-
     def __repr__(self):
         name = self.__class__.__name__
         return name
@@ -166,9 +156,6 @@ class Name(Expression):
 
     def type(self):
         return self._type
-
-    def html(self, tealish):
-        return f'<span class="assignment" data-name="{self.value}" data-slot="{self.slot}">{self.value}</span>'
 
 
 class GenericExpression(Expression):
@@ -243,19 +230,6 @@ class Program(Node):
         for n in self.child_nodes:
             s += n.tealish(formatter)
         return s
-
-    def html(self, tealish):
-        newline = False
-        if tealish[-1] == "\n":
-            newline = True
-            tealish = tealish[:-1]
-        output = f'<span class="node {self.__class__.__name__}">\n'
-        for i, line in enumerate(tealish.split("\n")):
-            output += f'{str(i + 1).ljust(6)}    <span class="line" data-line="{i + 1}">{line}</span>\n'
-        output += "</span>\n"
-        if newline:
-            output += "\n"
-        return output
 
 
 class InlineStatement(Statement):

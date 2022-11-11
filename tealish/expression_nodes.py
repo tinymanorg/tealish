@@ -42,9 +42,6 @@ class Variable(BaseNode):
     def _tealish(self, formatter=None):
         return f"{self.name}"
 
-    def html(self, tealish):
-        return f'<span class="node {self.__class__.__name__}" data-name="{self.name}" data-slot="{self.slot}" data-teal-line="{self.teal_line_no}">{tealish}</span>'
-
 
 class Constant(BaseNode):
     def __init__(self, name, parent=None) -> None:
