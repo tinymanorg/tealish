@@ -35,6 +35,10 @@ class Variable(BaseNode):
 
     def process(self):
         self.slot, self.type = self.lookup_var(self.name)
+        # is it a struct?
+        if type(self.type) == tuple:
+            if self.type[0] == "struct":
+                self.type = "bytes"
 
     def write_teal(self, writer):
         writer.write(self, f"load {self.slot} // {self.name}")
@@ -418,6 +422,38 @@ class InnerTxnField(BaseNode):
         return f"Itxn.{self.field}"
 
 
+class StructField(BaseNode):
+    def __init__(self, name, field, parent=None) -> None:
+        self.name = name
+        self.field = field
+        self.type = "any"
+        self.parent = parent
+
+    def process(self):
+        self.slot, self.type = self.lookup_var(self.name)
+        self.object_type, struct_name = self.type
+        struct = self.get_struct(struct_name)
+        struct_field = struct["fields"][self.field]
+        self.offset = struct_field["offset"]
+        self.size = struct_field["size"]
+        self.data_type = struct_field["type"]
+        self.type = self.data_type
+
+    def write_teal(self, writer):
+        if self.object_type == "struct":
+            writer.write(self, f"load {self.slot} // {self.name}")
+            if self.type == "int":
+                writer.write(self, f"pushint {self.offset}")
+                writer.write(self, f"extract_uint64 // {self.field}")
+            else:
+                writer.write(self, f"extract {self.offset} {self.size} // {self.field}")
+        else:
+            raise Exception()
+
+    def _tealish(self, formatter=None):
+        return f"{self.name}.{self.field}"
+
+
 def class_provider(name):
     classes = {
         "Variable": Variable,
@@ -436,5 +472,6 @@ def class_provider(name):
         "NegativeGroupIndex": NegativeGroupIndex,
         "GlobalField": GlobalField,
         "InnerTxnField": InnerTxnField,
+        "StructField": StructField,
     }
     return classes.get(name)

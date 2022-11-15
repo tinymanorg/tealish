@@ -22,7 +22,7 @@ class Node(BaseNode):
             self.current_scope = parent.current_scope
         self.compiler = compiler
         self.line = line
-        self.line_no = compiler.line_no if compiler else None
+        self._line_no = compiler.line_no if compiler else None
         # self.child_nodes includes nested nodes (e.g. function body or statements within if...else...end)
         self.child_nodes = []
         # self.nodes includes structural nodes and child_nodes (e.g. function args and body, if conditions and child statements)
@@ -194,6 +194,8 @@ class Statement(Node):
             return InnerGroup.consume(compiler, parent)
         elif line.startswith("inner_txn:"):
             return InnerTxn.consume(compiler, parent)
+        elif line.startswith("struct "):
+            return Struct.consume(compiler, parent)
         else:
             return LineStatement.consume(compiler, parent)
 
@@ -256,6 +258,10 @@ class LineStatement(InlineStatement):
             return IntDeclaration(line, parent, compiler=compiler)
         elif line.startswith("bytes "):
             return BytesDeclaration(line, parent, compiler=compiler)
+        elif re.match(r"[A-Z][a-zA-Z_0-9]+ [a-zA-Z_0-9]+ = .*", line):
+            return StructDeclaration(line, parent, compiler=compiler)
+        elif re.match(r"[a-z][a-zA-Z_0-9]+\.[a-z][a-zA-Z_0-9]+ = .*", line):
+            return StructAssignment(line, parent, compiler=compiler)
         elif line.startswith("jump "):
             return Jump(line, parent, compiler=compiler)
         elif line.startswith("return"):
@@ -1279,6 +1285,159 @@ class Return(LineStatement):
         if self.args_expressions:
             output += f" {', '.join([e.tealish(formatter) for e in self.args_expressions[::-1]])}"
         return output + "\n"
+
+
+class StructFieldDefinition(InlineStatement):
+    pattern = r"(?P<field_name>.*?): (?P<data_type>[a-z][A-Z-a-z0-9_]+)(\[(?P<data_length>\d+)\])?"
+    field_name: str
+    data_type: str
+    data_length: int
+
+    def process(self):
+        self.size = 8 if self.data_type == "int" else int(self.data_length)
+
+    def write_teal(self, writer):
+        pass
+
+    def _tealish(self, formatter=None):
+        output = f"{self.field_name}: {self.data_type}"
+        return output
+
+
+class Struct(InlineStatement):
+    """
+    struct Item:
+        asset_id: int
+        price: int
+        royalty: int
+        seller: bytes[32]
+        royalty_address: bytes[32]
+        round: int
+    end
+    """
+
+    possible_child_nodes = [StructFieldDefinition]
+    pattern = r"struct (?P<name>[A-Z][a-zA-Z_0-9]*):$"
+    name: str
+
+    @classmethod
+    def consume(cls, compiler, parent):
+        node = cls(compiler.consume_line(), parent, compiler=compiler)
+        while True:
+            if compiler.peek() == "end":
+                compiler.consume_line()
+                break
+            elif compiler.peek().startswith("#"):
+                compiler.consume_line()
+            else:
+                node.add_child(
+                    StructFieldDefinition(
+                        compiler.consume_line(), node, compiler=compiler
+                    )
+                )
+        return node
+
+    def process(self):
+        for n in self.nodes:
+            n.process()
+        struct = {
+            "fields": {},
+            "size": 0,
+        }
+        offset = 0
+        for n in self.child_nodes:
+            struct["fields"][n.field_name] = {
+                "type": n.data_type,
+                "size": n.size,
+                "offset": offset,
+            }
+            offset += n.size
+        struct["size"] = offset
+        self.define_struct(self.name, struct)
+
+    def write_teal(self, writer):
+        pass
+
+    def _tealish(self, formatter=None):
+        output = f"struct {self.name}:\n"
+        for n in self.child_nodes:
+            output += indent(n.tealish(formatter)) + "\n"
+        output += "end\n"
+        return output
+
+
+class StructDeclaration(LineStatement):
+    pattern = r"(?P<struct_name>[A-Z][a-zA-Z0-9_]*) (?P<name>[a-z][a-zA-Z0-9_]*)( = (?P<expression>.*))?$"
+    struct_name: str
+    name: Name
+    expression: GenericExpression
+
+    def process(self):
+        self.name.slot = self.declare_var(self.name.value, ("struct", self.struct_name))
+        if self.expression:
+            self.expression.process()
+            if self.expression.type not in ("bytes", "any"):
+                raise CompileError(
+                    f"Incorrect type for struct assignment. Expected bytes, got {self.expression.type}",
+                    node=self,
+                )
+
+    def write_teal(self, writer):
+        writer.write(self, f"// {self.line} [slot {self.name.slot}]")
+        if self.expression:
+            writer.write(self, self.expression)
+            writer.write(self, f"store {self.name.slot} // {self.name.value}")
+
+    def _tealish(self, formatter=None):
+        s = f"{self.struct_name} {self.name.tealish(formatter)}"
+        if self.expression:
+            s += f" = {self.expression.tealish(formatter)}"
+        return s + "\n"
+
+
+class StructAssignment(LineStatement):
+    pattern = r"(?P<name>[a-z][a-zA-Z0-9_]*).(?P<field_name>[a-z][a-zA-Z0-9_]*)( = (?P<expression>.*))?$"
+    name: Name
+    field_name: str
+    expression: GenericExpression
+
+    def process(self):
+        self.name.slot, var_type = self.get_var(self.name.value)
+        if type(var_type) != tuple:
+            raise CompileError(
+                f"{self.name.value} is not a struct reference", node=self
+            )
+        self.object_type, struct_name = var_type
+
+        struct = self.get_struct(struct_name)
+        struct_field = struct["fields"][self.field_name]
+        self.offset = struct_field["offset"]
+        self.size = struct_field["size"]
+        self.data_type = struct_field["type"]
+        self.expression.process()
+        if self.expression.type not in (self.data_type, "any"):
+            raise CompileError(
+                f"Incorrect type for struct field assignment. Expected {self.data_type}, got {self.expression.type}",
+                node=self,
+            )
+
+    def write_teal(self, writer):
+        if self.object_type == "struct":
+            writer.write(self, f"// {self.line} [slot {self.name.slot}]")
+            writer.write(self, f"load {self.name.slot} // {self.name.value}")
+            writer.write(self, self.expression)
+            if self.data_type == "int":
+                writer.write(self, "itob")
+            writer.write(
+                self, f"replace {self.offset} // {self.name.value}.{self.field_name}"
+            )
+            writer.write(self, f"store {self.name.slot} // {self.name.value}")
+
+    def _tealish(self, formatter=None):
+        s = f"{self.struct_name} {self.name.tealish(formatter)}"
+        if self.expression:
+            s += f" = {self.expression.tealish(formatter)}"
+        return s + "\n"
 
 
 def split_return_args(s):

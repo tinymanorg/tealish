@@ -5,6 +5,8 @@ from .langspec import get_active_langspec
 
 lang_spec = get_active_langspec()
 
+structs = {}
+
 
 def lookup_op(name):
     if name not in lang_spec.ops:
@@ -196,3 +198,16 @@ class BaseNode:
 
     def lookup_constant(self, name):
         return lookup_constant(name)
+
+    def define_struct(self, struct_name, struct):
+        structs[struct_name] = struct
+
+    def get_struct(self, struct_name):
+        return structs[struct_name]
+
+    @property
+    def line_no(self):
+        if hasattr(self, "_line_no"):
+            return self._line_no
+        if hasattr(self, "parent"):
+            return self.parent.line_no
