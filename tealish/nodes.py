@@ -1296,7 +1296,7 @@ class Return(LineStatement):
 
 
 class StructFieldDefinition(InlineStatement):
-    pattern = r"(?P<field_name>.*?): (?P<data_type>[a-z][A-Z-a-z0-9_]+)(\[(?P<data_length>\d+)\])?"
+    pattern = r"(?P<field_name>[a-z][A-Z-a-z0-9_]*): (?P<data_type>[a-z][A-Z-a-z0-9_]+)(\[(?P<data_length>\d+)\])?"
     field_name: str
     data_type: str
     data_length: int

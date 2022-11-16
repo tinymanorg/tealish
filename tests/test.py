@@ -883,11 +883,36 @@ class TestStructs(unittest.TestCase):
         )
         self.assertListEqual(teal, [])
 
+    def test_fail_definition_lowercase_name(self):
+        with self.assertRaises(ParseError):
+            compile_min(
+                [
+                    "struct item:",
+                    "   a: int",
+                    "   b: int",
+                    "   c: bytes[10]",
+                    "end",
+                ]
+            )
+
+    def test_fail_definition_uppercase_field_name(self):
+        with self.assertRaises(ParseError):
+            compile_min(
+                [
+                    "struct Item:",
+                    "   A: int",
+                    "   b: int",
+                    "   c: bytes[10]",
+                    "end",
+                ]
+            )
+
     def test_fail_definition_after_statement(self):
         with self.assertRaises(ParseError):
             compile_min(
                 [
-                    "int x = 1" "struct Item:",
+                    "int x = 1",
+                    "struct Item:",
                     "   a: int",
                     "   b: int",
                     "   c: bytes[10]",
@@ -899,7 +924,8 @@ class TestStructs(unittest.TestCase):
         with self.assertRaises(ParseError):
             compile_min(
                 [
-                    "if 1:" "   struct Item:",
+                    "if 1:",
+                    "   struct Item:",
                     "       a: int",
                     "       b: int",
                     "       c: bytes[10]",
