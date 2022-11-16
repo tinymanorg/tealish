@@ -16,6 +16,7 @@ item1.description = "ABCDEF"
 
 log(concat("id %i", itob(extract_uint64(item1, 0))))
 
+
 log(concat("id %i", itob(item1.foo)))
 
 log(concat("name ", item1.name))

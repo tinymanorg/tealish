@@ -170,7 +170,7 @@ class BaseNode:
         try:
             return check_arg_types(name, args)
         except Exception as e:
-            raise CompileError(e, node=self)
+            raise CompileError(str(e), node=self)
 
     def get_field_type(self, namespace, name):
         return get_field_type(namespace, name)

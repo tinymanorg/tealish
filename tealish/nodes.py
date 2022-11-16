@@ -213,10 +213,18 @@ class Program(Node):
     @classmethod
     def consume(cls, compiler, parent):
         node = Program("", parent=parent, compiler=compiler)
+        expect_struct_definition = True
         while True:
             if compiler.peek() is None:
                 break
-            node.add_child(Statement.consume(compiler, node))
+            n = Statement.consume(compiler, node)
+            if not expect_struct_definition and isinstance(n, Struct):
+                raise ParseError(
+                    f"Unexpected Struct definition at line {n.line_no}. Struct definitions should be at the top of the file and only be preceeded by comments."
+                )
+            if not isinstance(n, (TealVersion, Blank, Comment, Struct)):
+                expect_struct_definition = False
+            node.add_child(n)
         return node
 
     def process(self):
@@ -262,7 +270,7 @@ class LineStatement(InlineStatement):
             return BoxDeclaration(line, parent, compiler=compiler)
         elif re.match(r"[A-Z][a-zA-Z_0-9]+ [a-zA-Z_0-9]+ = .*", line):
             return StructDeclaration(line, parent, compiler=compiler)
-        elif re.match(r"[a-z][a-zA-Z_0-9]+\.[a-z][a-zA-Z_0-9]+ = .*", line):
+        elif re.match(r"[a-z][a-zA-Z_0-9]+\.[a-z][a-zA-Z_0-9]* = .*", line):
             return StructOrBoxAssignment(line, parent, compiler=compiler)
         elif line.startswith("jump "):
             return Jump(line, parent, compiler=compiler)
@@ -1290,7 +1298,7 @@ class Return(LineStatement):
 
 
 class StructFieldDefinition(InlineStatement):
-    pattern = r"(?P<field_name>.*?): (?P<data_type>[a-z][A-Z-a-z0-9_]+)(\[(?P<data_length>\d+)\])?"
+    pattern = r"(?P<field_name>[a-z][A-Z-a-z0-9_]*): (?P<data_type>[a-z][A-Z-a-z0-9_]+)(\[(?P<data_length>\d+)\])?"
     field_name: str
     data_type: str
     data_length: int
@@ -1325,6 +1333,10 @@ class Struct(InlineStatement):
     @classmethod
     def consume(cls, compiler, parent):
         node = cls(compiler.consume_line(), parent, compiler=compiler)
+        if not isinstance(parent, Program):
+            raise ParseError(
+                f"Unexpected Struct definition at line {node.line_no}. Struct definitions should be at the top of the file and only be preceeded by comments."
+            )
         while True:
             if compiler.peek() == "end":
                 compiler.consume_line()
