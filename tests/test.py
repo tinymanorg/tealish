@@ -868,3 +868,159 @@ class TestForLoop(unittest.TestCase):
                 "l0_end:",
             ],
         )
+
+
+class TestStructs(unittest.TestCase):
+    def test_pass_definition(self):
+        teal = compile_min(
+            [
+                "struct Item:",
+                "   a: int",
+                "   b: int",
+                "   c: bytes[10]",
+                "end",
+            ]
+        )
+        self.assertListEqual(teal, [])
+
+    def test_fail_definition_after_statement(self):
+        with self.assertRaises(ParseError):
+            compile_min(
+                [
+                    "int x = 1" "struct Item:",
+                    "   a: int",
+                    "   b: int",
+                    "   c: bytes[10]",
+                    "end",
+                ]
+            )
+
+    def test_fail_definition_inside_statement(self):
+        with self.assertRaises(ParseError):
+            compile_min(
+                [
+                    "if 1:" "   struct Item:",
+                    "       a: int",
+                    "       b: int",
+                    "       c: bytes[10]",
+                    "   end",
+                    "end",
+                ]
+            )
+
+    def test_pass_declaration(self):
+        teal = compile_min(
+            [
+                "struct Item:",
+                "   a: int",
+                "   b: int",
+                "   c: bytes[10]",
+                "end",
+                "Item item1 = Txn.ApplicationArgs[0]",
+            ]
+        )
+        self.assertListEqual(
+            teal,
+            [
+                "txna ApplicationArgs 0",
+                "store 0",
+            ],
+        )
+
+    def test_pass_int_field_access(self):
+        teal = compile_min(
+            [
+                "struct Item:",
+                "   a: int",
+                "   b: int",
+                "   c: bytes[10]",
+                "end",
+                "Item item1 = Txn.ApplicationArgs[0]",
+                "assert(item1.a)",
+            ]
+        )
+        self.assertListEqual(
+            teal,
+            [
+                "txna ApplicationArgs 0",
+                "store 0",
+                "load 0",
+                "pushint 0",
+                "extract_uint64",
+                "assert",
+            ],
+        )
+
+    def test_pass_byte_field_access(self):
+        teal = compile_min(
+            [
+                "struct Item:",
+                "   a: int",
+                "   b: int",
+                "   c: bytes[10]",
+                "end",
+                "Item item1 = Txn.ApplicationArgs[0]",
+                "log(item1.c)",
+            ]
+        )
+        self.assertListEqual(
+            teal,
+            [
+                "txna ApplicationArgs 0",
+                "store 0",
+                "load 0",
+                "extract 16 10",
+                "log",
+            ],
+        )
+
+    def test_pass_byte_field_assignment(self):
+        teal = compile_min(
+            [
+                "struct Item:",
+                "   a: int",
+                "   b: int",
+                "   c: bytes[10]",
+                "end",
+                "Item item1 = bzero(28)",
+                "item1.c = Txn.ApplicationArgs[0]",
+            ]
+        )
+        self.assertListEqual(
+            teal,
+            [
+                "pushint 28",
+                "bzero",
+                "store 0",
+                "load 0",
+                "txna ApplicationArgs 0",
+                "replace 16",
+                "store 0",
+            ],
+        )
+
+    def test_pass_int_field_assignment(self):
+        teal = compile_min(
+            [
+                "struct Item:",
+                "   a: int",
+                "   b: int",
+                "   c: bytes[10]",
+                "end",
+                "Item item1 = bzero(28)",
+                "item1.a = 1",
+            ]
+        )
+        self.assertListEqual(
+            teal,
+            [
+                "pushint 28",
+                "bzero",
+                "store 0",
+                "load 0",
+                "pushint 1",
+                "itob",
+                "replace 0",
+                "store 0",
+            ],
+        )
