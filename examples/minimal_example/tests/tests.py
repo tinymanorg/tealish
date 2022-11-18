@@ -7,11 +7,10 @@ from algosdk.account import generate_account
 from algosdk.encoding import decode_address
 from algosdk.future import transaction
 
-approval_program = TealishProgram('../counter_prize.tl')
+approval_program = TealishProgram("../counter_prize.tl")
 
 
 class TestCreateApp(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls):
         cls.sp = get_suggested_params()
@@ -37,19 +36,19 @@ class TestCreateApp(unittest.TestCase):
         stxn = txn.sign(self.app_creator_sk)
 
         block = self.ledger.eval_transactions(transactions=[stxn])
-        block_txns = block[b'txns']
+        block_txns = block[b"txns"]
 
         self.assertAlmostEqual(len(block_txns), 1)
         txn = block_txns[0]
 
-        self.assertEqual(txn[b'txn'][b'type'], b'appl')
-        self.assertEqual(txn[b'txn'][b'apap'], approval_program.bytecode)
-        self.assertEqual(txn[b'txn'][b'apsu'], approval_program.bytecode)
-        self.assertEqual(txn[b'txn'][b'snd'], decode_address(self.app_creator_address))
-        self.assertTrue(txn[b'apid'] > 0)
+        self.assertEqual(txn[b"txn"][b"type"], b"appl")
+        self.assertEqual(txn[b"txn"][b"apap"], approval_program.bytecode)
+        self.assertEqual(txn[b"txn"][b"apsu"], approval_program.bytecode)
+        self.assertEqual(txn[b"txn"][b"snd"], decode_address(self.app_creator_address))
+        self.assertTrue(txn[b"apid"] > 0)
         self.assertDictEqual(
-            txn[b'dt'][b'gd'][b'counter'],
-            {b'at': 2},
+            txn[b"dt"][b"gd"][b"counter"],
+            {b"at": 2},
         )
 
     def test_counter(self):
@@ -61,13 +60,13 @@ class TestCreateApp(unittest.TestCase):
             local_ints=0,
             local_bytes=0,
             global_ints=1,
-            global_bytes=0
+            global_bytes=0,
         )
         self.ledger.set_global_state(
             app_id,
             {
-                b'counter': 0,
-            }
+                b"counter": 0,
+            },
         )
 
         for new_counter_value in range(1, 5):
@@ -79,11 +78,10 @@ class TestCreateApp(unittest.TestCase):
             stxn = txn.sign(self.user_sk)
 
             block = self.ledger.eval_transactions(transactions=[stxn])
-            block_txns = block[b'txns']
+            block_txns = block[b"txns"]
 
             self.assertAlmostEqual(len(block_txns), 1)
             txn = block_txns[0]
             self.assertDictEqual(
-                txn[b'dt'][b'gd'],
-                {b'counter': {b'at': 2, b'ui': new_counter_value}}
+                txn[b"dt"][b"gd"], {b"counter": {b"at": 2, b"ui": new_counter_value}}
             )
