@@ -30,6 +30,7 @@ Usage
    :maxdepth: 2
    :caption: Contents:
 
+   quick_start
    language
 
 
