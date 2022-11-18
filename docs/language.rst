@@ -158,7 +158,7 @@ This requirement exists to ensure math and logic is written obviously and unambi
 The exception to the above rule is Unary expressions::
 
     !x # valid
-    x,| !y # valid
+    x || !y # valid
 
 
 .. note:: Logical operators ``||`` (or) and ``&&`` (and) in Tealish have AVM stack semantics which differ from some other languages.
@@ -268,6 +268,7 @@ Examples::
     int i = 0
     while i <= 10:
         result = result + Txn.ApplicationArgs[i]
+        i = i + 1
     end
 
 
