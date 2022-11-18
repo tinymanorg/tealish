@@ -353,11 +353,13 @@ Functions can be defined in Tealish in the following forms::
     # No return value
     func {func_name}({arg1_name}: {type}, {arg2_name}: {type}):
         {Statements}
+        return
     end
 
     # No return value or arguments
     func {func_name}():
         {Statements}
+        return
     end
 
 
@@ -367,8 +369,24 @@ Functions can be defined in Tealish in the following forms::
         return {Expression}, {Expression}
     end
 
-Function names must be lowercase. Argument names must be lowercase. Types must be ``int`` or ``bytes``.
-Functions must be defined at the end of programs or Blocks. There can be no other statements after function definitions apart from other function definitions.
+    # Returns in if & else statements
+    func {func_name}() {return_type}, {return_type}:
+        {Statements}
+        if {Statements}:
+            return {Statements}
+        else:
+            return {Statements}
+        end
+
+        # Return is mandatory just before the end statement of the function
+        return
+    end
+
+- Function names must be lowercase.
+- Argument names must be lowercase.
+- Types must be ``int`` or ``bytes``.
+- Functions must have ``return`` just before ``end``.
+- Functions must be defined at the end of programs or Blocks. There can be no other statements after function definitions apart from other function definitions.
 
 Examples::
 
