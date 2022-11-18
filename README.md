@@ -46,9 +46,17 @@ exit(1)
 ## Compiling
 
 ```
-    tealish examples/counter_prize.tl
+    tealish examples/minimal_example/counter_prize.tl
 ```
-This will produce [`counter_prize.teal`](examples/build/counter_prize.teal), [`counter_prize.min.teal`](examples/build/counter_prize.min.teal) and [`counter_prize.map.json`](examples/build/counter_prize.map.json) in the [`build`](examples/build/) subdirectory.
+This will produce
+[`counter_prize.teal`](examples/minimal_example/build/counter_prize.teal),
+[`counter_prize.min.teal`](examples/minimal_example/build/counter_prize.min.teal)
+and
+[`counter_prize.map.json`](examples/minimal_example/build/counter_prize.map.json)
+in the
+[`build`](examples/minimal_example/build/)
+subdirectory.
+
 
 ## Editor Support
 

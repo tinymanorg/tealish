@@ -1,5 +1,11 @@
 #pragma version 6
 
+if Txn.ApplicationID == 0:
+    # Create app
+    app_global_put("counter", 0)
+    exit(1)
+end
+
 if Txn.OnCompletion == UpdateApplication:
     assert(Txn.Sender == Global.CreatorAddress)
     exit(1)
