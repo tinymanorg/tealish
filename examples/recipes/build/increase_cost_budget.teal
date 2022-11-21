@@ -1,0 +1,24 @@
+// func increase_cost_budget():
+__func__increase_cost_budget:
+// inner_txn:
+itxn_begin
+  // TypeEnum: Appl
+  pushint 6 // Appl
+  itxn_field TypeEnum
+  // OnCompletion: DeleteApplication
+  pushint 5 // DeleteApplication
+  itxn_field OnCompletion
+  // ApprovalProgram: "\x06\x81\x01"
+  pushbytes "\x06\x81\x01"
+  itxn_field ApprovalProgram
+  // ClearStateProgram: "\x06\x81\x01"
+  pushbytes "\x06\x81\x01"
+  itxn_field ClearStateProgram
+  // Fee: 0
+  pushint 0
+  itxn_field Fee
+itxn_submit
+// end inner_txn
+// return
+retsub
+

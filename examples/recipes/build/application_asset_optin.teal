@@ -14,21 +14,27 @@ pop // discarding value for _
   ==
   bz l0_end
   // then:
-    // 
-    itxn_begin
     // inner_txn:
-    pushint 4 // Axfer
-    itxn_field TypeEnum
-    global CurrentApplicationAddress
-    itxn_field Sender
-    global CurrentApplicationAddress
-    itxn_field AssetReceiver
-    pushint 0
-    itxn_field AssetAmount
-    load 0 // asset_id
-    itxn_field XferAsset
-    pushint 0
-    itxn_field Fee
+    itxn_begin
+      // TypeEnum: Axfer
+      pushint 4 // Axfer
+      itxn_field TypeEnum
+      // Sender: Global.CurrentApplicationAddress
+      global CurrentApplicationAddress
+      itxn_field Sender
+      // AssetReceiver: Global.CurrentApplicationAddress
+      global CurrentApplicationAddress
+      itxn_field AssetReceiver
+      // AssetAmount: 0
+      pushint 0
+      itxn_field AssetAmount
+      // XferAsset: asset_id
+      load 0 // asset_id
+      itxn_field XferAsset
+      // Fee: 0
+      pushint 0
+      itxn_field Fee
     itxn_submit
+    // end inner_txn
   l0_end: // end
 
