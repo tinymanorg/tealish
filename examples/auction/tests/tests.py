@@ -60,7 +60,7 @@ class AuctionTests(unittest.TestCase):
                 b"min_bid_inc": self.min_bid_increment,
                 b"nft_id": self.nft_id,
                 b"reserve_amount": self.reserve_amount,
-                b"seller": self.seller_address.encode(),
+                b"seller": decode_address(self.seller_address),
                 b"start": int(self.start_time.timestamp()),
             },
         )
@@ -86,9 +86,7 @@ class AuctionTests(unittest.TestCase):
                 self.reserve_amount,
                 self.min_bid_increment,
             ],
-            # accounts=[
-            #     self.seller_address
-            # ]
+            accounts=[self.seller_address],
         )
         stxn = txn.sign(self.app_creator_sk)
 
@@ -102,6 +100,7 @@ class AuctionTests(unittest.TestCase):
         self.assertEqual(txn[b"txn"][b"apsu"], approval_program.bytecode)
         self.assertEqual(txn[b"txn"][b"snd"], decode_address(self.app_creator_address))
         self.assertTrue(txn[b"apid"] > 0)
+
         self.assertDictEqual(
             txn[b"dt"],
             {
@@ -111,7 +110,7 @@ class AuctionTests(unittest.TestCase):
                     b"min_bid_inc": {b"at": 2, b"ui": self.min_bid_increment},
                     b"nft_id": {b"at": 2, b"ui": self.nft_id},
                     b"reserve_amount": {b"at": 2, b"ui": self.reserve_amount},
-                    b"seller": {b"at": 1, b"bs": self.seller_address.encode()},
+                    b"seller": {b"at": 1, b"bs": decode_address(self.seller_address)},
                     b"start": {b"at": 2, b"ui": int(self.start_time.timestamp())},
                 }
             },
@@ -335,9 +334,65 @@ class AuctionTests(unittest.TestCase):
             },
         )
 
-    @unittest.skip
-    def test_on_delete_before_start_time(self):
-        raise NotImplementedError
+    def test_on_delete_before_start_time_by_seller(self):
+        app_id = self.create_app()
+
+        txn = transaction.ApplicationDeleteTxn(
+            sender=self.seller_address,
+            sp=self.sp,
+            index=app_id,
+            foreign_assets=[self.nft_id],
+        )
+
+        stxns = [txn.sign(self.seller_sk)]
+
+        block = self.ledger.eval_transactions(
+            transactions=stxns, block_timestamp=int(self.now.timestamp())
+        )
+        block_txns = block[b"txns"]
+        self.assertDictEqual(
+            block_txns[0][b"txn"],
+            {
+                b"apan": 5,
+                b"apas": [self.nft_id],
+                b"apid": app_id,
+                b"fee": ANY,
+                b"fv": ANY,
+                b"lv": ANY,
+                b"snd": decode_address(self.seller_address),
+                b"type": b"appl",
+            },
+        )
+
+    def test_on_delete_before_start_time_by_creator(self):
+        app_id = self.create_app()
+
+        txn = transaction.ApplicationDeleteTxn(
+            sender=self.app_creator_address,
+            sp=self.sp,
+            index=app_id,
+            foreign_assets=[self.nft_id],
+        )
+
+        stxns = [txn.sign(self.app_creator_sk)]
+
+        block = self.ledger.eval_transactions(
+            transactions=stxns, block_timestamp=int(self.now.timestamp())
+        )
+        block_txns = block[b"txns"]
+        self.assertDictEqual(
+            block_txns[0][b"txn"],
+            {
+                b"apan": 5,
+                b"apas": [self.nft_id],
+                b"apid": app_id,
+                b"fee": ANY,
+                b"fv": ANY,
+                b"lv": ANY,
+                b"snd": decode_address(self.app_creator_address),
+                b"type": b"appl",
+            },
+        )
 
     @unittest.skip
     def test_on_delete_during_the_auction(self):

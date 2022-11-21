@@ -59,10 +59,13 @@ on_create:
   btoi
   store 1 // end_time
   
+  // Fix: Accounts should be passed with Accounts instead of Application Args.
   // app_global_put(SELLER_KEY, Txn.ApplicationArgs[0])
+  // app_global_put(SELLER_KEY, Txn.Accounts[1])
   pushbytes "seller" // SELLER_KEY
-  txna ApplicationArgs 0
+  txna Accounts 1
   app_global_put
+  
   // app_global_put(NFT_ID_KEY, btoi(Txn.ApplicationArgs[1]))
   pushbytes "nft_id" // NFT_ID_KEY
   txna ApplicationArgs 1

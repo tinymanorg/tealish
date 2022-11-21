@@ -38,7 +38,10 @@ block on_create:
     int start_time = btoi(Txn.ApplicationArgs[2])
     int end_time = btoi(Txn.ApplicationArgs[3])
 
-    app_global_put(SELLER_KEY, Txn.ApplicationArgs[0])
+    # Fix: Accounts should be passed with Accounts instead of Application Args.
+    # app_global_put(SELLER_KEY, Txn.ApplicationArgs[0])
+    app_global_put(SELLER_KEY, Txn.Accounts[1])
+
     app_global_put(NFT_ID_KEY, btoi(Txn.ApplicationArgs[1]))
     app_global_put(START_TIME_KEY, start_time)
     app_global_put(END_TIME_KEY, end_time)

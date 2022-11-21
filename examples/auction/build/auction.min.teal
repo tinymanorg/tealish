@@ -37,7 +37,7 @@ txna ApplicationArgs 3
 btoi
 store 1 // end_time
 pushbytes "seller" // SELLER_KEY
-txna ApplicationArgs 0
+txna Accounts 1
 app_global_put
 pushbytes "nft_id" // NFT_ID_KEY
 txna ApplicationArgs 1
