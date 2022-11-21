@@ -32,6 +32,7 @@ Usage
 
    quick_start
    language
+   examples
 
 
 
