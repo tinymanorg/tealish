@@ -28,7 +28,10 @@ Handling Integer Overflow
 
 Converting `integers` to `big-endian unsigned integers` and using
 `byte arithmetics <https://developer.algorand.org/docs/get-details/dapps/avm/teal/specification/#byte-array-manipulation>`_
-allows handling integer overflows. `Please note that bytes are also have a limit`.
+allows handling integer overflows.
+
+.. note::
+    Bytes are also have a limit.
 
 .. literalinclude:: ../examples/recipes/overflow.tl
    :emphasize-lines: 7-9
@@ -71,7 +74,9 @@ Similar to `OpUp utility of PyTeal <https://pyteal.readthedocs.io/en/latest/opup
 you can increase the cost budget by adding another app call using inner transactions.
 
 `increase_cost_budget` creates and deletes an app with single transactions.
-Please note that this operation increases the minimum balance `temporarily`.
+
+.. note::
+    This operation increases the minimum balance `temporarily`.
 
 .. literalinclude:: ../examples/recipes/increase_cost_budget.tl
    :linenos:
