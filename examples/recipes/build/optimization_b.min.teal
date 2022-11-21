@@ -1,0 +1,9 @@
+callsub __func__get_int
+callsub __func__get_int
++
+callsub __func__get_int
++
+store 0 // result
+__func__get_int:
+pushint 2
+retsub

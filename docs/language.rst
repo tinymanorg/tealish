@@ -300,6 +300,21 @@ Examples::
         result = result + "*"
     end
 
+.. _inline_teal:
+
+Inline Teal
+-----------
+
+Structure::
+
+    teal:
+        {Statements}
+    end
+
+Examples:
+
+.. literalinclude:: ./sources/language/inline_teal.tl
+
 Inner Transactions
 ------------------
 
@@ -339,6 +354,8 @@ Inner transactions can be grouped in inner groups::
             Fee: 0
         end
     end
+
+.. _functions:
 
 Functions
 ---------

@@ -1,0 +1,24 @@
+global CurrentApplicationAddress
+load 0 // asset_id
+asset_holding_get AssetBalance
+store 1 // is_opted_in
+pop // discarding value for _
+load 1 // is_opted_in
+pushint 0
+==
+bz l0_end
+itxn_begin
+pushint 4 // Axfer
+itxn_field TypeEnum
+global CurrentApplicationAddress
+itxn_field Sender
+global CurrentApplicationAddress
+itxn_field AssetReceiver
+pushint 0
+itxn_field AssetAmount
+load 0 // asset_id
+itxn_field XferAsset
+pushint 0
+itxn_field Fee
+itxn_submit
+l0_end: // end
