@@ -48,7 +48,7 @@ Optimize the generated TEAL code partially
 ------------------------------------------
 
 Teal allows using raw TEAL directly, see :ref:`inline_teal`.
-It allows benefiting of all possible TEAL and custom stack management optimizations.
+Decreasing the size and computational cost using TEAL and custom stack management is possible.
 
 Reformatting the Tealish code may result a `small` gain. Reducing the variable usage help you ascetically if you are on the limit of budget cost.
 Variable assignment generates `store,` and usages generates `load` opcodes. So, you can remove the variables used one time.
