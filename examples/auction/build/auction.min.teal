@@ -1,0 +1,310 @@
+#pragma version 6
+txn ApplicationID
+pushint 0
+==
+bz l0_end
+b on_create
+l0_end: // end
+txn OnCompletion
+pushint 0 // NoOp
+==
+bnz on_call
+txn OnCompletion
+pushint 5 // DeleteApplication
+==
+bnz on_delete
+txn OnCompletion
+pushint 1 // OptIn
+==
+bnz fail
+txn OnCompletion
+pushint 2 // CloseOut
+==
+bnz fail
+txn OnCompletion
+pushint 4 // UpdateApplication
+==
+bnz fail
+err // unexpected value
+fail:
+pushint 0
+return
+on_create:
+txna ApplicationArgs 2
+btoi
+store 0 // start_time
+txna ApplicationArgs 3
+btoi
+store 1 // end_time
+pushbytes "seller" // SELLER_KEY
+txna ApplicationArgs 0
+app_global_put
+pushbytes "nft_id" // NFT_ID_KEY
+txna ApplicationArgs 1
+btoi
+app_global_put
+pushbytes "start" // START_TIME_KEY
+load 0 // start_time
+app_global_put
+pushbytes "end" // END_TIME_KEY
+load 1 // end_time
+app_global_put
+pushbytes "reserve_amount" // RESERVE_AMOUNT_KEY
+txna ApplicationArgs 4
+btoi
+app_global_put
+pushbytes "min_bid_inc" // MIN_BID_INCREMENT_KEY
+txna ApplicationArgs 5
+btoi
+app_global_put
+pushbytes "bid_account" // LEAD_BID_ACCOUNT_KEY
+global ZeroAddress
+app_global_put
+global LatestTimestamp
+load 0 // start_time
+<
+load 0 // start_time
+load 1 // end_time
+<
+&&
+assert
+pushint 1
+return
+on_call:
+txna ApplicationArgs 0
+pushbytes "setup"
+==
+bnz on_setup
+txna ApplicationArgs 0
+pushbytes "bid"
+==
+bnz on_bid
+err // unexpected value
+on_setup:
+global LatestTimestamp
+pushbytes "start" // START_TIME_KEY
+app_global_get
+<
+assert
+itxn_begin
+pushint 4 // Axfer
+itxn_field TypeEnum
+pushbytes "nft_id" // NFT_ID_KEY
+app_global_get
+itxn_field XferAsset
+global CurrentApplicationAddress
+itxn_field AssetReceiver
+itxn_submit
+pushint 1
+return
+on_bid:
+txn GroupIndex
+pushint 1
+-
+store 0 // txn_index
+global CurrentApplicationAddress
+pushbytes "nft_id" // NFT_ID_KEY
+app_global_get
+asset_holding_get AssetBalance
+store 1 // is_opted_in
+store 2 // ntf_balance
+load 1 // is_opted_in
+assert
+load 2 // ntf_balance
+pushint 0
+>
+assert
+pushbytes "start" // START_TIME_KEY
+app_global_get
+global LatestTimestamp
+<=
+assert
+global LatestTimestamp
+pushbytes "end" // END_TIME_KEY
+app_global_get
+<
+assert
+load 0 // txn_index
+gtxns TypeEnum
+pushint 1 // Pay
+==
+assert
+load 0 // txn_index
+gtxns Sender
+txn Sender
+==
+assert
+load 0 // txn_index
+gtxns Receiver
+global CurrentApplicationAddress
+==
+assert
+load 0 // txn_index
+gtxns Amount
+global MinTxnFee
+>=
+assert
+load 0 // txn_index
+gtxns Amount
+pushbytes "bid_amount" // LEAD_BID_AMOUNT_KEY
+app_global_get
+pushbytes "min_bid_inc" // MIN_BID_INCREMENT_KEY
+app_global_get
++
+>=
+bz l1_end
+pushbytes "bid_account" // LEAD_BID_ACCOUNT_KEY
+app_global_get
+global ZeroAddress
+!=
+bz l2_end
+pushbytes "bid_account" // LEAD_BID_ACCOUNT_KEY
+app_global_get
+pushbytes "bid_amount" // LEAD_BID_AMOUNT_KEY
+app_global_get
+callsub __func__repay_previous_lead_bidder
+l2_end: // end
+pushbytes "bid_amount" // LEAD_BID_AMOUNT_KEY
+load 0 // txn_index
+gtxns Amount
+app_global_put
+pushbytes "bid_account" // LEAD_BID_ACCOUNT_KEY
+load 0 // txn_index
+gtxns Sender
+app_global_put
+pushbytes "num_bids" // NUM_BIDS_KEY
+pushbytes "num_bids" // NUM_BIDS_KEY
+app_global_get
+pushint 1
++
+app_global_put
+pushint 1
+return
+l1_end: // end
+pushint 0
+return
+on_delete:
+global LatestTimestamp
+pushbytes "start" // START_TIME_KEY
+app_global_get
+<
+bz l3_end
+txn Sender
+pushbytes "seller" // SELLER_KEY
+app_global_get
+==
+txn Sender
+global CreatorAddress
+==
+||
+assert
+pushbytes "nft_id" // NFT_ID_KEY
+app_global_get
+pushbytes "seller" // SELLER_KEY
+app_global_get
+callsub __func__close_nft_to
+pushbytes "seller" // SELLER_KEY
+app_global_get
+callsub __func__close_account_to
+pushint 1
+return
+l3_end: // end
+pushbytes "end" // END_TIME_KEY
+app_global_get
+global LatestTimestamp
+<=
+bz l4_end
+pushbytes "bid_account" // LEAD_BID_ACCOUNT_KEY
+app_global_get
+global ZeroAddress
+!=
+bz l5_else
+pushbytes "bid_amount" // LEAD_BID_AMOUNT_KEY
+app_global_get
+pushbytes "reserve_amount" // RESERVE_AMOUNT_KEY
+app_global_get
+>=
+bz l6_else
+pushbytes "nft_id" // NFT_ID_KEY
+app_global_get
+pushbytes "bid_account" // LEAD_BID_ACCOUNT_KEY
+app_global_get
+callsub __func__close_nft_to
+b l6_end
+l6_else:
+pushbytes "nft_id" // NFT_ID_KEY
+app_global_get
+pushbytes "seller" // SELLER_KEY
+app_global_get
+callsub __func__close_nft_to
+pushbytes "bid_account" // LEAD_BID_ACCOUNT_KEY
+app_global_get
+pushbytes "bid_amount" // LEAD_BID_AMOUNT_KEY
+app_global_get
+callsub __func__repay_previous_lead_bidder
+l6_end: // end
+b l5_end
+l5_else:
+pushbytes "nft_id" // NFT_ID_KEY
+app_global_get
+pushbytes "seller" // SELLER_KEY
+app_global_get
+callsub __func__close_nft_to
+l5_end: // end
+pushbytes "seller" // SELLER_KEY
+app_global_get
+callsub __func__close_account_to
+pushint 1
+return
+l4_end: // end
+pushint 0
+return
+__func__close_nft_to:
+store 3 // account
+store 4 // asset_id
+global CurrentApplicationAddress
+load 4 // asset_id
+asset_holding_get AssetBalance
+store 5 // is_opted_in
+pop // discarding value for _
+load 5 // is_opted_in
+bz l7_end
+itxn_begin
+pushint 4 // Axfer
+itxn_field TypeEnum
+load 4 // asset_id
+itxn_field XferAsset
+load 3 // account
+itxn_field AssetCloseTo
+itxn_submit
+l7_end: // end
+retsub
+__func__repay_previous_lead_bidder:
+store 6 // prev_lead_bid_amount
+store 7 // prev_lead_bidder
+itxn_begin
+pushint 1 // Pay
+itxn_field TypeEnum
+load 6 // prev_lead_bid_amount
+global MinTxnFee
+-
+itxn_field Amount
+load 7 // prev_lead_bidder
+itxn_field Receiver
+itxn_submit
+retsub
+__func__close_account_to:
+store 8 // account
+global CurrentApplicationAddress
+balance
+pushint 0
+!=
+bz l8_end
+itxn_begin
+pushint 1 // Pay
+itxn_field TypeEnum
+load 8 // account
+itxn_field CloseRemainderTo
+itxn_submit
+l8_end: // end
+retsub
