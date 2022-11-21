@@ -134,17 +134,20 @@ on_setup:
   assert
   // opt into NFT asset -- because you can't opt in if you're already opted in, this is what
   // we'll use to make sure the contract has been set up
-  // 
-  itxn_begin
   // inner_txn:
-  pushint 4 // Axfer
-  itxn_field TypeEnum
-  pushbytes "nft_id" // NFT_ID_KEY
-  app_global_get
-  itxn_field XferAsset
-  global CurrentApplicationAddress
-  itxn_field AssetReceiver
+  itxn_begin
+    // TypeEnum: Axfer
+    pushint 4 // Axfer
+    itxn_field TypeEnum
+    // XferAsset: app_global_get(NFT_ID_KEY)
+    pushbytes "nft_id" // NFT_ID_KEY
+    app_global_get
+    itxn_field XferAsset
+    // AssetReceiver: Global.CurrentApplicationAddress
+    global CurrentApplicationAddress
+    itxn_field AssetReceiver
   itxn_submit
+  // end inner_txn
   // Note: The default fee amount of the inner transaction is the minimum transaction fee.
   // It is possible to set it to 0 thanks to fee pooling.
   // exit(1)
@@ -405,16 +408,19 @@ pop // discarding value for _
   load 5 // is_opted_in
   bz l7_end
   // then:
-    // 
-    itxn_begin
     // inner_txn:
-    pushint 4 // Axfer
-    itxn_field TypeEnum
-    load 4 // asset_id
-    itxn_field XferAsset
-    load 3 // account
-    itxn_field AssetCloseTo
+    itxn_begin
+      // TypeEnum: Axfer
+      pushint 4 // Axfer
+      itxn_field TypeEnum
+      // XferAsset: asset_id
+      load 4 // asset_id
+      itxn_field XferAsset
+      // AssetCloseTo: account
+      load 3 // account
+      itxn_field AssetCloseTo
     itxn_submit
+    // end inner_txn
   l7_end: // end
 // return
 retsub
@@ -424,18 +430,21 @@ retsub
 __func__repay_previous_lead_bidder:
 store 6 // prev_lead_bid_amount
 store 7 // prev_lead_bidder
-// 
-itxn_begin
 // inner_txn:
-pushint 1 // Pay
-itxn_field TypeEnum
-load 6 // prev_lead_bid_amount
-global MinTxnFee
--
-itxn_field Amount
-load 7 // prev_lead_bidder
-itxn_field Receiver
+itxn_begin
+  // TypeEnum: Pay
+  pushint 1 // Pay
+  itxn_field TypeEnum
+  // Amount: prev_lead_bid_amount - Global.MinTxnFee
+  load 6 // prev_lead_bid_amount
+  global MinTxnFee
+  -
+  itxn_field Amount
+  // Receiver: prev_lead_bidder
+  load 7 // prev_lead_bidder
+  itxn_field Receiver
 itxn_submit
+// end inner_txn
 // return
 retsub
 
@@ -450,14 +459,16 @@ store 8 // account
   !=
   bz l8_end
   // then:
-    // 
-    itxn_begin
     // inner_txn:
-    pushint 1 // Pay
-    itxn_field TypeEnum
-    load 8 // account
-    itxn_field CloseRemainderTo
+    itxn_begin
+      // TypeEnum: Pay
+      pushint 1 // Pay
+      itxn_field TypeEnum
+      // CloseRemainderTo: account
+      load 8 // account
+      itxn_field CloseRemainderTo
     itxn_submit
+    // end inner_txn
   l8_end: // end
 // return
 retsub
