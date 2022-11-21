@@ -4,7 +4,7 @@ int c = get_int()
 
 int result = (a + b) + c
 
-# Dummpy function
+# Dummy function
 func get_int() int:
     return 2
 end

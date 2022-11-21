@@ -16,7 +16,7 @@ load 2 // c
 +
 store 3 // result
 
-// Dummpy function
+// Dummy function
 // func get_int() int:
 __func__get_int:
 // return 2

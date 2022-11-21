@@ -6,7 +6,7 @@ callsub __func__get_int
 +
 store 0 // result
 
-// Dummpy function
+// Dummy function
 // func get_int() int:
 __func__get_int:
 // return 2
