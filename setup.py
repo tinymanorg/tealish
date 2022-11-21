@@ -16,8 +16,13 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     package_data={"tealish": ["*.tx", "*.json"]},
-    install_requires=["textX >= 3.0.0", "click >= 8.1.3", "requests >= 2.0.0"],
-    python_requires=">=3.7",
+    install_requires=[
+        "textX >= 3.0.0",
+        "click >= 8.1.3",
+        "requests >= 2.0.0",
+        "py-algorand-sdk >= 1.18.0",
+    ],
+    python_requires=">=3.8",
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "Intended Audience :: Developers",
@@ -26,7 +31,6 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
