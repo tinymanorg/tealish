@@ -33,5 +33,5 @@ Name: (/([a-z][A-Za-z_0-9]*)/ | /_/);
 GroupIndex: NegativeGroupIndex | PositiveGroupIndex | Expression;
 NegativeGroupIndex: '-' index=INT;
 PositiveGroupIndex: '+' index=INT;
-Integer: value=INT;
+Integer: value=/[0-9_]+/;
 Bytes: value=STRING;

@@ -1,7 +1,8 @@
 import json
 import pathlib
 import click
-from tealish import CompileError, ParseError, compile_program, reformat_program
+from tealish import compile_program, reformat_program
+from tealish.errors import CompileError, ParseError
 from tealish.langspec import (
     fetch_langspec,
     get_active_langspec,

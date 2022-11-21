@@ -11,7 +11,7 @@ packaged_lang_spec = None
 
 def type_lookup(a):
     return {
-        ".": "Any",
+        ".": "any",
         "B": "bytes",
         "U": "int",
         "": "None",

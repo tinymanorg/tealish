@@ -2,13 +2,17 @@ import unittest
 from unittest import expectedFailure
 
 from tealish import (
-    CompileError,
-    ParseError,
     compile_lines,
     TealishCompiler,
+    TealWriter,
 )
+from tealish.errors import (
+    CompileError,
+    ParseError,
+)
+from tealish.nodes import Node
+from tealish.tx_expressions import parse_expression
 from tealish.utils import strip_comments
-from tealish.tealish_expressions import compile_expression
 
 
 def compile_min(p):
@@ -21,6 +25,18 @@ def compile_expression_min(p, **kwargs):
     teal = compile_expression(p, **kwargs)
     min_teal = strip_comments(teal)
     return min_teal
+
+
+def compile_expression(expression, scope=None):
+    parent = Node("")
+    parent.new_scope()
+    parent.current_scope.update(scope or {})
+    node = parse_expression(expression)
+    node.parent = parent
+    node.process()
+    writer = TealWriter()
+    node.write_teal(writer)
+    return writer.output
 
 
 class TestTealVersion(unittest.TestCase):
@@ -239,8 +255,7 @@ class TestAssignment(unittest.TestCase):
 
     def test_fail_assign_without_declare(self):
         with self.assertRaises(CompileError) as e:
-            teal = compile_min(["x = 1"])
-            print(teal)
+            _ = compile_min(["x = 1"])
         self.assertEqual(
             e.exception.args[0], 'Var "x" not declared in current scope at line 1'
         )
