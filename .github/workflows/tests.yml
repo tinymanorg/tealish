@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.9", "3.8", "3.7"]
+        python-version: ["3.10", "3.9", "3.8"]
 
     steps:
       - uses: actions/checkout@v3
@@ -21,7 +21,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install flake8 black textX==3.0.0
+          pip install flake8 black textX==3.0.0 requests py-algorand-sdk==1.18.0
 
       - name: Run flake8
         run: flake8 ${{ github.workspace }} --ignore=E501,F403,F405,E126,E121,W503,E203

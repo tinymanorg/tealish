@@ -237,6 +237,19 @@ Functions are used to define reusable pieces of functionality. They can take arg
         exit(1)
     end
     ```
+- Struct
+    ```
+    struct Item:
+        x: int
+        y: int
+        name: bytes[10]
+    end
+
+    Item item1 = Txn.ApplicationArgs[0]
+    log(item.name)
+    assert(item.x > 10)
+    item.y = 1
+    ```
 
 #### Line Statements
 
@@ -247,10 +260,12 @@ Functions are used to define reusable pieces of functionality. They can take arg
     - `bytes b = "ABC"`
     - `const int FOO = 1`
     - `const bytes BAR = "ABC"`
+    - `Item item1 = Txn.ApplicationArgs[0] // struct`
 * Assignment
     - `x = 1`
     - `b = "ABC"`
     - `exists, asset_1_unit_name = asset_params_get(AssetUnitName, asset_id)`
+    - `item.y = 1 // struct assignment`
 * Function Call (without return values)
     - `assert(1)`
     - `assert(2 > 1)`
@@ -303,6 +318,8 @@ Functions are used to define reusable pieces of functionality. They can take arg
         - `Gtxn[+1].Sender` # Relative indexing (next txn)
     - Inner Txn Fields
         - `Itxn.CreatedAssetID`
+    - Struct Fields
+        - `item.name`
 * Builtin Constants
     - `Pay`
     - `Axfer`
