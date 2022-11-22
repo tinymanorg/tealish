@@ -37,13 +37,6 @@ allows handling integer overflows.
    :emphasize-lines: 7-9
    :linenos:
 
-
-Can I use subroutines in Tealish?
----------------------------------
-
-Yes, :ref:`functions` are subroutines under the hood.
-
-
 Optimize the generated TEAL code partially
 ------------------------------------------
 
