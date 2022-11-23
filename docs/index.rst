@@ -35,6 +35,7 @@ Usage
    examples
    recipes
    questions
+   cli
 
 
 
