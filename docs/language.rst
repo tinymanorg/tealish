@@ -446,5 +446,5 @@ Structs can be defined in Tealish in the following form::
 
 Examples:
 
-.. literalinclude:: ./sources/language/structs.tl
+.. literalinclude:: ./source/language/structs.tl
 
