@@ -6,14 +6,14 @@ FAQ
 Does Tealish support ABI?
 -------------------------
 
-Tealish doesn't have ABI (Application Binary Interface) API.
+Tealish doesn't yet have an ABI (Application Binary Interface) API.
 So, Tealish doesn't help you to generate method or contract descriptions automatically.
 
 However, implementing ABI compatible contracts using Tealish is possible. You should follow the
 `ABI Conventions <https://developer.algorand.org/docs/get-details/dapps/smart-contracts/ABI/>`_
 and generate the description manually.
 
-
+It is likely that future versions of Tealish will allow for more automated ABI support.
 What is the difference between `block` and `func`?
 --------------------------------------------------
 
