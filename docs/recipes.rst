@@ -72,4 +72,33 @@ you can increase the cost budget by adding another app call using inner transact
     This operation increases the minimum balance `temporarily`.
 
 .. literalinclude:: ../examples/recipes/increase_cost_budget.tl
+   :emphasize-lines: 2-8
+   :linenos:
+
+Testing & Debugging
+-------------------
+
+After compiling the Tealish code into TEAL, you can use all the testing, and
+`debugging <https://developer.algorand.org/docs/get-details/dapps/smart-contracts/debugging/#create-publication-overlay>`_
+tools that are compatible with TEAL.
+Using `Sandbox <https://developer.algorand.org/docs/get-started/devenv/sandbox/#create-publication-overlay>`_ node
+for `testing and developing <https://developer.algorand.org/docs/sdks/python/#create-publication-overlay>`_ as explained
+on Algorand Developer Documentation is also an option.
+
+Algojig
+^^^^^^^
+
+    " `AlgoJig <https://github.com/Hipo/algojig>`_ is a development and testing jig for Algorand.
+    It allows developers to run transactions and write tests starting from a known Algorand ledger state.
+    It is suitable for testing all kinds of transactions, including application calls and logic signatures."
+
+
+`Counter Prize and Auction example contracts <https://github.com/tinymanorg/tealish/tree/main/examples>`_
+implemented by Tealish contains unit-tests and they use `AlgoJig <https://github.com/Hipo/algojig>`_.
+
+Example:
+
+.. literalinclude:: ../examples/minimal_example/tests/tests.py
+   :language: python
+   :lines: 25-52
    :linenos:
