@@ -14,7 +14,7 @@ Minimal Example
 
 A simple example demonstrating assertions, state, if statements and inner transactions:
 
-.. literalinclude:: ../examples/minimal_example/counter_prize.tl
+.. literalinclude:: ../examples/counter_prize/counter_prize.tl
 
 Installing
 ----------

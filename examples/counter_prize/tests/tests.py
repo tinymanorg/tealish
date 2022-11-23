@@ -1,13 +1,14 @@
+import os
 import unittest
 
 from algojig import TealishProgram
 from algojig import get_suggested_params
 from algojig.ledger import JigLedger
 from algosdk.account import generate_account
-from algosdk.encoding import decode_address
 from algosdk.future import transaction
 
-approval_program = TealishProgram("../counter_prize.tl")
+dirname = os.path.dirname(__file__)
+approval_program = TealishProgram(os.path.join(dirname, "../counter_prize.tl"))
 
 
 class TestCreateApp(unittest.TestCase):
@@ -38,17 +39,26 @@ class TestCreateApp(unittest.TestCase):
         block = self.ledger.eval_transactions(transactions=[stxn])
         block_txns = block[b"txns"]
 
-        self.assertAlmostEqual(len(block_txns), 1)
+        self.assertEqual(len(block_txns), 1)
         txn = block_txns[0]
 
-        self.assertEqual(txn[b"txn"][b"type"], b"appl")
-        self.assertEqual(txn[b"txn"][b"apap"], approval_program.bytecode)
-        self.assertEqual(txn[b"txn"][b"apsu"], approval_program.bytecode)
-        self.assertEqual(txn[b"txn"][b"snd"], decode_address(self.app_creator_address))
-        self.assertTrue(txn[b"apid"] > 0)
+        app_id = txn[b"apid"]
+        self.assertIsNotNone(app_id)
+
+        # check final state
+        final_global_state = self.ledger.get_global_state(
+            app_id=app_id,
+        )
         self.assertDictEqual(
-            txn[b"dt"][b"gd"][b"counter"],
-            {b"at": 2},
+            final_global_state,
+            {b"counter": 0},
+        )
+
+        # check delta
+        global_delta = txn[b"dt"][b"gd"]
+        self.assertDictEqual(
+            global_delta,
+            {b"counter": {b"at": 2}},
         )
 
     def test_counter(self):
@@ -80,8 +90,21 @@ class TestCreateApp(unittest.TestCase):
             block = self.ledger.eval_transactions(transactions=[stxn])
             block_txns = block[b"txns"]
 
-            self.assertAlmostEqual(len(block_txns), 1)
+            self.assertEqual(len(block_txns), 1)
             txn = block_txns[0]
+
+            # check final state
+            final_global_state = self.ledger.get_global_state(
+                app_id=app_id,
+            )
             self.assertDictEqual(
-                txn[b"dt"][b"gd"], {b"counter": {b"at": 2, b"ui": new_counter_value}}
+                final_global_state,
+                {b"counter": new_counter_value},
+            )
+
+            # check delta
+            global_delta = txn[b"dt"][b"gd"]
+            self.assertDictEqual(
+                global_delta,
+                {b"counter": {b"at": 2, b"ui": new_counter_value}},
             )

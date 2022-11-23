@@ -98,7 +98,7 @@ implemented by Tealish contains unit-tests and they use `AlgoJig <https://github
 
 Example:
 
-.. literalinclude:: ../examples/minimal_example/tests/tests.py
+.. literalinclude:: ../examples/counter_prize/tests/tests.py
    :language: python
-   :lines: 25-52
+   :lines: 37-62
    :linenos:

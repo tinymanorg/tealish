@@ -92,27 +92,41 @@ class AuctionTests(unittest.TestCase):
 
         block = self.ledger.eval_transactions(transactions=[stxn])
         block_txns = block[b"txns"]
-
-        self.assertAlmostEqual(len(block_txns), 1)
+        self.assertEqual(len(block_txns), 1)
         txn = block_txns[0]
 
-        self.assertEqual(txn[b"txn"][b"apap"], approval_program.bytecode)
-        self.assertEqual(txn[b"txn"][b"apsu"], approval_program.bytecode)
-        self.assertEqual(txn[b"txn"][b"snd"], decode_address(self.app_creator_address))
-        self.assertTrue(txn[b"apid"] > 0)
+        app_id = txn[b"apid"]
+        self.assertIsNotNone(app_id)
 
+        # check delta
+        global_delta = txn[b"dt"][b"gd"]
         self.assertDictEqual(
-            txn[b"dt"],
+            global_delta,
             {
-                b"gd": {
-                    b"bid_account": {b"at": 1, b"bs": ZERO_ADDRESS},
-                    b"end": {b"at": 2, b"ui": int(self.end_time.timestamp())},
-                    b"min_bid_inc": {b"at": 2, b"ui": self.min_bid_increment},
-                    b"nft_id": {b"at": 2, b"ui": self.nft_id},
-                    b"reserve_amount": {b"at": 2, b"ui": self.reserve_amount},
-                    b"seller": {b"at": 1, b"bs": decode_address(self.seller_address)},
-                    b"start": {b"at": 2, b"ui": int(self.start_time.timestamp())},
-                }
+                b"bid_account": {b"at": 1, b"bs": ZERO_ADDRESS},
+                b"end": {b"at": 2, b"ui": int(self.end_time.timestamp())},
+                b"min_bid_inc": {b"at": 2, b"ui": self.min_bid_increment},
+                b"nft_id": {b"at": 2, b"ui": self.nft_id},
+                b"reserve_amount": {b"at": 2, b"ui": self.reserve_amount},
+                b"seller": {b"at": 1, b"bs": decode_address(self.seller_address)},
+                b"start": {b"at": 2, b"ui": int(self.start_time.timestamp())},
+            },
+        )
+
+        # check final state
+        final_global_state = self.ledger.get_global_state(
+            app_id=app_id,
+        )
+        self.assertDictEqual(
+            final_global_state,
+            {
+                b"bid_account": ZERO_ADDRESS,
+                b"end": int(self.end_time.timestamp()),
+                b"min_bid_inc": self.min_bid_increment,
+                b"nft_id": self.nft_id,
+                b"reserve_amount": self.reserve_amount,
+                b"seller": decode_address(self.seller_address),
+                b"start": int(self.start_time.timestamp()),
             },
         )
 
@@ -159,25 +173,20 @@ class AuctionTests(unittest.TestCase):
         )
         block_txns = block[b"txns"]
 
-        self.assertAlmostEqual(len(block_txns), 3)
+        self.assertEqual(len(block_txns), 3)
         app_call_txn = block_txns[1]
 
+        # check delta
+        global_delta = app_call_txn[b"dt"].get(b"gd")
+        self.assertEqual(global_delta, None)
+
+        # check inner transactions
+        inner_transactions = app_call_txn[b"dt"][b"itx"]
+        self.assertEqual(len(inner_transactions), 1)
+        first_inner_transaction = inner_transactions[0]
+
         self.assertDictEqual(
-            app_call_txn[b"txn"],
-            {
-                b"apaa": [b"setup"],
-                b"apas": [self.nft_id],
-                b"apid": app_id,
-                b"fee": ANY,
-                b"fv": ANY,
-                b"grp": ANY,
-                b"lv": ANY,
-                b"snd": decode_address(self.seller_address),
-                b"type": b"appl",
-            },
-        )
-        self.assertDictEqual(
-            app_call_txn[b"dt"][b"itx"][0][b"txn"],
+            first_inner_transaction[b"txn"],
             {
                 b"arcv": decode_address(app_address),
                 b"fee": ANY,
@@ -195,13 +204,14 @@ class AuctionTests(unittest.TestCase):
         self.ledger.set_account_balance(app_address, 200_000, asset_id=0)  # Algo
         self.ledger.set_account_balance(app_address, 1, asset_id=self.nft_id)
 
+        initial_balances = 10_000_000
         buyer_1_sk, buyer_1_address = generate_account()
         bid_1_amount = 1_000_000
-        self.ledger.set_account_balance(buyer_1_address, 10_000_000, asset_id=0)
+        self.ledger.set_account_balance(buyer_1_address, initial_balances, asset_id=0)
 
         buyer_2_sk, buyer_2_address = generate_account()
         bid_2_amount = 4_000_000
-        self.ledger.set_account_balance(buyer_2_address, 10_000_000, asset_id=0)
+        self.ledger.set_account_balance(buyer_2_address, initial_balances, asset_id=0)
 
         # Pay
         # App Call - Bid
@@ -232,36 +242,40 @@ class AuctionTests(unittest.TestCase):
         )
         block_txns = block[b"txns"]
 
-        self.assertAlmostEqual(len(block_txns), 2)
+        self.assertEqual(len(block_txns), 2)
         app_call_txn = block_txns[1]
 
+        # check delta
+        global_delta = app_call_txn[b"dt"].get(b"gd")
         self.assertDictEqual(
-            app_call_txn[b"txn"],
+            global_delta,
             {
-                b"apaa": [b"bid"],
-                b"apas": [self.nft_id],
-                b"apid": app_id,
-                b"fee": ANY,
-                b"fv": ANY,
-                b"grp": ANY,
-                b"lv": ANY,
-                b"snd": decode_address(buyer_1_address),
-                b"type": b"appl",
+                b"bid_account": {b"at": 1, b"bs": decode_address(buyer_1_address)},
+                b"bid_amount": {b"at": 2, b"ui": bid_1_amount},
+                b"num_bids": {b"at": 2, b"ui": 1},
             },
         )
 
+        # check final state
+        final_global_state = self.ledger.get_global_state(
+            app_id=app_id,
+        )
         self.assertDictEqual(
-            app_call_txn[b"dt"],
+            final_global_state,
             {
-                b"gd": {
-                    b"bid_account": {b"at": 1, b"bs": decode_address(buyer_1_address)},
-                    b"bid_amount": {b"at": 2, b"ui": bid_1_amount},
-                    b"num_bids": {b"at": 2, b"ui": 1},
-                }
+                b"bid_account": decode_address(buyer_1_address),
+                b"bid_amount": bid_1_amount,
+                b"num_bids": 1,
+                b"end": int(self.end_time.timestamp()),
+                b"min_bid_inc": self.min_bid_increment,
+                b"nft_id": self.nft_id,
+                b"reserve_amount": self.reserve_amount,
+                b"seller": decode_address(self.seller_address),
+                b"start": int(self.start_time.timestamp()),
             },
         )
 
-        # No inner transactions
+        # There is no inner transactions
         self.assertEqual(app_call_txn[b"dt"].get(b"itx"), None)
 
         # Bid 2
@@ -293,36 +307,45 @@ class AuctionTests(unittest.TestCase):
         )
         block_txns = block[b"txns"]
 
-        self.assertAlmostEqual(len(block_txns), 2)
+        self.assertEqual(len(block_txns), 2)
         app_call_txn = block_txns[1]
 
+        # check delta
+        global_delta = app_call_txn[b"dt"].get(b"gd")
         self.assertDictEqual(
-            app_call_txn[b"txn"],
-            {
-                b"apaa": [b"bid"],
-                b"apas": [self.nft_id],
-                b"apat": [decode_address(buyer_1_address)],
-                b"apid": app_id,
-                b"fee": ANY,
-                b"fv": ANY,
-                b"grp": ANY,
-                b"lv": ANY,
-                b"snd": decode_address(buyer_2_address),
-                b"type": b"appl",
-            },
-        )
-
-        # No inner transactions
-        self.assertDictEqual(
-            app_call_txn[b"dt"][b"gd"],
+            global_delta,
             {
                 b"bid_account": {b"at": 1, b"bs": decode_address(buyer_2_address)},
                 b"bid_amount": {b"at": 2, b"ui": bid_2_amount},
                 b"num_bids": {b"at": 2, b"ui": 2},
             },
         )
+
+        # check final state
+        final_global_state = self.ledger.get_global_state(
+            app_id=app_id,
+        )
         self.assertDictEqual(
-            app_call_txn[b"dt"][b"itx"][0][b"txn"],
+            final_global_state,
+            {
+                b"bid_account": decode_address(buyer_2_address),
+                b"bid_amount": bid_2_amount,
+                b"num_bids": 2,
+                b"end": int(self.end_time.timestamp()),
+                b"min_bid_inc": self.min_bid_increment,
+                b"nft_id": self.nft_id,
+                b"reserve_amount": self.reserve_amount,
+                b"seller": decode_address(self.seller_address),
+                b"start": int(self.start_time.timestamp()),
+            },
+        )
+
+        # check inner transactions
+        inner_transactions = app_call_txn[b"dt"][b"itx"]
+        self.assertEqual(len(inner_transactions), 1)
+        first_inner_transaction = inner_transactions[0]
+        self.assertDictEqual(
+            first_inner_transaction[b"txn"],
             {
                 b"amt": bid_1_amount - self.sp.min_fee,
                 b"fee": ANY,
@@ -332,6 +355,18 @@ class AuctionTests(unittest.TestCase):
                 b"snd": decode_address(app_address),
                 b"type": b"pay",
             },
+        )
+
+        buyer_1_final_balance, is_frozen = self.ledger.get_account_balance(
+            buyer_1_address, asset_id=0
+        )
+        self.assertEqual(buyer_1_final_balance, initial_balances - self.sp.min_fee * 3)
+
+        buyer_2_final_balance, is_frozen = self.ledger.get_account_balance(
+            buyer_2_address, asset_id=0
+        )
+        self.assertEqual(
+            buyer_2_final_balance, initial_balances - bid_2_amount - self.sp.min_fee * 2
         )
 
     def test_on_delete_before_start_time_by_seller(self):
@@ -350,19 +385,8 @@ class AuctionTests(unittest.TestCase):
             transactions=stxns, block_timestamp=int(self.now.timestamp())
         )
         block_txns = block[b"txns"]
-        self.assertDictEqual(
-            block_txns[0][b"txn"],
-            {
-                b"apan": 5,
-                b"apas": [self.nft_id],
-                b"apid": app_id,
-                b"fee": ANY,
-                b"fv": ANY,
-                b"lv": ANY,
-                b"snd": decode_address(self.seller_address),
-                b"type": b"appl",
-            },
-        )
+        # It is successful
+        self.assertEqual(len(block_txns), 1)
 
     def test_on_delete_before_start_time_by_creator(self):
         app_id = self.create_app()
@@ -380,19 +404,8 @@ class AuctionTests(unittest.TestCase):
             transactions=stxns, block_timestamp=int(self.now.timestamp())
         )
         block_txns = block[b"txns"]
-        self.assertDictEqual(
-            block_txns[0][b"txn"],
-            {
-                b"apan": 5,
-                b"apas": [self.nft_id],
-                b"apid": app_id,
-                b"fee": ANY,
-                b"fv": ANY,
-                b"lv": ANY,
-                b"snd": decode_address(self.app_creator_address),
-                b"type": b"appl",
-            },
-        )
+        # It is successful
+        self.assertEqual(len(block_txns), 1)
 
     @unittest.skip
     def test_on_delete_during_the_auction(self):
