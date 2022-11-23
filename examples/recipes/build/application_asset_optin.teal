@@ -1,0 +1,40 @@
+// int asset_id [slot 0]
+
+// int is_opted_in [slot 1]
+// is_opted_in, _ = asset_holding_get(AssetBalance, Global.CurrentApplicationAddress, asset_id)
+global CurrentApplicationAddress
+load 0 // asset_id
+asset_holding_get AssetBalance
+store 1 // is_opted_in
+pop // discarding value for _
+
+// if is_opted_in == 0:
+  load 1 // is_opted_in
+  pushint 0
+  ==
+  bz l0_end
+  // then:
+    // inner_txn:
+    itxn_begin
+      // TypeEnum: Axfer
+      pushint 4 // Axfer
+      itxn_field TypeEnum
+      // Sender: Global.CurrentApplicationAddress
+      global CurrentApplicationAddress
+      itxn_field Sender
+      // AssetReceiver: Global.CurrentApplicationAddress
+      global CurrentApplicationAddress
+      itxn_field AssetReceiver
+      // AssetAmount: 0
+      pushint 0
+      itxn_field AssetAmount
+      // XferAsset: asset_id
+      load 0 // asset_id
+      itxn_field XferAsset
+      // Fee: 0
+      pushint 0
+      itxn_field Fee
+    itxn_submit
+    // end inner_txn
+  l0_end: // end
+
