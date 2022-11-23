@@ -1,0 +1,475 @@
+#pragma version 6
+
+// This code is Tealish port of acution demo.
+// It contains minimal code changes. Variable names, and order of assignments are preserved.
+// Original Code Reference: https://github.com/algorand/auction-demo
+// Algorand Developer Portal Auction Demo: https://developer.algorand.org/docs/get-started/dapps/pyteal/#the-smart-contract
+
+
+
+
+// if Txn.ApplicationID == 0:
+  txn ApplicationID
+  pushint 0
+  ==
+  bz l0_end
+  // then:
+    // jump on_create
+    b on_create
+  l0_end: // end
+
+// switch Txn.OnCompletion:
+txn OnCompletion
+pushint 0 // NoOp
+==
+bnz on_call
+txn OnCompletion
+pushint 5 // DeleteApplication
+==
+bnz on_delete
+txn OnCompletion
+pushint 1 // OptIn
+==
+bnz fail
+txn OnCompletion
+pushint 2 // CloseOut
+==
+bnz fail
+txn OnCompletion
+pushint 4 // UpdateApplication
+==
+bnz fail
+err // unexpected value
+
+// block fail
+fail:
+  // Reject
+  // exit(0)
+  pushint 0
+  return
+
+// block on_create
+on_create:
+  // int start_time = btoi(Txn.ApplicationArgs[2]) [slot 0]
+  txna ApplicationArgs 2
+  btoi
+  store 0 // start_time
+  // int end_time = btoi(Txn.ApplicationArgs[3]) [slot 1]
+  txna ApplicationArgs 3
+  btoi
+  store 1 // end_time
+  
+  // Fix: Accounts should be passed with Accounts instead of Application Args.
+  // app_global_put(SELLER_KEY, Txn.ApplicationArgs[0])
+  // app_global_put(SELLER_KEY, Txn.Accounts[1])
+  pushbytes "seller" // SELLER_KEY
+  txna Accounts 1
+  app_global_put
+  
+  // app_global_put(NFT_ID_KEY, btoi(Txn.ApplicationArgs[1]))
+  pushbytes "nft_id" // NFT_ID_KEY
+  txna ApplicationArgs 1
+  btoi
+  app_global_put
+  // app_global_put(START_TIME_KEY, start_time)
+  pushbytes "start" // START_TIME_KEY
+  load 0 // start_time
+  app_global_put
+  // app_global_put(END_TIME_KEY, end_time)
+  pushbytes "end" // END_TIME_KEY
+  load 1 // end_time
+  app_global_put
+  // app_global_put(RESERVE_AMOUNT_KEY, btoi(Txn.ApplicationArgs[4]))
+  pushbytes "reserve_amount" // RESERVE_AMOUNT_KEY
+  txna ApplicationArgs 4
+  btoi
+  app_global_put
+  // app_global_put(MIN_BID_INCREMENT_KEY, btoi(Txn.ApplicationArgs[5]))
+  pushbytes "min_bid_inc" // MIN_BID_INCREMENT_KEY
+  txna ApplicationArgs 5
+  btoi
+  app_global_put
+  // app_global_put(LEAD_BID_ACCOUNT_KEY, Global.ZeroAddress)
+  pushbytes "bid_account" // LEAD_BID_ACCOUNT_KEY
+  global ZeroAddress
+  app_global_put
+  
+  // assert((Global.LatestTimestamp < start_time) && (start_time < end_time))
+  global LatestTimestamp
+  load 0 // start_time
+  <
+  load 0 // start_time
+  load 1 // end_time
+  <
+  &&
+  assert
+  
+  // Approve
+  // exit(1)
+  pushint 1
+  return
+
+
+// block on_call
+on_call:
+  // switch Txn.ApplicationArgs[0]:
+  txna ApplicationArgs 0
+  pushbytes "setup"
+  ==
+  bnz on_setup
+  txna ApplicationArgs 0
+  pushbytes "bid"
+  ==
+  bnz on_bid
+  err // unexpected value
+
+
+// block on_setup
+on_setup:
+  // assert(Global.LatestTimestamp < app_global_get(START_TIME_KEY))
+  global LatestTimestamp
+  pushbytes "start" // START_TIME_KEY
+  app_global_get
+  <
+  assert
+  // opt into NFT asset -- because you can't opt in if you're already opted in, this is what
+  // we'll use to make sure the contract has been set up
+  // inner_txn:
+  itxn_begin
+    // TypeEnum: Axfer
+    pushint 4 // Axfer
+    itxn_field TypeEnum
+    // XferAsset: app_global_get(NFT_ID_KEY)
+    pushbytes "nft_id" // NFT_ID_KEY
+    app_global_get
+    itxn_field XferAsset
+    // AssetReceiver: Global.CurrentApplicationAddress
+    global CurrentApplicationAddress
+    itxn_field AssetReceiver
+  itxn_submit
+  // end inner_txn
+  // Note: The default fee amount of the inner transaction is the minimum transaction fee.
+  // It is possible to set it to 0 thanks to fee pooling.
+  // exit(1)
+  pushint 1
+  return
+
+
+// block on_bid
+on_bid:
+  // int txn_index = Txn.GroupIndex - 1 [slot 0]
+  txn GroupIndex
+  pushint 1
+  -
+  store 0 // txn_index
+  
+  // int is_opted_in [slot 1]
+  // int ntf_balance [slot 2]
+  
+  // is_opted_in, ntf_balance = asset_holding_get(AssetBalance, Global.CurrentApplicationAddress, app_global_get(NFT_ID_KEY))
+  global CurrentApplicationAddress
+  pushbytes "nft_id" // NFT_ID_KEY
+  app_global_get
+  asset_holding_get AssetBalance
+  store 1 // is_opted_in
+  store 2 // ntf_balance
+  
+  // the auction has been set up
+  // assert(is_opted_in)
+  load 1 // is_opted_in
+  assert
+  // assert(ntf_balance > 0)
+  load 2 // ntf_balance
+  pushint 0
+  >
+  assert
+  
+  // the auction has started
+  // assert(app_global_get(START_TIME_KEY) <= Global.LatestTimestamp)
+  pushbytes "start" // START_TIME_KEY
+  app_global_get
+  global LatestTimestamp
+  <=
+  assert
+  // the auction has not ended
+  // assert(Global.LatestTimestamp < app_global_get(END_TIME_KEY))
+  global LatestTimestamp
+  pushbytes "end" // END_TIME_KEY
+  app_global_get
+  <
+  assert
+  
+  // the actual bid payment is before the app call
+  // assert(Gtxn[txn_index].TypeEnum == Pay)
+  load 0 // txn_index
+  gtxns TypeEnum
+  pushint 1 // Pay
+  ==
+  assert
+  // assert(Gtxn[txn_index].Sender == Txn.Sender)
+  load 0 // txn_index
+  gtxns Sender
+  txn Sender
+  ==
+  assert
+  // assert(Gtxn[txn_index].Receiver == Global.CurrentApplicationAddress)
+  load 0 // txn_index
+  gtxns Receiver
+  global CurrentApplicationAddress
+  ==
+  assert
+  // assert(Gtxn[txn_index].Amount >= Global.MinTxnFee)
+  load 0 // txn_index
+  gtxns Amount
+  global MinTxnFee
+  >=
+  assert
+  
+  // if Gtxn[txn_index].Amount >= (app_global_get(LEAD_BID_AMOUNT_KEY) + app_global_get(MIN_BID_INCREMENT_KEY)):
+    load 0 // txn_index
+    gtxns Amount
+    pushbytes "bid_amount" // LEAD_BID_AMOUNT_KEY
+    app_global_get
+    pushbytes "min_bid_inc" // MIN_BID_INCREMENT_KEY
+    app_global_get
+    +
+    >=
+    bz l1_end
+    // then:
+      // if app_global_get(LEAD_BID_ACCOUNT_KEY) != Global.ZeroAddress:
+        pushbytes "bid_account" // LEAD_BID_ACCOUNT_KEY
+        app_global_get
+        global ZeroAddress
+        !=
+        bz l2_end
+        // then:
+          // repay_previous_lead_bidder(app_global_get(LEAD_BID_ACCOUNT_KEY), app_global_get(LEAD_BID_AMOUNT_KEY))
+          pushbytes "bid_account" // LEAD_BID_ACCOUNT_KEY
+          app_global_get
+          pushbytes "bid_amount" // LEAD_BID_AMOUNT_KEY
+          app_global_get
+          callsub __func__repay_previous_lead_bidder
+        l2_end: // end
+      // app_global_put(LEAD_BID_AMOUNT_KEY, Gtxn[txn_index].Amount)
+      pushbytes "bid_amount" // LEAD_BID_AMOUNT_KEY
+      load 0 // txn_index
+      gtxns Amount
+      app_global_put
+      // app_global_put(LEAD_BID_ACCOUNT_KEY, Gtxn[txn_index].Sender)
+      pushbytes "bid_account" // LEAD_BID_ACCOUNT_KEY
+      load 0 // txn_index
+      gtxns Sender
+      app_global_put
+      // app_global_put(NUM_BIDS_KEY, (app_global_get(NUM_BIDS_KEY) + 1))
+      pushbytes "num_bids" // NUM_BIDS_KEY
+      pushbytes "num_bids" // NUM_BIDS_KEY
+      app_global_get
+      pushint 1
+      +
+      app_global_put
+      
+      // Approve
+      // exit(1)
+      pushint 1
+      return
+    l1_end: // end
+  
+  // Reject
+  // exit(0)
+  pushint 0
+  return
+
+// block on_delete
+on_delete:
+  // if Global.LatestTimestamp < app_global_get(START_TIME_KEY):
+    global LatestTimestamp
+    pushbytes "start" // START_TIME_KEY
+    app_global_get
+    <
+    bz l3_end
+    // then:
+      // the auction has not yet started, it's ok to delete
+      
+      // sender must either be the seller or the auction creator
+      // assert((Txn.Sender == app_global_get(SELLER_KEY)) || (Txn.Sender == Global.CreatorAddress))
+      txn Sender
+      pushbytes "seller" // SELLER_KEY
+      app_global_get
+      ==
+      txn Sender
+      global CreatorAddress
+      ==
+      ||
+      assert
+      
+      // if the auction contract account has opted into the nft, close it out
+      // close_nft_to(app_global_get(NFT_ID_KEY), app_global_get(SELLER_KEY))
+      pushbytes "nft_id" // NFT_ID_KEY
+      app_global_get
+      pushbytes "seller" // SELLER_KEY
+      app_global_get
+      callsub __func__close_nft_to
+      
+      // if the auction contract still has funds, send them all to the seller
+      // close_account_to(app_global_get(SELLER_KEY))
+      pushbytes "seller" // SELLER_KEY
+      app_global_get
+      callsub __func__close_account_to
+      // exit(1)
+      pushint 1
+      return
+    l3_end: // end
+  
+  // if app_global_get(END_TIME_KEY) <= Global.LatestTimestamp:
+    pushbytes "end" // END_TIME_KEY
+    app_global_get
+    global LatestTimestamp
+    <=
+    bz l4_end
+    // then:
+      // the auction has ended, pay out assets
+      // if app_global_get(LEAD_BID_ACCOUNT_KEY) != Global.ZeroAddress:
+        pushbytes "bid_account" // LEAD_BID_ACCOUNT_KEY
+        app_global_get
+        global ZeroAddress
+        !=
+        bz l5_else
+        // then:
+          // if app_global_get(LEAD_BID_AMOUNT_KEY) >= app_global_get(RESERVE_AMOUNT_KEY):
+            pushbytes "bid_amount" // LEAD_BID_AMOUNT_KEY
+            app_global_get
+            pushbytes "reserve_amount" // RESERVE_AMOUNT_KEY
+            app_global_get
+            >=
+            bz l6_else
+            // then:
+              // the auction was successful: send lead bid account the nft
+              // close_nft_to(app_global_get(NFT_ID_KEY), app_global_get(LEAD_BID_ACCOUNT_KEY))
+              pushbytes "nft_id" // NFT_ID_KEY
+              app_global_get
+              pushbytes "bid_account" // LEAD_BID_ACCOUNT_KEY
+              app_global_get
+              callsub __func__close_nft_to
+            b l6_end
+            l6_else:
+            // else:
+              // the auction was not successful because the reserve was not met: return
+              // the nft to the seller and repay the lead bidder
+              // close_nft_to(app_global_get(NFT_ID_KEY), app_global_get(SELLER_KEY))
+              pushbytes "nft_id" // NFT_ID_KEY
+              app_global_get
+              pushbytes "seller" // SELLER_KEY
+              app_global_get
+              callsub __func__close_nft_to
+              // repay_previous_lead_bidder(app_global_get(LEAD_BID_ACCOUNT_KEY), app_global_get(LEAD_BID_AMOUNT_KEY))
+              pushbytes "bid_account" // LEAD_BID_ACCOUNT_KEY
+              app_global_get
+              pushbytes "bid_amount" // LEAD_BID_AMOUNT_KEY
+              app_global_get
+              callsub __func__repay_previous_lead_bidder
+            l6_end: // end
+        b l5_end
+        l5_else:
+        // else:
+          // the auction was not successful because no bids were placed: return the nft to the seller
+          // close_nft_to(app_global_get(NFT_ID_KEY), app_global_get(SELLER_KEY))
+          pushbytes "nft_id" // NFT_ID_KEY
+          app_global_get
+          pushbytes "seller" // SELLER_KEY
+          app_global_get
+          callsub __func__close_nft_to
+        l5_end: // end
+      // send remaining funds to the seller
+      // close_account_to(app_global_get(SELLER_KEY))
+      pushbytes "seller" // SELLER_KEY
+      app_global_get
+      callsub __func__close_account_to
+      // exit(1)
+      pushint 1
+      return
+    l4_end: // end
+  // exit(0)
+  pushint 0
+  return
+
+
+// func close_nft_to(asset_id: int, account: bytes):
+__func__close_nft_to:
+store 3 // account
+store 4 // asset_id
+// int is_opted_in [slot 5]
+// is_opted_in, _ = asset_holding_get(AssetBalance, Global.CurrentApplicationAddress, asset_id)
+global CurrentApplicationAddress
+load 4 // asset_id
+asset_holding_get AssetBalance
+store 5 // is_opted_in
+pop // discarding value for _
+// if is_opted_in:
+  load 5 // is_opted_in
+  bz l7_end
+  // then:
+    // inner_txn:
+    itxn_begin
+      // TypeEnum: Axfer
+      pushint 4 // Axfer
+      itxn_field TypeEnum
+      // XferAsset: asset_id
+      load 4 // asset_id
+      itxn_field XferAsset
+      // AssetCloseTo: account
+      load 3 // account
+      itxn_field AssetCloseTo
+    itxn_submit
+    // end inner_txn
+  l7_end: // end
+// return
+retsub
+
+
+// func repay_previous_lead_bidder(prev_lead_bidder: bytes, prev_lead_bid_amount: int):
+__func__repay_previous_lead_bidder:
+store 6 // prev_lead_bid_amount
+store 7 // prev_lead_bidder
+// inner_txn:
+itxn_begin
+  // TypeEnum: Pay
+  pushint 1 // Pay
+  itxn_field TypeEnum
+  // Amount: prev_lead_bid_amount - Global.MinTxnFee
+  load 6 // prev_lead_bid_amount
+  global MinTxnFee
+  -
+  itxn_field Amount
+  // Receiver: prev_lead_bidder
+  load 7 // prev_lead_bidder
+  itxn_field Receiver
+itxn_submit
+// end inner_txn
+// return
+retsub
+
+
+// func close_account_to(account: bytes):
+__func__close_account_to:
+store 8 // account
+// if balance(Global.CurrentApplicationAddress) != 0:
+  global CurrentApplicationAddress
+  balance
+  pushint 0
+  !=
+  bz l8_end
+  // then:
+    // inner_txn:
+    itxn_begin
+      // TypeEnum: Pay
+      pushint 1 // Pay
+      itxn_field TypeEnum
+      // CloseRemainderTo: account
+      load 8 // account
+      itxn_field CloseRemainderTo
+    itxn_submit
+    // end inner_txn
+  l8_end: // end
+// return
+retsub
+

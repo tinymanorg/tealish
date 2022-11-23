@@ -46,9 +46,9 @@ exit(1)
 ## Compiling
 
 ```
-    tealish compile examples/counter_prize.tl
+    tealish compile examples/minimal_example/counter_prize.tl
 ```
-This will produce [`counter_prize.teal`](examples/build/counter_prize.teal) in the [`build`](examples/build/) subdirectory.
+This will produce [`counter_prize.teal`](examples/minimal_example/build/counter_prize.teal) in the [`build`](examples/minimal_examplebuild/) subdirectory.
 
 ## Editor Support
 
