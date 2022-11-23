@@ -33,6 +33,8 @@ Usage
    quick_start
    language
    examples
+   recipes
+   questions
 
 
 

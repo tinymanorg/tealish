@@ -300,6 +300,21 @@ Examples::
         result = result + "*"
     end
 
+.. _inline_teal:
+
+Inline Teal
+-----------
+
+Structure::
+
+    teal:
+        {Statements}
+    end
+
+Examples:
+
+.. literalinclude:: ./sources/language/inline_teal.tl
+
 Inner Transactions
 ------------------
 
@@ -339,6 +354,8 @@ Inner transactions can be grouped in inner groups::
             Fee: 0
         end
     end
+
+.. _functions:
 
 Functions
 ---------
@@ -388,19 +405,25 @@ Functions can be defined in Tealish in the following forms::
 - Functions must have ``return`` just before ``end``.
 - Functions must be defined at the end of programs or Blocks. There can be no other statements after function definitions apart from other function definitions.
 
-Examples::
+Examples:
 
-    func get_balance(account_idx: int, asset_id: int) int:
-        int balance
-        if asset_id == 0:
-            balance = balance(account_idx) - min_balance(account_idx)
-        else:
-            _, balance = asset_holding_get(AssetBalance, account_idx, asset_id)
-        end
-        return balance
+.. literalinclude:: ./sources/language/functions.tl
+
+.. _blocks:
+
+Blocks
+------
+
+Blocks can be defined in Tealish in the following forms::
+
+    block {block_name}:
+    {Statements}
     end
 
-    func checks():
-        assert(app_local_get(0, "x") > 7)
-        assert(app_local_get(0, "y") > 6)
-    end
+- Variables are scoped by blocks and functions.
+- Blocks should end with an exit statement.
+
+Examples:
+
+.. literalinclude:: ./sources/language/blocks.tl
+

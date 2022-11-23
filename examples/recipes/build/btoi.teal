@@ -1,0 +1,38 @@
+// bytes input_as_bytes = Txn.ApplicationArgs[0] [slot 0]
+txna ApplicationArgs 0
+store 0 // input_as_bytes
+// int input_as_int = btoi(input_as_bytes) [slot 1]
+load 0 // input_as_bytes
+btoi
+store 1 // input_as_int
+
+// Example: Total sum of all app arguments
+// int app_args_count = Txn.NumAppArgs [slot 2]
+txn NumAppArgs
+store 2 // app_args_count
+// int total = 0 [slot 3]
+pushint 0
+store 3 // total
+
+// for index in 0:app_args_count:
+  pushint 0
+  store 4 // index
+  l0_for:
+  load 4 // index
+  load 2 // app_args_count
+  ==
+  bnz l0_end
+  // total = total + btoi(Txn.ApplicationArgs[index])
+  load 3 // total
+  load 4 // index
+  txnas ApplicationArgs
+  btoi
+  +
+  store 3 // total
+  load 4 // index
+  pushint 1
+  +
+  store 4 // index
+  b l0_for
+  l0_end: // end
+

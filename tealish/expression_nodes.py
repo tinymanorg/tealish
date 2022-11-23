@@ -1,159 +1,186 @@
-class Node:
-    def process(self, compiler):
-        pass
-
-    def teal(self):
-        raise NotImplementedError()
+from .base import BaseNode
+from .errors import CompileError
 
 
-class Integer(Node):
+class Integer(BaseNode):
     def __init__(self, value, parent=None) -> None:
-        self.value = value
+        self.value = int(value)
         self.type = "int"
+        self.parent = parent
 
-    def process(self, compiler):
-        pass
+    def write_teal(self, writer):
+        writer.write(self, f"pushint {self.value}")
 
-    def teal(self):
-        return [f"pushint {self.value}"]
+    def _tealish(self, formatter=None):
+        return f"pushint {self.value}"
 
 
-class Bytes(Node):
+class Bytes(BaseNode):
     def __init__(self, value, parent=None) -> None:
         self.value = value
         self.type = "bytes"
+        self.parent = parent
 
-    def process(self, compiler):
-        pass
+    def write_teal(self, writer):
+        writer.write(self, f'pushbytes "{self.value}"')
 
-    def teal(self):
-        return [f'pushbytes "{self.value}"']
+    def _tealish(self, formatter=None):
+        return f'"{self.value}"'
 
 
-class Variable(Node):
+class Variable(BaseNode):
     def __init__(self, name, parent=None) -> None:
         self.name = name
+        self.parent = parent
 
-    def process(self, compiler):
-        self.slot, self.type = compiler.lookup_var(self.name)
+    def process(self):
+        self.slot, self.type = self.lookup_var(self.name)
 
-    def teal(self):
-        return [f"load {self.slot} // {self.name}"]
+    def write_teal(self, writer):
+        writer.write(self, f"load {self.slot} // {self.name}")
+
+    def _tealish(self, formatter=None):
+        return f"{self.name}"
 
 
-class Constant(Node):
+class Constant(BaseNode):
     def __init__(self, name, parent=None) -> None:
         self.name = name
         self.type = None
+        self.parent = parent
 
-    def process(self, compiler):
+    def process(self):
         type, value = None, None
         try:
-            type, value = compiler.lookup_const(self.name)
+            # user defined const
+            type, value = self.lookup_const(self.name)
         except KeyError:
             try:
-                type, value = compiler.constants[self.name]
+                # builtin TEAL constants
+                type, value = self.lookup_constant(self.name)
             except KeyError:
-                raise Exception(f'Constant "{self.name}" not declared in scope')
+                raise CompileError(
+                    f'Constant "{self.name}" not declared in scope', node=self
+                )
+        if type not in ("int", "bytes"):
+            raise CompileError(f"Unexpected const type {type}", node=self)
         self.type = type
         self.value = value
 
-    def teal(self):
+    def write_teal(self, writer):
         if self.type == "int":
-            return [f"pushint {self.value} // {self.name}"]
+            writer.write(self, f"pushint {self.value} // {self.name}")
         elif self.type == "bytes":
-            return [f"pushbytes {self.value} // {self.name}"]
-        else:
-            raise Exception("Unexpected const type")
+            writer.write(self, f"pushbytes {self.value} // {self.name}")
+
+    def _tealish(self, formatter=None):
+        return f"{self.name}"
 
 
-class UnaryOp(Node):
+class UnaryOp(BaseNode):
     def __init__(self, op, a, parent=None) -> None:
         self.a = a
         self.op = op
+        self.nodes = [a]
+        self.parent = parent
 
-    def process(self, compiler):
-        self.a.process(compiler)
-        compiler.check_arg_types(self.op, [self.a])
-        op = compiler.lookup_op(self.op)
+    def process(self):
+        self.a.process()
+        self.check_arg_types(self.op, [self.a])
+        op = self.lookup_op(self.op)
         self.type = {"B": "bytes", "U": "int", ".": "any"}[op.get("Returns", "")]
 
-    def teal(self):
-        return self.a.teal() + [f"{self.op}"]
+    def write_teal(self, writer):
+        writer.write(self, self.a)
+        writer.write(self, f"{self.op}")
+
+    def _tealish(self, formatter=None):
+        return f"{self.op}{self.a.tealish(formatter)}"
 
 
-class BinaryOp(Node):
+class BinaryOp(BaseNode):
     def __init__(self, a, b, op, parent=None) -> None:
         self.a = a
         self.b = b
         self.op = op
+        self.nodes = [a, b]
+        self.parent = parent
 
-    def process(self, compiler):
-        self.a.process(compiler)
-        self.b.process(compiler)
-        compiler.check_arg_types(self.op, [self.a, self.b])
-        op = compiler.lookup_op(self.op)
+    def process(self):
+        self.a.process()
+        self.b.process()
+        self.check_arg_types(self.op, [self.a, self.b])
+        op = self.lookup_op(self.op)
         self.type = {"B": "bytes", "U": "int", ".": "any"}[op.get("Returns", "")]
 
-    def teal(self):
-        return self.a.teal() + self.b.teal() + [f"{self.op}"]
+    def write_teal(self, writer):
+        writer.write(self, self.a)
+        writer.write(self, self.b)
+        writer.write(self, f"{self.op}")
+
+    def _tealish(self, formatter=None):
+        return f"{self.a.tealish(formatter)} {self.op} {self.b.tealish(formatter)}"
 
 
-class Group(Node):
+class Group(BaseNode):
     def __init__(self, expression, parent=None) -> None:
         self.expression = expression
+        self.nodes = [expression]
+        self.parent = parent
 
-    def process(self, compiler):
-        self.expression.process(compiler)
+    def process(self):
+        self.expression.process()
         self.type = self.expression.type
 
-    def teal(self):
-        return self.expression.teal()
+    def write_teal(self, writer):
+        writer.write(self, self.expression)
+
+    def _tealish(self, formatter=None):
+        return f"({self.expression.tealish(formatter)})"
 
 
-class FunctionCall(Node):
+class FunctionCall(BaseNode):
     def __init__(self, name, args, parent=None) -> None:
         self.name = name
         self.args = args
         self.parent = parent
         self.type = None
         self.func_call_type = None
+        self.nodes = args
+        self.immediate_args = ""
 
-    def process(self, compiler):
+    def process(self):
         func = None
-        try:
-            func = compiler.lookup_func(self.name)
-        except KeyError:
-            pass
-        if func:
-            return self.process_user_defined_func_call(compiler, func)
-        try:
-            func = compiler.lookup_op(self.name)
-        except KeyError:
-            pass
-        if func:
-            return self.process_op_call(compiler, func)
-
         if self.name in ("error", "push", "pop"):
-            return self.process_special_call(compiler)
+            return self.process_special_call()
+        try:
+            func = self.lookup_func(self.name)
+        except KeyError:
+            pass
+        if func:
+            return self.process_user_defined_func_call(func)
+        try:
+            func = self.lookup_op(self.name)
+        except KeyError:
+            pass
+        if func:
+            return self.process_op_call(func)
         else:
-            raise Exception(f'Unknown function or opcode "{self.name}"')
+            raise CompileError(f'Unknown function or opcode "{self.name}"', node=self)
 
-    def process_user_defined_func_call(self, compiler, func):
+    def process_user_defined_func_call(self, func):
         self.func_call_type = "user_defined"
         self.func = func
         self.type = func.returns[0] if len(func.returns) == 1 else func.returns
         for arg in self.args:
-            arg.process(compiler)
+            arg.process()
 
-    def teal_user_defined_func_call(self):
-        teal = []
+    def write_teal_user_defined_func_call(self, writer):
         for arg in self.args:
-            teal += arg.teal()
-        teal += [f"callsub {self.func.label}"]
-        return teal
+            writer.write(self, arg)
+        writer.write(self, f"callsub {self.func.label}")
 
-    def process_op_call(self, compiler, op):
+    def process_op_call(self, op):
         self.func_call_type = "op"
         self.op = op
         immediates = self.args[: (op["Size"] - 1)]
@@ -161,10 +188,10 @@ class FunctionCall(Node):
 
         self.args = self.args[(op["Size"] - 1) :]
         if len(self.args) != num_args:
-            raise Exception(f'Expected {num_args} args for {op["Name"]}!')
+            raise CompileError(f'Expected {num_args} args for {op["Name"]}!', node=self)
         for i, arg in enumerate(self.args):
-            arg.process(compiler)
-        compiler.check_arg_types(self.name, self.args)
+            arg.process()
+        self.check_arg_types(self.name, self.args)
         for i, x in enumerate(immediates):
             if x.__class__.__name__ == "Constant":
                 immediates[i] = x.name
@@ -176,191 +203,219 @@ class FunctionCall(Node):
         ][::-1]
         self.type = returns[0] if len(returns) == 1 else returns
 
-    def process_special_call(self, compiler):
+    def process_special_call(self):
         self.func_call_type = "special"
+        self.type = "any"
         for arg in self.args:
-            arg.process(compiler)
+            arg.process()
 
-    def teal_op_call(self):
-        teal = []
+    def write_teal_op_call(self, writer):
         for arg in self.args:
-            teal += arg.teal()
+            writer.write(self, arg)
         if self.immediate_args:
-            teal += [f"{self.name} {self.immediate_args}"]
+            writer.write(self, f"{self.name} {self.immediate_args}")
         else:
-            teal += [f"{self.name}"]
-        return teal
+            writer.write(self, f"{self.name}")
 
-    def teal_special_call(self):
-        teal = []
+    def write_teal_special_call(self, writer):
         if self.name == "error":
-            teal = ["err"]
+            writer.write(self, "err")
         elif self.name == "push":
             for arg in self.args:
-                teal += arg.teal()
-            teal += [f"// {self.name}"]
+                writer.write(self, arg)
+            writer.write(self, "// push")
         elif self.name == "pop":
-            parent = self.parent.__class__.__name__
-            if parent in ("DeclareAssignment", "SingleAssignment"):
-                teal += [f"// {self.name}"]
-            else:
-                teal += [f"{self.name}"]
-        return teal
+            writer.write(self, "// pop")
 
-    def teal(self):
+    def write_teal(self, writer):
         if self.func_call_type == "user_defined":
-            return self.teal_user_defined_func_call()
+            self.write_teal_user_defined_func_call(writer)
         elif self.func_call_type == "op":
-            return self.teal_op_call()
+            self.write_teal_op_call(writer)
         elif self.func_call_type == "special":
-            return self.teal_special_call()
+            self.write_teal_special_call(writer)
+
+    def _tealish(self, formatter=None):
+        args = [a.tealish(formatter) for a in self.args]
+        if self.immediate_args:
+            args = self.immediate_args.split(", ") + args
+        return f"{self.name}({', '.join(args)})"
 
 
-class TxnField(Node):
+class TxnField(BaseNode):
     def __init__(self, field, parent=None) -> None:
         self.field = field
         self.type = "any"
+        self.parent = parent
 
-    def process(self, compiler):
-        self.type = compiler.get_field_type("txn", self.field)
+    def process(self):
+        self.type = self.get_field_type("txn", self.field)
 
-    def teal(self):
-        return [f"txn {self.field}"]
+    def write_teal(self, writer):
+        writer.write(self, f"txn {self.field}")
+
+    def _tealish(self, formatter=None):
+        return f"Txn.{self.field}"
 
 
-class TxnArrayField(Node):
+class TxnArrayField(BaseNode):
     def __init__(self, field, arrayIndex, parent=None) -> None:
         self.field = field
         self.arrayIndex = arrayIndex
         self.type = "any"
+        self.parent = parent
 
-    def process(self, compiler):
-        self.type = compiler.get_field_type("txn", self.field)
+    def process(self):
+        self.type = self.get_field_type("txn", self.field)
         if type(self.arrayIndex) != Integer:
             # index is an expression that needs to be evaluated
-            self.arrayIndex.process(compiler)
+            self.arrayIndex.process()
 
-    def teal(self):
-        teal = []
+    def write_teal(self, writer):
         if type(self.arrayIndex) != Integer:
-            teal += self.arrayIndex.teal()
-            teal += [f"txnas {self.field}"]
+            writer.write(self, self.arrayIndex)
+            writer.write(self, f"txnas {self.field}")
         else:
             # index is a constant
-            teal += [f"txna {self.field} {self.arrayIndex.value}"]
-        return teal
+            writer.write(self, f"txna {self.field} {self.arrayIndex.value}")
+
+    def _tealish(self, formatter=None):
+        return f"Txn.{self.field}[{self.arrayIndex.tealish(formatter)}]"
 
 
-class GroupTxnField(Node):
+class GroupTxnField(BaseNode):
     def __init__(self, field, index, parent=None) -> None:
         self.field = field
         self.index = index
         self.type = "any"
+        self.parent = parent
 
-    def process(self, compiler):
-        self.type = compiler.get_field_type("gtxn", self.field)
+    def process(self):
+        self.type = self.get_field_type("gtxn", self.field)
         if type(self.index) != Integer:
             # index is an expression that needs to be evaluated
-            self.index.process(compiler)
+            self.index.process()
 
-    def teal(self):
-        teal = []
+    def write_teal(self, writer):
         if type(self.index) != Integer:
             # index is an expression that needs to be evaluated
-            teal += self.index.teal()
-            teal += [f"gtxns {self.field}"]
+            writer.write(self, self.index)
+            writer.write(self, f"gtxns {self.field}")
         else:
             # index is a constant
             assert self.index.value >= 0, "Group index < 0"
             assert self.index.value < 16, "Group index > 16"
-            teal += [f"gtxn {self.index.value} {self.field}"]
-        return teal
+            writer.write(self, f"gtxn {self.index.value} {self.field}")
+
+    def _tealish(self, formatter=None):
+        return f"Gtxn[{self.index.tealish(formatter)}].{self.field}"
 
 
-class GroupTxnArrayField(Node):
+class GroupTxnArrayField(BaseNode):
     def __init__(self, field, index, arrayIndex, parent=None) -> None:
         self.field = field
         self.index = index
         self.arrayIndex = arrayIndex
         self.type = "any"
+        self.parent = parent
 
-    def process(self, compiler):
-        self.type = compiler.get_field_type("gtxn", self.field)
+    def process(self):
+        self.type = self.get_field_type("gtxn", self.field)
         if type(self.index) != Integer:
             # index is an expression that needs to be evaluated
-            self.index.process(compiler)
+            self.index.process()
         if type(self.arrayIndex) != Integer:
-            self.arrayIndex.process(compiler)
+            self.arrayIndex.process()
 
-    def teal(self):
-        teal = []
+    def write_teal(self, writer):
         if type(self.index) != Integer:
             # index is an expression that needs to be evaluated
-            teal += self.index.teal()
+            writer.write(self, self.index)
             if type(self.arrayIndex) != Integer:
                 # arrayIndex is an expression that needs to be evaluated
-                teal += self.arrayIndex.teal()
-                teal += [f"gtxnsas {self.field}"]
+                writer.write(self, self.arrayIndex)
+                writer.write(self, f"gtxnsas {self.field}")
             else:
                 # arrayIndex is a constant
-                teal += [f"gtxnsa {self.field} {self.arrayIndex.value}"]
+                writer.write(self, f"gtxnsa {self.field} {self.arrayIndex.value}")
         else:
             # index is a constant
             assert self.index.value >= 0 and self.index.value < 16
             if type(self.arrayIndex) != Integer:
                 # arrayIndex is an expression that needs to be evaluated
-                teal += self.arrayIndex.teal()
-                teal += [f"gtxnas {self.index.value} {self.field}"]
+                writer.write(self, self.arrayIndex)
+                writer.write(self, f"gtxnas {self.index.value} {self.field}")
             else:
                 # arrayIndex is a constant
-                teal += [
-                    f"gtxna {self.index.value} {self.field} {self.arrayIndex.value}"
-                ]
-        return teal
+                writer.write(
+                    self,
+                    f"gtxna {self.index.value} {self.field} {self.arrayIndex.value}",
+                )
+
+    def _tealish(self, formatter=None):
+        return f"Gtxn[{self.index.tealish(formatter)}].{self.field}[{self.arrayIndex.tealish(formatter)}]"
 
 
-class PositiveGroupIndex(Node):
+class PositiveGroupIndex(BaseNode):
     def __init__(self, index, parent=None) -> None:
         self.index = index
         self.type = "int"
+        self.parent = parent
 
-    def teal(self):
-        teal = ["txn GroupIndex", f"pushint {self.index}", "+"]
-        return teal
+    def write_teal(self, writer):
+        writer.write(self, "txn GroupIndex")
+        writer.write(self, f"pushint {self.index}")
+        writer.write(self, "+")
+
+    def _tealish(self, formatter=None):
+        return f"+{self.index}"
 
 
-class NegativeGroupIndex(Node):
+class NegativeGroupIndex(BaseNode):
     def __init__(self, index, parent=None) -> None:
         self.index = index
         self.type = "int"
+        self.parent = parent
 
-    def teal(self):
-        teal = ["txn GroupIndex", f"pushint {self.index}", "-"]
-        return teal
+    def write_teal(self, writer):
+        writer.write(self, "txn GroupIndex")
+        writer.write(self, f"pushint {self.index}")
+        writer.write(self, "-")
+
+    def _tealish(self, formatter=None):
+        return f"-{self.index}"
 
 
-class GlobalField(Node):
+class GlobalField(BaseNode):
     def __init__(self, field, parent=None) -> None:
         self.field = field
         self.type = "any"
+        self.parent = parent
 
-    def process(self, compiler):
-        self.type = compiler.get_field_type("global", self.field)
+    def process(self):
+        self.type = self.get_field_type("global", self.field)
 
-    def teal(self):
-        return [f"global {self.field}"]
+    def write_teal(self, writer):
+        writer.write(self, f"global {self.field}")
+
+    def _tealish(self, formatter=None):
+        return f"Global.{self.field}"
 
 
-class InnerTxnField(Node):
+class InnerTxnField(BaseNode):
     def __init__(self, field, parent=None) -> None:
         self.field = field
         self.type = "any"
+        self.parent = parent
 
-    def process(self, compiler):
-        self.type = compiler.get_field_type("txn", self.field)
+    def process(self):
+        self.type = self.get_field_type("txn", self.field)
 
-    def teal(self):
-        return [f"itxn {self.field}"]
+    def write_teal(self, writer):
+        writer.write(self, f"itxn {self.field}")
+
+    def _tealish(self, formatter=None):
+        return f"Itxn.{self.field}"
 
 
 def class_provider(name):
