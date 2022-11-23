@@ -1,4 +1,4 @@
-![Tealish, A readable language for Algorand, Powered by Tinyman](docs/sources/img/tealish_header.png)
+![Tealish, A readable language for Algorand, Powered by Tinyman](img/tealish_header.png)
 
 # Tealish
 
