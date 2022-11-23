@@ -2,6 +2,11 @@
 
 FAQ
 ===
+Which Opcodes does Tealish support?
+--------------------------------------
+
+All of them! Most opcodes are not implemented directly in Tealish but instead automatically understood by the compiler from the `langspec.json`. This file can be updated independently of Tealish using the `CLI` to make the compiler aware of opcodes newly added to `go-algorand`. 
+
 
 Does Tealish support ABI?
 -------------------------
