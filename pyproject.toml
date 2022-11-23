@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["tealish"]
+
+
+[project]
+name = "tealish"
+version = "0.0.1.a1"
+authors = [
+  { name="Tinyman", email="hello@tinyman.org" },
+]
+description = "The Tealish language for the Algorand Virtual Machine."
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    'textX >= 3.0.0',
+    'click >= 8.1.3',
+    'requests >= 2.0.0',
+    'py-algorand-sdk >= 1.18.0'
+]
+
+[project.urls]
+"Homepage" = "https://github.com/Hipo/tealish"
+"Bug Tracker" = "https://github.com/Hipo/tealish/issues"
+
+[project.scripts]
+tealish = "tealish.cli:cli"
