@@ -313,7 +313,7 @@ Structure::
 
 Examples:
 
-.. literalinclude:: ./sources/language/inline_teal.tl
+.. literalinclude:: ./source/language/inline_teal.tl
 
 Inner Transactions
 ------------------
@@ -407,7 +407,7 @@ Functions can be defined in Tealish in the following forms::
 
 Examples:
 
-.. literalinclude:: ./sources/language/functions.tl
+.. literalinclude:: ./source/language/functions.tl
 
 .. _blocks:
 
@@ -425,5 +425,5 @@ Blocks can be defined in Tealish in the following forms::
 
 Examples:
 
-.. literalinclude:: ./sources/language/blocks.tl
+.. literalinclude:: ./source/language/blocks.tl
 

@@ -5,9 +5,10 @@
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
+from datetime import datetime
 
 project = "Tealish"
-copyright = "2022, Tinyman"
+copyright = f"{datetime.now().year}, Tinyman"
 author = "Tinyman"
 
 # -- General configuration ---------------------------------------------------
@@ -23,4 +24,22 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = "alabaster"
-html_static_path = ["_static"]
+html_static_path = [
+    "_static",
+    # "../img"
+]
+
+
+# https://alabaster.readthedocs.io/en/latest/customization.html
+# html_logo = ""
+html_theme_options = {
+    "logo_name": "Tealish",
+    # "logo": "",
+    "description": "A readable language for Algorand",
+    "github_user": "tinymanorg",
+    "github_repo": "tealish",
+    "fixed_sidebar": True,
+
+    "github_button": True,
+    "github_type": "star",
+}

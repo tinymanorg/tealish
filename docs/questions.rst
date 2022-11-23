@@ -19,6 +19,7 @@ However, implementing ABI compatible contracts using Tealish is possible. You sh
 and generate the description manually.
 
 It is likely that future versions of Tealish will allow for more automated ABI support.
+
 What is the difference between `block` and `func`?
 --------------------------------------------------
 
