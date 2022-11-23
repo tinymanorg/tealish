@@ -1,3 +1,5 @@
+![Tealish, A readable language for Algorand, Powered by Tinyman](docs/sources/img/tealish_header.png)
+
 # Tealish
 
 Tealish is a readable language for the Algorand Virtual Machine. It enables developers to write TEAL in a procedural style optimized for readability. 

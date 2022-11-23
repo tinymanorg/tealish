@@ -3,8 +3,7 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Tealish: A readable language for Algorand 
-=========================================
+.. image:: ../img/tealish_header.png
 
 Tealish is a readable language for the Algorand Virtual Machine. It enables developers to write TEAL in a procedural style optimized for readability.
 
@@ -33,9 +32,9 @@ Usage
    quick_start
    language
    examples
+   cli
    recipes
    questions
-   cli
 
 
 
