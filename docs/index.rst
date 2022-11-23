@@ -36,6 +36,7 @@ Usage
    recipes
    questions
    cli
+   zen
 
 
 
