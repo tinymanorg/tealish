@@ -26,8 +26,8 @@ GroupTxnArrayField: 'Gtxn[' index=Expression '].' field=FieldName '[' arrayIndex
 InnerTxnField: 'Itxn.' field=FieldName;
 InnerTxnArrayField: 'Itxn.' field=FieldName '[' arrayIndex=Expression ']';
 GlobalField: 'Global.' field=FieldName;
-StructField: name=Name '.' field=Name;
-Value: FunctionCall | Field | StructField | UnaryOp | Group | Integer | Bytes | Constant | Variable;
+StructOrBoxField: name=Name '.' field=Name;
+Value: FunctionCall | Field | StructOrBoxField | UnaryOp | Group | Integer | Bytes | Constant | Variable;
 Variable: name=Name;
 Constant: name=/([A-Z][A-Za-z_0-9]+)/;
 Name: (/([a-z][A-Za-z_0-9]*)/ | /_/);

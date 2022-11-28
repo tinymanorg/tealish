@@ -35,10 +35,12 @@ class Variable(BaseNode):
 
     def process(self):
         self.slot, self.type = self.lookup_var(self.name)
-        # is it a struct?
+        # is it a struct or box?
         if type(self.type) == tuple:
             if self.type[0] == "struct":
                 self.type = "bytes"
+            elif self.type[0] == "box":
+                raise CompileError("Invalid use of a Box reference", node=self)
 
     def write_teal(self, writer):
         writer.write(self, f"load {self.slot} // {self.name}")
@@ -422,7 +424,7 @@ class InnerTxnField(BaseNode):
         return f"Itxn.{self.field}"
 
 
-class StructField(BaseNode):
+class StructOrBoxField(BaseNode):
     def __init__(self, name, field, parent=None) -> None:
         self.name = name
         self.field = field
@@ -447,6 +449,13 @@ class StructField(BaseNode):
                 writer.write(self, f"extract_uint64 // {self.field}")
             else:
                 writer.write(self, f"extract {self.offset} {self.size} // {self.field}")
+        elif self.object_type == "box":
+            writer.write(self, f"load {self.slot} // box key {self.name}")
+            writer.write(self, f"pushint {self.offset} // offset")
+            writer.write(self, f"pushint {self.size} // size")
+            writer.write(self, f"box_extract // {self.name}.{self.field}")
+            if self.data_type == "int":
+                writer.write(self, "btoi")
         else:
             raise Exception()
 
@@ -472,6 +481,6 @@ def class_provider(name):
         "NegativeGroupIndex": NegativeGroupIndex,
         "GlobalField": GlobalField,
         "InnerTxnField": InnerTxnField,
-        "StructField": StructField,
+        "StructOrBoxField": StructOrBoxField,
     }
     return classes.get(name)
