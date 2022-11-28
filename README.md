@@ -11,7 +11,7 @@ The generated Teal should not be surprising - the Tealish writer should be able 
 Tealish is not a general purpose programming language. It is designed specifically for writing contracts for the AVM, optimizing for common patterns. 
 
 ## Status
-Tealish is has been used to write large production contracts but it is not currently considered Production Ready for general use. It may have unexpected behavior outside of the scenarios it has been used for until now.
+Tealish has been used to write large production contracts but it is not currently considered Production Ready for general use. It may have unexpected behavior outside of the scenarios it has been used for until now.
 
 ## Docs
 

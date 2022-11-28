@@ -427,3 +427,24 @@ Examples:
 
 .. literalinclude:: ./source/language/blocks.tl
 
+
+Structs
+------
+
+Structs are used to define structure for byte strings.
+
+Structs can be defined in Tealish in the following form::
+
+    struct {Struct_name}:
+        {field_name}: {type}
+    end
+
+- Structs must be defined at the top of the file.
+- Struct names must begin with a capital letter.
+- Field names must be lowercase.
+- Types may be either ``int`` or ``bytes[N]``
+
+Examples:
+
+.. literalinclude:: ./source/language/structs.tl
+

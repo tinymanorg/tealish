@@ -37,8 +37,8 @@ allows handling integer overflows.
    :emphasize-lines: 7-9
    :linenos:
 
-Optimize the generated TEAL code partially
-------------------------------------------
+Optimizing the generated TEAL code partially
+--------------------------------------------
 
 Teal allows using raw TEAL directly, see :ref:`inline_teal`.
 Decreasing the size and computational cost using TEAL and custom stack management is possible.
