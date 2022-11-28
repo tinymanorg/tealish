@@ -34,7 +34,10 @@ class Variable(BaseNode):
         self.parent = parent
 
     def process(self):
-        self.slot, self.type = self.lookup_var(self.name)
+        try:
+            self.slot, self.type = self.lookup_var(self.name)
+        except KeyError as e:
+            raise CompileError(e.args[0], node=self)
         # is it a struct?
         if type(self.type) == tuple:
             if self.type[0] == "struct":

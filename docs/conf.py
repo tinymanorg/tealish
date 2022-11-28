@@ -39,7 +39,6 @@ html_theme_options = {
     "github_user": "tinymanorg",
     "github_repo": "tealish",
     "fixed_sidebar": True,
-
     "github_button": True,
     "github_type": "star",
 }

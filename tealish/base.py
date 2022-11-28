@@ -211,3 +211,10 @@ class BaseNode:
             return self._line_no
         if hasattr(self, "parent"):
             return self.parent.line_no
+
+    @property
+    def line(self):
+        if hasattr(self, "_line"):
+            return self._line
+        if hasattr(self, "parent"):
+            return self.parent.line
