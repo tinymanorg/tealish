@@ -3,7 +3,7 @@
 <p align="center">
 <img  src="https://visitor-badge.glitch.me/badge?page_id=tinymanorg.tealish&right_color=teal" />
 <a href="https://github.com/tinymanorg/tealish/actions/workflows/tests.yml"><img src="https://github.com/tinymanorg/tealish/actions/workflows/tests.yml/badge.svg?branch=main" /></a>
-<a href="https://algorand.com"><img src="https://img.shields.io/badge/Read-Docs-gold.svg" /></a>
+<a href="https://tealish.readthedocs.io/en/latest/"><img src="https://img.shields.io/badge/Read-Docs-gold.svg" /></a>
 </p>
 
 ---
