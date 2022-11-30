@@ -1,14 +1,21 @@
 ![Tealish, A readable language for Algorand, Powered by Tinyman](img/tealish_header.png)
 
+<p align="center">
+<img  src="https://visitor-badge.glitch.me/badge?page_id=tinymanorg.tealish&right_color=teal" />
+<a href="https://github.com/tinymanorg/tealish/actions/workflows/tests.yml"><img src="https://github.com/tinymanorg/tealish/actions/workflows/tests.yml/badge.svg?branch=main" /></a>
+<a href="https://algorand.com"><img src="https://img.shields.io/badge/Read-Docs-gold.svg" /></a>
+</p>
 
-Tealish is a readable language for the Algorand Virtual Machine. It enables developers to write TEAL in a procedural style optimized for readability. 
+---
+
+Tealish is a readable language for the Algorand Virtual Machine. It enables developers to write TEAL in a procedural style optimized for readability.
 
 Tealish transpiles to Teal rather than compiling directly to AVM bytecode. The produced Teal is as close to handwritten idiomatic Teal as possible.
 The original source Tealish (including comments) is included as comments in the generated Teal.
 The generated Teal is intended to be readable and auditable.
 The generated Teal should not be surprising - the Tealish writer should be able to easily imagine the generated Teal.
 
-Tealish is not a general purpose programming language. It is designed specifically for writing contracts for the AVM, optimizing for common patterns. 
+Tealish is not a general purpose programming language. It is designed specifically for writing contracts for the AVM, optimizing for common patterns.
 
 ## Status
 Tealish has been used to write large production contracts but it is not currently considered Production Ready for general use. It may have unexpected behavior outside of the scenarios it has been used for until now.
@@ -126,8 +133,8 @@ end
 ```
 
 ## Design Goals
-Tealish is designed first and foremost to be a more readable version of Teal. 
-The biggest difference between Teal and Tealish is the stack is made implicit in Tealish instead of being explicit as in Teal. 
+Tealish is designed first and foremost to be a more readable version of Teal.
+The biggest difference between Teal and Tealish is the stack is made implicit in Tealish instead of being explicit as in Teal.
 
 Readability is achieved by the following:
 - Multiple operations on a single line

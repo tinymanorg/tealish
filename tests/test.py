@@ -257,7 +257,8 @@ class TestAssignment(unittest.TestCase):
         with self.assertRaises(CompileError) as e:
             _ = compile_min(["x = 1"])
         self.assertEqual(
-            e.exception.args[0], 'Var "x" not declared in current scope at line 1\n x = 1'
+            e.exception.args[0],
+            'Var "x" not declared in current scope at line 1\n x = 1',
         )
 
     def test_fail_invalid(self):
