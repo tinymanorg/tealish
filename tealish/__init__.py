@@ -1,16 +1,18 @@
+from typing import List, Dict, Tuple, Optional, Any, Union
 from .nodes import Program
 from .utils import TealishMap
 
+from .base import BaseNode
 
 class TealWriter:
     def __init__(self) -> None:
-        self.level = 0
+        self.level: int = 0
         self.output = []
         self.source_map = {}
         self.current_output_line = 1
         self.current_input_line = 1
 
-    def write(self, parent, node_or_teal):
+    def write(self, parent, node_or_teal: Union[BaseNode, str]):
         parent._teal = []
         if hasattr(node_or_teal, "write_teal"):
             node = node_or_teal
@@ -37,7 +39,7 @@ class TealishCompiler:
         self.current_output_line = 1
         self.level = 0
         self.line_no = 0
-        self.nodes = []
+        self.nodes: List[BaseNode] = []
         self.conditional_count = 0
         self.error_messages = {}
         self.max_slot = 0
@@ -95,7 +97,7 @@ class TealishCompiler:
             for n in node.nodes:
                 self.traverse(n, visitor)
 
-    def reformat(self, formatter=None):
+    def reformat(self, formatter=None)->str:
         if not self.nodes:
             self.parse()
         if not self.processed:
@@ -109,14 +111,14 @@ class TealishCompiler:
         return map
 
 
-def compile_program(source):
+def compile_program(source: str):
     source_lines = source.split("\n")
     compiler = TealishCompiler(source_lines)
     teal = compiler.compile()
     return teal, compiler.get_map()
 
 
-def compile_lines(source_lines):
+def compile_lines(source_lines: List[str]):
     compiler = TealishCompiler(source_lines)
     compiler.parse()
     compiler.compile()
@@ -124,7 +126,7 @@ def compile_lines(source_lines):
     return teal_lines
 
 
-def reformat_program(source):
+def reformat_program(source: str):
     source_lines = source.split("\n")
     compiler = TealishCompiler(source_lines)
     output = compiler.reformat()
