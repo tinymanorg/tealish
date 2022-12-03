@@ -1,14 +1,14 @@
-from typing import Dict, List
+from typing import Dict, List, Tuple, Optional, Union, Any
 from algosdk import source_map  # type: ignore
 
 
-def minify_teal(teal_lines):
-    source_map = {}
+def minify_teal(teal_lines: List[str]) -> Tuple[List[str], Dict[int, int]]:
+    source_map: Dict[int, int] = {}
     n = 1
-    output = []
+    output: List[str] = []
     previous_line_is_label = False
-    previous_label = None
-    label_replacements = {}
+    previous_label: str = ""
+    label_replacements: Dict[str, str] = {}
     for i, line in enumerate(teal_lines):
         i = i + 1
         line = line.strip()
@@ -34,8 +34,8 @@ def minify_teal(teal_lines):
     return output, source_map
 
 
-def strip_comments(teal_lines):
-    output = []
+def strip_comments(teal_lines: List[str]) -> List[str]:
+    output: List[str] = []
     for i, line in enumerate(teal_lines):
         line = line.strip()
         if not (not line or line.startswith("//")):
@@ -45,7 +45,7 @@ def strip_comments(teal_lines):
 
 
 class TealishMap:
-    def __init__(self, map=None) -> None:
+    def __init__(self, map: Optional[Dict[str, Dict[int, int]]] = None) -> None:
         map = map or {}
         self.pc_teal = {int(k): int(v) for k, v in map.get("pc_teal", {}).items()}
         self.teal_tealish = {
@@ -58,29 +58,35 @@ class TealishMap:
                 self.tealish_teal[tealish] = []
             self.tealish_teal[tealish].append(teal)
 
-    def get_tealish_line_for_pc(self, pc):
+    def get_tealish_line_for_pc(self, pc: int) -> Optional[int]:
         teal_line = self.get_teal_line_for_pc(pc)
-        return self.teal_tealish.get(teal_line, None)
+        if teal_line is not None:
+            return self.teal_tealish.get(teal_line, None)
+        return None
 
-    def get_teal_line_for_pc(self, pc):
+    def get_teal_line_for_pc(self, pc: int) -> Optional[int]:
         return self.pc_teal.get(pc, None)
 
-    def get_teal_lines_for_tealish(self, tealish_line):
+    def get_teal_lines_for_tealish(self, tealish_line: int) -> List[int]:
         return self.tealish_teal.get(tealish_line, [])
 
-    def get_tealish_line_for_teal(self, teal_line):
+    def get_tealish_line_for_teal(self, teal_line: int) -> Optional[int]:
         return self.teal_tealish.get(teal_line, None)
 
-    def get_error_for_pc(self, pc):
+    def get_error_for_pc(self, pc: int) -> Optional[int]:
         tealish_line = self.get_tealish_line_for_pc(pc)
-        return self.errors.get(tealish_line, None)
+        if tealish_line is not None:
+            return self.errors.get(tealish_line, None)
+        return None
 
-    def update_from_teal_sourcemap(self, sourcemap):
-        if type(sourcemap) == dict:
-            sourcemap = source_map.SourceMap(sourcemap)
-        self.pc_teal = dict(sourcemap.pc_to_line)
+    def update_from_teal_sourcemap(
+        self, sourcemap: Union[Dict[str, Any], source_map.SourceMap]
+    ) -> None:
+        sourcemap = source_map.SourceMap(sourcemap)
+        if isinstance(sourcemap, source_map.SourceMap):
+            self.pc_teal = dict(sourcemap.pc_to_line)
 
-    def as_dict(self):
+    def as_dict(self) -> Dict[str, Any]:
         return {
             "pc_teal": self.pc_teal,
             "teal_tealish": self.teal_tealish,

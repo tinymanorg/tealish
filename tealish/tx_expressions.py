@@ -3,6 +3,11 @@ import tealish
 from textx.metamodel import metamodel_from_file  # type: ignore
 from .expression_nodes import class_provider
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .nodes import Node
+
 with importlib.resources.path(tealish, "tealish_expressions.tx") as p:
     tealish_mm = metamodel_from_file(
         p,
@@ -14,6 +19,6 @@ with importlib.resources.path(tealish, "tealish_expressions.tx") as p:
     )
 
 
-def parse_expression(source):
+def parse_expression(source) -> "Node":
     node = tealish_mm.model_from_str(source)
     return node

@@ -1,27 +1,30 @@
-from typing import List
+from typing import List, Dict, TYPE_CHECKING
 from tealish.errors import CompileError
 from .tealish_builtins import constants
 from .langspec import get_active_langspec
 
+
+if TYPE_CHECKING:
+    from .nodes import Block
 
 lang_spec = get_active_langspec()
 
 structs = {}
 
 
-def lookup_op(name):
+def lookup_op(name: str):
     if name not in lang_spec.ops:
         raise KeyError(f'Op "{name}" does not exist!')
     return lang_spec.ops[name]
 
 
-def lookup_constant(name):
+def lookup_constant(name: str):
     if name not in constants:
         raise KeyError(f'Constant "{name}" does not exist!')
     return constants[name]
 
 
-def get_field_type(namespace, name):
+def get_field_type(namespace: Dict[str, str], name: str):
     if "txn" in namespace:
         return lang_spec.txn_fields[name]
     elif namespace == "global":
@@ -144,7 +147,7 @@ class BaseNode:
             blocks.update(s["blocks"])
         return blocks
 
-    def get_block(self, name):
+    def get_block(self, name) -> "Block":
         block = self.get_blocks().get(name)
         # if block:
         #     self.used_blocks.add(block.label)

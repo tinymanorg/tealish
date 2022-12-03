@@ -12,7 +12,7 @@ from tealish.langspec import (
 from tealish.build import assemble_with_goal, assemble_with_algod
 
 
-def _build(path, assembler=None, algod_url=None, quiet=False):
+def _build(path, assembler=None, algod_url=None, quiet=False) -> None:
     if path.is_dir():
         paths = path.glob("*.tl")
     else:
@@ -42,7 +42,7 @@ def _build(path, assembler=None, algod_url=None, quiet=False):
                 try:
                     bytecode, sourcemap = assemble_with_goal(teal_string)
                 except Exception as e:
-                    raise click.ClickException(e)
+                    raise click.ClickException(str(e))
             elif assembler == "algod":
                 if not quiet:
                     click.echo(
@@ -51,7 +51,7 @@ def _build(path, assembler=None, algod_url=None, quiet=False):
                 try:
                     bytecode, sourcemap = assemble_with_algod(teal_string, algod_url)
                 except Exception as e:
-                    raise click.ClickException(e)
+                    raise click.ClickException(str(e))
             elif assembler == "sandbox":
                 raise click.ClickException("Sandbox is not supported yet.")
             else:
