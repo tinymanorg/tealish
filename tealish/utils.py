@@ -1,4 +1,5 @@
-from algosdk import source_map
+from typing import Dict, List
+from algosdk import source_map  # type: ignore
 
 
 def minify_teal(teal_lines):
@@ -51,7 +52,7 @@ class TealishMap:
             int(k): int(v) for k, v in map.get("teal_tealish", {}).items()
         }
         self.errors = {int(k): v for k, v in map.get("errors", {}).items()}
-        self.tealish_teal = {}
+        self.tealish_teal: Dict[int, List[int]] = {}
         for teal, tealish in self.teal_tealish.items():
             if tealish not in self.tealish_teal:
                 self.tealish_teal[tealish] = []

@@ -1,6 +1,6 @@
 import importlib.resources
 import tealish
-from textx.metamodel import metamodel_from_file
+from textx.metamodel import metamodel_from_file  # type: ignore
 from .expression_nodes import class_provider
 
 with importlib.resources.path(tealish, "tealish_expressions.tx") as p:

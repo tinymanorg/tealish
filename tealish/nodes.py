@@ -1,7 +1,7 @@
 import re
 import textwrap
 from collections import defaultdict
-from typing import get_type_hints
+from typing import get_type_hints, List, Optional, Dict, Type
 from .base import BaseNode
 from .errors import CompileError, ParseError
 from .tx_expressions import parse_expression
@@ -13,7 +13,7 @@ VARIABLE_NAME = r"[a-z_][a-zA-Z0-9_]*"
 
 class Node(BaseNode):
     pattern = ""
-    possible_child_nodes = []
+    possible_child_nodes: List[Type[BaseNode]] = []
 
     def __init__(self, line, parent=None, compiler=None) -> None:
         self.parent = parent
@@ -24,12 +24,17 @@ class Node(BaseNode):
         self._line = line
         self._line_no = compiler.line_no if compiler else None
         # self.child_nodes includes nested nodes (e.g. function body or statements within if...else...end)
-        self.child_nodes = []
+        self.child_nodes: List[BaseNode] = []
         # self.nodes includes structural nodes and child_nodes (e.g. function args and body, if conditions and child statements)
         self.nodes = []
         self.properties = {}
         try:
-            self.matches = re.match(self.pattern, self.line).groupdict()
+            matches: Optional[re.Match[str]] = re.match(self.pattern, self.line)
+            if matches is None:
+                raise ParseError(
+                    f'Pattern ({self.pattern}) does not match for {self} for line "{self.line}"'
+                )
+            self.matches = matches.groupdict()
         except AttributeError:
             raise ParseError(
                 f'Pattern ({self.pattern}) does not match for {self} for line "{self.line}"'
@@ -592,7 +597,7 @@ class Switch(InlineStatement):
 
     def __init__(self, line, parent=None, compiler=None) -> None:
         super().__init__(line, parent, compiler)
-        self.options = []
+        self.options: List[SwitchOption] = []
         self.else_ = None
 
     def add_option(self, node):
@@ -769,7 +774,7 @@ class InnerGroup(InlineStatement):
 
     def __init__(self, line, parent=None, compiler=None) -> None:
         super().__init__(line, parent, compiler)
-        self.inners = []
+        self.inners: List[Statement] = []
 
     @classmethod
     def consume(cls, compiler, parent):
@@ -912,7 +917,7 @@ class IfStatement(InlineStatement):
     def __init__(self, line, parent=None, compiler=None) -> None:
         super().__init__(line, parent, compiler)
         self.if_then = None
-        self.elifs = []
+        self.elifs: List[Elif] = []
         self.else_ = None
         self.conditional_index = compiler.conditional_count
         compiler.conditional_count += 1
@@ -1183,7 +1188,7 @@ class For_Statement(InlineStatement):
 class ArgsList(Expression):
     arg_pattern = r"(?P<arg_name>[a-z][a-z_0-9]*): (?P<arg_type>int|bytes)"
     pattern = rf"(?P<args>({arg_pattern}(, )?)*)"
-    args: str
+    args: List[str]
 
     def __init__(self, string) -> None:
         super().__init__(string)
@@ -1199,7 +1204,7 @@ class Func(InlineStatement):
     pattern = r"func (?P<name>[a-zA-Z_0-9]+)\((?P<args>.*)\)(?P<returns>.*):$"
     name: str
     args: ArgsList
-    returns: str
+    returns: List[str]
 
     def __init__(self, line, parent=None, compiler=None) -> None:
         super().__init__(line, parent, compiler)
@@ -1207,8 +1212,8 @@ class Func(InlineStatement):
         scope["functions"][self.name] = self
         self.label = scope["name"] + "__func__" + self.name
         self.new_scope("func__" + self.name)
-        self.returns = list(filter(None, [s.strip() for s in self.returns.split(",")]))
-        self.slots = {}
+        self.returns = list(filter(None, [s.strip() for s in line.split(",")]))
+        self.slots: Dict[int, str] = {}
 
     @classmethod
     def consume(cls, compiler, parent):

@@ -1,47 +1,51 @@
 from typing import List, Dict, Tuple, Optional, Any, Union
-from .nodes import Program
+from .base import BaseNode
+from .nodes import Node, Program
 from .utils import TealishMap
 
-from .base import BaseNode
 
 class TealWriter:
     def __init__(self) -> None:
         self.level: int = 0
-        self.output = []
-        self.source_map = {}
+        self.output: List[str] = []
+        self.source_map: Dict[int, int] = {}
         self.current_output_line = 1
         self.current_input_line = 1
 
-    def write(self, parent, node_or_teal: Union[BaseNode, str]):
+    def write(self, parent: BaseNode, node_or_teal: Union[BaseNode, str]):
         parent._teal = []
-        if hasattr(node_or_teal, "write_teal"):
+        if isinstance(node_or_teal, BaseNode):
             node = node_or_teal
             i = len(self.output)
             node.write_teal(self)
             parent._teal += self.output[i:]
-        else:
+
+        elif isinstance(node_or_teal, str):
             teal = node_or_teal
             parent._teal.append(teal)
-            prefix = "  " * self.level
+            prefix: str = "  " * self.level
             self.output.append(prefix + teal)
             if hasattr(parent, "line_no"):
                 self.current_input_line = parent.line_no
             self.source_map[self.current_output_line] = self.current_input_line
-            parent.teal_line_no = self.current_output_line
+            # TODO: should be `line_no`?
+            # parent.teal_line_no = self.current_output_line
             self.current_output_line += 1
+        else:
+            raise Exception("wat?")
 
 
 class TealishCompiler:
-    def __init__(self, source_lines) -> None:
+    def __init__(self, source_lines: List[str]) -> None:
         self.source_lines = source_lines
-        self.output = []
-        self.source_map = {}
+        self.output: List[str] = []
+        self.source_map: Dict[int, int] = {}
         self.current_output_line = 1
         self.level = 0
         self.line_no = 0
-        self.nodes: List[BaseNode] = []
+        self.nodes: List[Node] = []
         self.conditional_count = 0
-        self.error_messages = {}
+        self.error_messages: Dict[str, str] = {}
         self.max_slot = 0
         self.writer = TealWriter()
         self.processed = False
@@ -97,7 +101,7 @@ class TealishCompiler:
             for n in node.nodes:
                 self.traverse(n, visitor)
 
-    def reformat(self, formatter=None)->str:
+    def reformat(self, formatter=None) -> str:
         if not self.nodes:
             self.parse()
         if not self.processed:

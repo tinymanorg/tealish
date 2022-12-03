@@ -3,6 +3,7 @@ import os
 import requests
 import tealish
 import json
+from typing import Dict, Any
 
 abc = "ABCDEFGHIJK"
 local_lang_spec = None
@@ -59,7 +60,7 @@ class LangSpec:
     def __init__(self, spec) -> None:
         self.is_packaged = False
         self.spec = spec
-        self.fields = {
+        self.fields: Dict[str, Any] = {
             "Global": {},
             "Txn": {},
         }

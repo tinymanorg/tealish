@@ -1,3 +1,4 @@
+from typing import List
 from tealish.errors import CompileError
 from .tealish_builtins import constants
 from .langspec import get_active_langspec
@@ -38,6 +39,9 @@ def check_arg_types(name, args):
 
 
 class BaseNode:
+
+    _teal: List[str]
+
     def process(self):
         pass
 

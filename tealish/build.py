@@ -1,8 +1,8 @@
 from base64 import b64decode
 import json
 import subprocess
-from algosdk.v2client.algod import AlgodClient
-from algosdk.source_map import SourceMap
+from algosdk.v2client.algod import AlgodClient  # type: ignore
+from algosdk.source_map import SourceMap  # type: ignore
 
 
 def assemble_with_goal(teal):
