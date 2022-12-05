@@ -114,6 +114,10 @@ class BaseNode:
             raise Exception(f'Redefinition of variable "{name}"')
 
         scope = self.get_current_scope()
+
+        # TODO: is this used in place of a type check? If we can do an isinstance check to
+        # something that has `compiler` defined, we can be more certain the `compiler` attribute
+        # is defined
         if "func__" in scope["name"]:
             # If this var is declared in a function then use the global max slot + 1
             # This is to prevent functions using overlapping slots
@@ -121,6 +125,7 @@ class BaseNode:
         else:
             slot = self.find_slot()
 
+        # TODO: same issue here with compiler
         self.compiler.max_slot = max(self.compiler.max_slot, slot)
         scope["slots"][name] = [slot, type]
         return slot
@@ -156,6 +161,7 @@ class BaseNode:
     def is_descendant_of(self, node_class: type) -> bool:
         return self.find_parent(node_class) is not None
 
+    # TODO: also suffers from `parent` not being defined
     def find_parent(self, node_class):
         p = self.parent
         while p:
@@ -165,12 +171,14 @@ class BaseNode:
         return None
 
     def has_child_node(self, node_class):
+        # TODO: Only available on Node and other subclasses
         for node in self.nodes:
             if isinstance(node, node_class) or node.has_child_node(node_class):
                 return True
         return False
 
     def get_current_scope(self) -> Dict[str, Any]:
+        # TODO: Only available on Node and other subclasses
         return self.parent.get_current_scope()
 
     def check_arg_types(self, name, args):
@@ -213,6 +221,8 @@ class BaseNode:
     def get_struct(self, struct_name) -> Dict[str, Any]:
         return structs[struct_name]
 
+    # TODO: these attributes are only available on Node and other children types
+    # we should either define them here or something else?
     @property
     def line_no(self) -> int:
         if hasattr(self, "_line_no"):
