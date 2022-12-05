@@ -85,7 +85,7 @@ class Constant(BaseNode):
 
 
 class UnaryOp(BaseNode):
-    def __init__(self, op, a, parent=None) -> None:
+    def __init__(self, op, a: BaseNode, parent=None) -> None:
         self.a = a
         self.op = op
         self.nodes = [a]
@@ -457,7 +457,7 @@ class StructField(BaseNode):
         return f"{self.name}.{self.field}"
 
 
-def class_provider(name):
+def class_provider(name: str):
     classes = {
         "Variable": Variable,
         "Constant": Constant,

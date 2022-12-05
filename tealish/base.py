@@ -1,39 +1,43 @@
-from typing import List, Dict, TYPE_CHECKING
+from typing import Any, List, Dict, Tuple, TYPE_CHECKING
 from tealish.errors import CompileError
 from .tealish_builtins import constants
 from .langspec import get_active_langspec
 
 
 if TYPE_CHECKING:
+    from . import TealWriter
+    from .expression_nodes import Constant
     from .nodes import Block
 
 lang_spec = get_active_langspec()
 
-structs = {}
+structs: Dict[str, Dict[str, Any]] = {}
 
 
-def lookup_op(name: str):
+def lookup_op(name: str) -> Dict[str, Any]:
     if name not in lang_spec.ops:
         raise KeyError(f'Op "{name}" does not exist!')
     return lang_spec.ops[name]
 
 
-def lookup_constant(name: str):
+def lookup_constant(name: str) -> Tuple[str, int]:
     if name not in constants:
         raise KeyError(f'Constant "{name}" does not exist!')
     return constants[name]
 
 
-def get_field_type(namespace: Dict[str, str], name: str):
+def get_field_type(namespace: str, name: str) -> str:
     if "txn" in namespace:
         return lang_spec.txn_fields[name]
     elif namespace == "global":
         return lang_spec.global_fields[name]
+    else:
+        raise Exception(f"Unknown name in namespace {name}")
 
 
-def check_arg_types(name, args):
+def check_arg_types(name: str, args: List["BaseNode"]) -> None:
     op = lookup_op(name)
-    arg_types = arg_types = op["arg_types"]
+    arg_types = op["arg_types"]
     for i, arg in enumerate(args):
         if arg.type != "any" and arg_types[i] != "any" and arg.type != arg_types[i]:
             raise Exception(
@@ -45,23 +49,23 @@ class BaseNode:
 
     _teal: List[str]
 
-    def process(self):
+    def process(self) -> None:
         pass
 
-    def teal(self):
+    def teal(self) -> List[str]:
         return self._teal
 
-    def write_teal(self, writer):
+    def write_teal(self, writer: "TealWriter") -> None:
         raise NotImplementedError(self)
 
-    def _tealish(self):
+    def _tealish(self) -> str:
         raise NotImplementedError()
 
-    def tealish(self):
+    def tealish(self) -> str:
         return self._tealish()
 
-    def get_scope(self):
-        scope = {
+    def get_scope(self) -> Dict[str, Any]:
+        scope: Dict[str, Dict[str, Any]] = {
             "slots": {},
             "consts": {},
             "blocks": {},
@@ -74,7 +78,7 @@ class BaseNode:
             scope["functions"].update(s["functions"])
         return scope
 
-    def get_scopes(self):
+    def get_scopes(self) -> list[Dict[str, Dict[str, Any]]]:
         scopes = []
         s = self.get_current_scope()
         while True:
@@ -85,13 +89,13 @@ class BaseNode:
                 break
         return scopes
 
-    def get_const(self, name):
+    def get_const(self, name: str) -> Constant:
         consts = {}
         for s in self.get_scopes():
             consts.update(s["consts"])
         return consts[name]
 
-    def get_slots(self):
+    def get_slots(self) -> Dict[str, Any]:
         slots = {}
         for s in self.get_scopes():
             slots.update(s["slots"])
@@ -104,10 +108,11 @@ class BaseNode:
         else:
             return (None, None)
 
-    def declare_var(self, name, type):
+    def declare_var(self, name: str, type: str | tuple[str, str]) -> int:
         slot, _ = self.get_var(name)
         if slot is not None:
             raise Exception(f'Redefinition of variable "{name}"')
+
         scope = self.get_current_scope()
         if "func__" in scope["name"]:
             # If this var is declared in a function then use the global max slot + 1
@@ -115,6 +120,7 @@ class BaseNode:
             slot = self.compiler.max_slot + 1
         else:
             slot = self.find_slot()
+
         self.compiler.max_slot = max(self.compiler.max_slot, slot)
         scope["slots"][name] = [slot, type]
         return slot
@@ -124,7 +130,7 @@ class BaseNode:
         if name in scope["slots"]:
             del scope["slots"][name]
 
-    def find_slot(self):
+    def find_slot(self) -> int:
         scope = self.get_current_scope()
         min, max = scope["slot_range"]
         used_slots = [False] * 255
@@ -138,19 +144,16 @@ class BaseNode:
                     return i
         raise Exception("No available slots!")
 
-    def get_blocks(self):
+    def get_blocks(self) -> dict[str, "Block"]:
         blocks = {}
         for s in self.get_scopes():
             blocks.update(s["blocks"])
         return blocks
 
-    def get_block(self, name) -> "Block":
-        block = self.get_blocks().get(name)
-        # if block:
-        #     self.used_blocks.add(block.label)
-        return block
+    def get_block(self, name: str) -> "Block":
+        return self.get_blocks()[name]
 
-    def is_descendant_of(self, node_class):
+    def is_descendant_of(self, node_class: type) -> bool:
         return self.find_parent(node_class) is not None
 
     def find_parent(self, node_class):
@@ -167,7 +170,7 @@ class BaseNode:
                 return True
         return False
 
-    def get_current_scope(self):
+    def get_current_scope(self) -> Dict[str, Any]:
         return self.parent.get_current_scope()
 
     def check_arg_types(self, name, args):
@@ -176,10 +179,10 @@ class BaseNode:
         except Exception as e:
             raise CompileError(str(e), node=self)
 
-    def get_field_type(self, namespace, name):
+    def get_field_type(self, namespace: str, name: str) -> str:
         return get_field_type(namespace, name)
 
-    def lookup_op(self, name):
+    def lookup_op(self, name: str) -> Dict[str, Any]:
         return lookup_op(name)
 
     def lookup_func(self, name):
@@ -194,31 +197,34 @@ class BaseNode:
             raise KeyError(f'Var "{name}" not declared in current scope')
         return scope["slots"][name]
 
-    def lookup_const(self, name):
+    def lookup_const(self, name: str) -> str:
         scope = self.get_scope()
         if name not in scope["consts"]:
             raise KeyError(f'Const "{name}" not declared in current scope')
         return scope["consts"][name]
 
-    def lookup_constant(self, name):
+    # TODO: why do we have both of these?
+    def lookup_constant(self, name: str) -> Tuple[str, int]:
         return lookup_constant(name)
 
-    def define_struct(self, struct_name, struct):
+    def define_struct(self, struct_name: str, struct: dict[str, Any]) -> None:
         structs[struct_name] = struct
 
-    def get_struct(self, struct_name):
+    def get_struct(self, struct_name) -> Dict[str, Any]:
         return structs[struct_name]
 
     @property
-    def line_no(self):
+    def line_no(self) -> int:
         if hasattr(self, "_line_no"):
             return self._line_no
         if hasattr(self, "parent"):
             return self.parent.line_no
+        raise Exception("No line number or parent line number available")
 
     @property
-    def line(self):
+    def line(self) -> str:
         if hasattr(self, "_line"):
             return self._line
         if hasattr(self, "parent"):
             return self.parent.line
+        raise Exception("No line or parent line available")

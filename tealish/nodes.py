@@ -447,6 +447,7 @@ class Assert(LineStatement):
                 f"Incorrect type for assert. Expected int, got {self.arg.type} at line {self.line_no}.",
                 node=self,
             )
+
         # TODO: added check for compiler not None, should it ever happen that it is None?
         if self.message and self.compiler is not None:
             self.compiler.error_messages[self.line_no] = self.message

@@ -27,7 +27,9 @@ class LangSpec:
         }
         self.global_fields = self.fields["Global"]
         self.txn_fields = self.fields["Txn"]
-        self.ops = {op["Name"]: dict(op) for op in spec["Ops"]}
+        self.ops: Dict[str, Dict[str, Any]] = {
+            op["Name"]: dict(op) for op in spec["Ops"]
+        }
         for i, field in enumerate(self.ops["global"]["ArgEnum"]):
             self.fields["Global"][field] = type_lookup(
                 self.ops["global"]["ArgEnumTypes"][i]

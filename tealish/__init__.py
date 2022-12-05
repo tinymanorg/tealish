@@ -45,7 +45,7 @@ class TealishCompiler:
         self.line_no = 0
         self.nodes: List[Node] = []
         self.conditional_count = 0
-        self.error_messages: Dict[str, str] = {}
+        self.error_messages: Dict[int, str] = {}
         self.max_slot = 0
         self.writer = TealWriter()
         self.processed = False
