@@ -89,7 +89,7 @@ class BaseNode:
                 break
         return scopes
 
-    def get_const(self, name: str) -> Constant:
+    def get_const(self, name: str) -> "Constant":
         consts = {}
         for s in self.get_scopes():
             consts.update(s["consts"])
