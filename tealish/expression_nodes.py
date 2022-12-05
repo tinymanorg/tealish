@@ -102,7 +102,7 @@ class UnaryOp(BaseNode):
         writer.write(self, f"{self.op}")
 
     def _tealish(self):
-        return f"{self.op}{self.a.tealish(formatter)}"
+        return f"{self.op}{self.a.tealish()}"
 
 
 class BinaryOp(BaseNode):
@@ -126,7 +126,7 @@ class BinaryOp(BaseNode):
         writer.write(self, f"{self.op}")
 
     def _tealish(self):
-        return f"{self.a.tealish(formatter)} {self.op} {self.b.tealish(formatter)}"
+        return f"{self.a.tealish()} {self.op} {self.b.tealish()}"
 
 
 class Group(BaseNode):
@@ -143,7 +143,7 @@ class Group(BaseNode):
         writer.write(self, self.expression)
 
     def _tealish(self):
-        return f"({self.expression.tealish(formatter)})"
+        return f"({self.expression.tealish()})"
 
 
 class FunctionCall(BaseNode):
@@ -243,7 +243,7 @@ class FunctionCall(BaseNode):
             self.write_teal_special_call(writer)
 
     def _tealish(self):
-        args = [a.tealish(formatter) for a in self.args]
+        args = [a.tealish() for a in self.args]
         if self.immediate_args:
             args = self.immediate_args.split(", ") + args
         return f"{self.name}({', '.join(args)})"
@@ -287,7 +287,7 @@ class TxnArrayField(BaseNode):
             writer.write(self, f"txna {self.field} {self.arrayIndex.value}")
 
     def _tealish(self):
-        return f"Txn.{self.field}[{self.arrayIndex.tealish(formatter)}]"
+        return f"Txn.{self.field}[{self.arrayIndex.tealish()}]"
 
 
 class GroupTxnField(BaseNode):
@@ -315,7 +315,7 @@ class GroupTxnField(BaseNode):
             writer.write(self, f"gtxn {self.index.value} {self.field}")
 
     def _tealish(self):
-        return f"Gtxn[{self.index.tealish(formatter)}].{self.field}"
+        return f"Gtxn[{self.index.tealish()}].{self.field}"
 
 
 class GroupTxnArrayField(BaseNode):
@@ -360,7 +360,7 @@ class GroupTxnArrayField(BaseNode):
                 )
 
     def _tealish(self):
-        return f"Gtxn[{self.index.tealish(formatter)}].{self.field}[{self.arrayIndex.tealish(formatter)}]"
+        return f"Gtxn[{self.index.tealish()}].{self.field}[{self.arrayIndex.tealish()}]"
 
 
 class PositiveGroupIndex(BaseNode):

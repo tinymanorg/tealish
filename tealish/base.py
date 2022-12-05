@@ -58,10 +58,7 @@ class BaseNode:
         raise NotImplementedError()
 
     def tealish(self):
-        output = self._tealish(formatter)
-        if formatter:
-            output = formatter(self, output)
-        return output
+        return self._tealish()
 
     def get_scope(self):
         scope = {

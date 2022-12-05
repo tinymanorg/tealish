@@ -1,7 +1,17 @@
 import re
 import textwrap
-from collections import defaultdict
-from typing import get_type_hints, List, Optional, Dict, Type, TYPE_CHECKING, Tuple, Any
+from typing import (
+    get_type_hints,
+    List,
+    Optional,
+    Dict,
+    Type,
+    TYPE_CHECKING,
+    Tuple,
+    Any,
+    Union,
+    cast,
+)
 from .base import BaseNode
 from .errors import CompileError, ParseError
 from .tx_expressions import parse_expression
@@ -24,10 +34,12 @@ class Node(BaseNode):
         parent: Optional["Node"] = None,
         compiler: Optional["TealishCompiler"] = None,
     ) -> None:
+
         self.parent = parent
-        self.current_scope = None
-        if parent:
-            self.current_scope = parent.current_scope
+
+        if self.parent is not None:
+            self.current_scope: Dict[str, Any] = self.parent.current_scope
+
         self.compiler = compiler
         self._line = line
         self._line_no = compiler.line_no if compiler else None
@@ -77,7 +89,7 @@ class Node(BaseNode):
         self.child_nodes.append(node)
 
     @classmethod
-    def consume(cls, compiler: "TealishCompiler", parent: Optional["Node"]) -> "Node":
+    def consume(cls, compiler: "TealishCompiler", parent: "Node") -> "Node":
         line = compiler.consume_line()
         return cls(line, parent=parent, compiler=compiler)
 
@@ -88,8 +100,6 @@ class Node(BaseNode):
         self.compiler.write(lines, self.line_no)
 
     def get_current_scope(self) -> Dict[str, Any]:
-        if self.current_scope is None:
-            raise Exception("No scope???")
         return self.current_scope
 
     def new_scope(
@@ -154,7 +164,7 @@ class LiteralBytes(Expression):
     pattern = rf"(?P<value>{LITERAL_BYTES})$"
     value: str
 
-    def write_teal(self, writer: "TealWriter"):
+    def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"pushbytes {self.value}")
 
     def type(self) -> str:
@@ -168,7 +178,7 @@ class Name(Expression):
     pattern = rf"(?P<value>{VARIABLE_NAME})$"
     value: str
 
-    def __init__(self, line: str):
+    def __init__(self, line: str) -> None:
         self.slot: Optional[int] = None
         self._type: Optional[str] = None
         super().__init__(line)
@@ -198,9 +208,7 @@ class GenericExpression(Expression):
 
 class Statement(Node):
     @classmethod
-    def consume(
-        cls, compiler: "TealishCompiler", parent: Optional[Node]
-    ) -> "Statement":
+    def consume(cls, compiler: "TealishCompiler", parent: Node) -> "Statement":
         line = compiler.peek()
         if line.startswith("block "):
             return Block.consume(compiler, parent)
@@ -236,11 +244,11 @@ class Program(Node):
         line: str,
         parent: Optional[Node] = None,
         compiler: Optional["TealishCompiler"] = None,
-    ):
+    ) -> None:
         super().__init__(line, parent, compiler)
         self.new_scope("")
 
-    def get_current_scope(self):
+    def get_current_scope(self) -> Dict[str, Any]:
         return self.current_scope
 
     @classmethod
@@ -260,15 +268,15 @@ class Program(Node):
             node.add_child(n)
         return node
 
-    def process(self):
+    def process(self) -> None:
         for n in self.nodes:
             n.process()
 
-    def write_teal(self, writer: "TealWriter"):
+    def write_teal(self, writer: "TealWriter") -> None:
         for n in self.child_nodes:
             n.write_teal(writer)
 
-    def _tealish(self):
+    def _tealish(self) -> str:
         s = ""
         for n in self.child_nodes:
             s += n.tealish()
@@ -281,9 +289,7 @@ class InlineStatement(Statement):
 
 class LineStatement(InlineStatement):
     @classmethod
-    def consume(
-        cls, compiler: "TealishCompiler", parent: Optional[Node]
-    ) -> "LineStatement":
+    def consume(cls, compiler: "TealishCompiler", parent: Node) -> "LineStatement":
         line = compiler.consume_line()
         if line.startswith("#pragma"):
             if compiler.line_no != 1:
@@ -330,7 +336,7 @@ class TealVersion(LineStatement):
     pattern = r"#pragma version (?P<version>\d+)$"
     version: int
 
-    def write_teal(self, writer: "TealWriter"):
+    def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"#pragma version {self.version}")
 
     def _tealish(self) -> str:
@@ -341,7 +347,7 @@ class Comment(LineStatement):
     pattern = r"#(?P<comment>.*)$"
     comment: str
 
-    def write_teal(self, writer: "TealWriter"):
+    def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"//{self.comment}")
 
     def _tealish(self) -> str:
@@ -349,7 +355,7 @@ class Comment(LineStatement):
 
 
 class Blank(LineStatement):
-    def write_teal(self, writer: "TealWriter"):
+    def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, "")
 
     def _tealish(self) -> str:
@@ -360,13 +366,13 @@ class Const(LineStatement):
     pattern = r"const (?P<type>\bint\b|\bbytes\b) (?P<name>[A-Z][a-zA-Z0-9_]*) = (?P<expression>.*)$"
     type: str
     name: str
-    expression: Literal
+    expression: Union[LiteralInt, LiteralBytes]
 
-    def process(self):
+    def process(self) -> None:
         scope = self.get_current_scope()
         scope["consts"][self.name] = [self.type, self.expression.value]
 
-    def write_teal(self, writer: "TealWriter"):
+    def write_teal(self, writer: "TealWriter") -> None:
         pass
 
     def _tealish(self) -> str:
@@ -380,7 +386,7 @@ class Jump(LineStatement):
     pattern = r"jump (?P<block_name>.*)$"
     block_name: str
 
-    def write_teal(self, writer: "TealWriter"):
+    def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line}")
         b = self.get_block(self.block_name)
         writer.write(self, f"b {b.label}")
@@ -395,10 +401,10 @@ class Exit(LineStatement):
     name: str
     expression: GenericExpression
 
-    def process(self):
+    def process(self) -> None:
         self.expression.process()
 
-    def write_teal(self, writer: "TealWriter"):
+    def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line}")
         writer.write(self, self.expression)
         writer.write(self, "return")
@@ -411,16 +417,17 @@ class FunctionCallStatement(LineStatement):
     pattern = r"(?P<expression>[a-zA-Z_0-9]+\(.*\))$"
     expression: GenericExpression
 
-    def process(self):
+    def process(self) -> None:
         self.expression.process()
-        self.name = self.expression.name
+        # TODO: wat?
+        self.name = self.expression.get_current_scope()["name"]
         if self.expression.type:
             raise CompileError(
                 f"Unconsumed return values ({self.expression.type}) from {self.name}",
                 node=self,
             )
 
-    def write_teal(self, writer: "TealWriter"):
+    def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line}")
         writer.write(self, self.expression)
 
@@ -433,17 +440,18 @@ class Assert(LineStatement):
     arg: GenericExpression
     message: str
 
-    def process(self):
+    def process(self) -> None:
         self.arg.process()
         if self.arg.type not in ("int", "any"):
             raise CompileError(
                 f"Incorrect type for assert. Expected int, got {self.arg.type} at line {self.line_no}.",
                 node=self,
             )
-        if self.message:
+        # TODO: added check for compiler not None, should it ever happen that it is None?
+        if self.message and self.compiler is not None:
             self.compiler.error_messages[self.line_no] = self.message
 
-    def write_teal(self, writer: "TealWriter"):
+    def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line}")
         writer.write(self, self.arg)
         if self.message:
@@ -451,7 +459,7 @@ class Assert(LineStatement):
         else:
             writer.write(self, "assert")
 
-    def _tealish(self):
+    def _tealish(self) -> str:
         m = f', "{self.message}"' if self.message else ""
         return f"assert({self.arg.tealish()}{m})\n"
 
@@ -461,7 +469,7 @@ class BytesDeclaration(LineStatement):
     name: Name
     expression: GenericExpression
 
-    def process(self):
+    def process(self) -> None:
         self.name.slot = self.declare_var(self.name.value, "bytes")
         if self.expression:
             self.expression.process()
@@ -471,13 +479,13 @@ class BytesDeclaration(LineStatement):
                     node=self,
                 )
 
-    def write_teal(self, writer: "TealWriter"):
+    def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line} [slot {self.name.slot}]")
         if self.expression:
             writer.write(self, self.expression)
             writer.write(self, f"store {self.name.slot} // {self.name.value}")
 
-    def _tealish(self):
+    def _tealish(self) -> str:
         s = f"bytes {self.name.tealish()}"
         if self.expression:
             s += f" = {self.expression.tealish()}"
@@ -489,7 +497,7 @@ class IntDeclaration(LineStatement):
     name: Name
     expression: GenericExpression
 
-    def process(self):
+    def process(self) -> None:
         self.name.slot = self.declare_var(self.name.value, "int")
         if self.expression:
             self.expression.process()
@@ -499,13 +507,13 @@ class IntDeclaration(LineStatement):
                     node=self,
                 )
 
-    def write_teal(self, writer: "TealWriter"):
+    def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line} [slot {self.name.slot}]")
         if self.expression:
             writer.write(self, self.expression)
             writer.write(self, f"store {self.name.slot} // {self.name.value}")
 
-    def _tealish(self):
+    def _tealish(self) -> str:
         s = f"int {self.name.tealish()}"
         if self.expression:
             s += f" = {self.expression.tealish()}"
@@ -514,15 +522,16 @@ class IntDeclaration(LineStatement):
 
 class Assignment(LineStatement):
     pattern = r"(?P<names>([a-z_][a-zA-Z0-9_]*,?\s*)+) = (?P<expression>.*)$"
-    names: List[Name]
+    names: str
+    name_nodes: List[Name]
     expression: GenericExpression
 
-    def process(self):
+    def process(self) -> None:
         self.expression.process()
         t = self.expression.type
         types = t if type(t) == list else [t]
         names = [Name(s.strip()) for s in self.names.split(",")]
-        self.names = names
+        self.name_nodes = names
         if len(types) != len(names):
             raise CompileError(
                 f"Incorrect number of names ({len(names)}) for values ({len(types)}) in assignment",
@@ -544,17 +553,17 @@ class Assignment(LineStatement):
                 name.slot = slot
                 name._type = t
 
-    def write_teal(self, writer: "TealWriter"):
+    def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line}")
         writer.write(self, self.expression)
-        for i, name in enumerate(self.names):
+        for name in self.name_nodes:
             if name.value == "_":
                 writer.write(self, "pop // discarding value for _")
             else:
                 writer.write(self, f"store {name.slot} // {name.value}")
 
-    def _tealish(self):
-        s = f"{', '.join(n.tealish() for n in self.names)} = {self.expression.tealish()}\n"
+    def _tealish(self) -> str:
+        s = f"{', '.join(n.tealish() for n in self.name_nodes)} = {self.expression.tealish()}\n"
         return s
 
 
@@ -563,7 +572,12 @@ class Block(Statement):
     pattern = r"block (?P<name>[a-zA-Z_0-9]+):$"
     name: str
 
-    def __init__(self, line, parent=None, compiler=None) -> None:
+    def __init__(
+        self,
+        line: str,
+        parent: Optional[Node] = None,
+        compiler: Optional["TealishCompiler"] = None,
+    ) -> None:
         super().__init__(line, parent, compiler)
         scope = self.get_current_scope()
         scope["blocks"][self.name] = self
@@ -571,7 +585,7 @@ class Block(Statement):
         self.new_scope(self.name)
 
     @classmethod
-    def consume(cls, compiler, parent):
+    def consume(cls, compiler: "TealishCompiler", parent: Optional[Node]) -> "Block":
         line = compiler.consume_line()
         block = Block(line, parent, compiler=compiler)
         while True:
@@ -581,11 +595,11 @@ class Block(Statement):
             block.add_child(Statement.consume(compiler, block))
         return block
 
-    def process(self):
+    def process(self) -> None:
         for n in self.nodes:
             n.process()
 
-    def write_teal(self, writer: "TealWriter"):
+    def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// block {self.name}")
         writer.write(self, f"{self.label}:")
         writer.level += 1
@@ -593,7 +607,7 @@ class Block(Statement):
             n.write_teal(writer)
         writer.level -= 1
 
-    def _tealish(self):
+    def _tealish(self) -> str:
         output = f"block {self.name}:\n"
         for n in self.child_nodes:
             output += indent(n.tealish())
@@ -606,7 +620,7 @@ class SwitchOption(Node):
     expression: GenericExpression
     block_name: str
 
-    def _tealish(self):
+    def _tealish(self) -> str:
         output = f"{self.expression.tealish()}: {self.block_name}\n"
         return output
 
@@ -615,7 +629,7 @@ class SwitchElse(Node):
     pattern = r"else: (?P<block_name>.*)"
     block_name: str
 
-    def _tealish(self):
+    def _tealish(self) -> str:
         output = f"else: {self.block_name}\n"
         return output
 
@@ -625,21 +639,26 @@ class Switch(InlineStatement):
     pattern = r"switch (?P<expression>.*):$"
     expression: GenericExpression
 
-    def __init__(self, line, parent=None, compiler=None) -> None:
+    def __init__(
+        self,
+        line: str,
+        parent: Optional[Node] = None,
+        compiler: Optional["TealishCompiler"] = None,
+    ) -> None:
         super().__init__(line, parent, compiler)
         self.options: List[SwitchOption] = []
-        self.else_ = None
+        self.else_: Optional[SwitchElse] = None
 
-    def add_option(self, node):
+    def add_option(self, node: SwitchOption) -> None:
         self.options.append(node)
         self.add_child(node)
 
-    def add_else(self, node):
+    def add_else(self, node: SwitchElse) -> None:
         self.else_ = node
         self.add_child(node)
 
     @classmethod
-    def consume(cls, compiler, parent):
+    def consume(cls, compiler: "TealishCompiler", parent: Optional[Node]) -> "Switch":
         switch = Switch(compiler.consume_line(), parent, compiler=compiler)
         while True:
             if compiler.peek() == "end":
@@ -655,14 +674,14 @@ class Switch(InlineStatement):
                 )
         return switch
 
-    def process(self):
+    def process(self) -> None:
         self.expression.process()
-        for i, node in enumerate(self.options):
+        for node in self.options:
             node.expression.process()
 
-    def write_teal(self, writer: "TealWriter"):
+    def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line}")
-        for i, node in enumerate(self.options):
+        for node in self.options:
             writer.write(self, self.expression)
             writer.write(self, node.expression)
             writer.write(self, "==")
@@ -674,7 +693,7 @@ class Switch(InlineStatement):
         else:
             writer.write(self, "err // unexpected value")
 
-    def _tealish(self):
+    def _tealish(self) -> str:
         output = f"switch {self.expression.tealish()}:\n"
         for n in self.child_nodes:
             output += indent(n.tealish())
@@ -683,7 +702,7 @@ class Switch(InlineStatement):
 
 
 class TealLine(Node):
-    def write_teal(self, writer: "TealWriter"):
+    def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"{self.line}")
 
 
@@ -691,7 +710,7 @@ class Teal(InlineStatement):
     possible_child_nodes = [TealLine]
 
     @classmethod
-    def consume(cls, compiler, parent):
+    def consume(cls, compiler: "TealishCompiler", parent: Optional[Node]) -> "Teal":
         node = Teal(compiler.consume_line(), parent, compiler=compiler)
         while True:
             if compiler.peek() == "end":
@@ -700,11 +719,11 @@ class Teal(InlineStatement):
             node.add_child(TealLine.consume(compiler, node))
         return node
 
-    def write_teal(self, writer: "TealWriter"):
+    def write_teal(self, writer: "TealWriter") -> None:
         for n in self.child_nodes:
             n.write_teal(writer)
 
-    def _tealish(self):
+    def _tealish(self) -> str:
         output = "teal:\n"
         for n in self.child_nodes:
             output += indent(n.line) + "\n"
@@ -718,12 +737,12 @@ class InnerTxnFieldSetter(InlineStatement):
     index: int
     expression: GenericExpression
 
-    def write_teal(self, writer: "TealWriter"):
+    def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line}")
         writer.write(self, self.expression)
         writer.write(self, f"itxn_field {self.field_name}")
 
-    def _tealish(self):
+    def _tealish(self) -> str:
         array_index = f"[{self.index}]" if self.index is not None else ""
         output = f"{self.field_name}{array_index}: {self.expression.tealish()}"
         return output
@@ -732,13 +751,18 @@ class InnerTxnFieldSetter(InlineStatement):
 class InnerTxn(InlineStatement):
     possible_child_nodes = [InnerTxnFieldSetter]
 
-    def __init__(self, line, parent=None, compiler=None) -> None:
+    def __init__(
+        self,
+        line: str,
+        parent: Node,
+        compiler: "TealishCompiler",
+    ) -> None:
         super().__init__(line, parent, compiler)
-        self.group_index = None
+        self.group_index: int = 0
         self.group = None
 
     @classmethod
-    def consume(cls, compiler, parent):
+    def consume(cls, compiler: "TealishCompiler", parent: Node) -> "InnerTxn":
         node = InnerTxn(compiler.consume_line(), parent, compiler=compiler)
         while True:
             if compiler.peek() == "end":
@@ -759,25 +783,61 @@ class InnerTxn(InlineStatement):
             node.group = group
         return node
 
-    def process(self):
-        self.array_fields = defaultdict(list)
-        for i, node in enumerate(self.child_nodes):
+    def process(self) -> None:
+        from collections import defaultdict
+
+        self.array_fields: Dict[str, List[InnerTxnFieldSetter]] = defaultdict(list)
+        for node in self.child_nodes:
+            node = cast(InnerTxnFieldSetter, node)
             if node.index is not None:
                 index = int(node.index)
                 n = len(self.array_fields[node.field_name])
                 if n == index:
                     self.array_fields[node.field_name].append(node)
                 else:
+
+                    # TODO: this is required since the Node base class accepts an Optional compiler
+                    # i think this is wrong but will circle back
+                    lno: int = 0
+                    if self.compiler is not None:
+                        lno = self.compiler.line_no
+
                     raise ParseError(
-                        f"Inccorrect field array index {index} (expected {n}) at line {self.compiler.line_no}!"
+                        f"Inccorrect field array index {index} (expected {n}) at line {lno}!"
                     )
             else:
                 node.expression.process()
+
         for a in self.array_fields.values():
             for node in a:
                 node.expression.process()
 
-    def write_teal(self, writer):
+    # def process(self) -> None:
+    #    self.array_fields: Dict[str, List[InnerTxnFieldSetter]] = {}
+    #    for node in self.child_nodes:
+    #        # TODO: type check the child nodes, dont just cast them
+    #        node = cast(InnerTxnFieldSetter, node)
+
+    #        if node.index is not None:
+    #            n = len(self.array_fields.get(node.field_name, []))
+    #            if n == node.index:
+    #                self.array_fields[node.field_name].append(node)
+    #            else:
+    #                # TODO: compiler might be `None` since the `Node` type accepts an Optional[Compiler] type
+    #                # this is clearly not right
+    #                if self.compiler is not None:
+    #                    print(node.index, n)
+    #                    raise ParseError(
+    #                        f"Incorrect field array index {node.index} (expected {n}) at line {self.compiler.line_no}!"
+    #                    )
+    #        else:
+    #            node.expression.process()
+
+    #    for a in self.array_fields.values():
+    #        for node in a:
+    #            node.expression.process()
+
+    def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line}")
         if not self.group:
             writer.write(self, "itxn_begin")
@@ -791,7 +851,7 @@ class InnerTxn(InlineStatement):
             writer.write(self, "itxn_submit")
         writer.write(self, "// end inner_txn")
 
-    def _tealish(self):
+    def _tealish(self) -> str:
         output = "inner_txn:\n"
         for n in self.child_nodes:
             output += indent(n.tealish()) + "\n"
@@ -802,12 +862,12 @@ class InnerTxn(InlineStatement):
 class InnerGroup(InlineStatement):
     possible_child_nodes = [Statement]
 
-    def __init__(self, line, parent=None, compiler=None) -> None:
+    def __init__(self, line: str, parent: Node, compiler: "TealishCompiler") -> None:
         super().__init__(line, parent, compiler)
         self.inners: List[Statement] = []
 
     @classmethod
-    def consume(cls, compiler, parent):
+    def consume(cls, compiler: "TealishCompiler", parent: Node) -> "InnerGroup":
         node = InnerGroup(compiler.consume_line(), parent, compiler=compiler)
         while True:
             if compiler.peek().startswith("end"):
@@ -816,11 +876,11 @@ class InnerGroup(InlineStatement):
             node.add_child(Statement.consume(compiler, node))
         return node
 
-    def process(self):
+    def process(self) -> None:
         for i, node in enumerate(self.nodes):
             node.process()
 
-    def write_teal(self, writer: "TealWriter"):
+    def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line}")
         writer.level += 1
         writer.write(self, "itxn_begin")
@@ -830,7 +890,7 @@ class InnerGroup(InlineStatement):
         writer.level -= 1
         writer.write(self, "// end inner_group")
 
-    def _tealish(self):
+    def _tealish(self) -> str:
         output = "inner_group:\n"
         for n in self.child_nodes:
             output += indent(n.tealish())
@@ -852,7 +912,7 @@ class IfThen(Node):
         self.next_label: str = ""
 
     @classmethod
-    def consume(cls, compiler, parent):
+    def consume(cls, compiler: "TealishCompiler", parent: Node) -> "IfThen":
         node = IfThen("", parent, compiler=compiler)
         while True:
             if compiler.peek().startswith(("end", "elif", "else:")):
@@ -860,18 +920,18 @@ class IfThen(Node):
             node.add_child(InlineStatement.consume(compiler, node))
         return node
 
-    def process(self):
+    def process(self) -> None:
         for n in self.nodes:
             n.process()
 
-    def write_teal(self, writer: "TealWriter"):
+    def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, "// then:")
         writer.level += 1
         for n in self.child_nodes:
             n.write_teal(writer)
         writer.level -= 1
 
-    def _tealish(self):
+    def _tealish(self) -> str:
         output = ""
         for n in self.child_nodes:
             output += indent(n.tealish())
@@ -886,7 +946,7 @@ class Elif(Node):
 
     def __init__(
         self, line: str, parent: Optional[Node], compiler: Optional["TealishCompiler"]
-    ):
+    ) -> None:
         super().__init__(line, parent, compiler=compiler)
         self.label: str = ""
         self.next_label: str = ""
@@ -900,12 +960,12 @@ class Elif(Node):
             node.add_child(InlineStatement.consume(compiler, node))
         return node
 
-    def process(self):
+    def process(self) -> None:
         self.condition.process()
         for n in self.nodes:
             n.process()
 
-    def write_teal(self, writer: "TealWriter"):
+    def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line}")
         writer.write(self, self.condition)
         if self.modifier == "not":
@@ -917,7 +977,7 @@ class Elif(Node):
             n.write_teal(writer)
         writer.level -= 1
 
-    def _tealish(self):
+    def _tealish(self) -> str:
         output = f"elif {'not ' if self.modifier else ''}{self.condition.tealish()}:\n"
         for n in self.child_nodes:
             output += indent(n.tealish())
@@ -930,7 +990,7 @@ class Else(Node):
 
     def __init__(
         self, line: str, parent: Optional[Node], compiler: Optional["TealishCompiler"]
-    ):
+    ) -> None:
         super().__init__(line, parent, compiler=compiler)
         self.label: str = ""
         self.next_label: str = ""
@@ -944,18 +1004,18 @@ class Else(Node):
             node.add_child(InlineStatement.consume(compiler, node))
         return node
 
-    def process(self):
+    def process(self) -> None:
         for n in self.nodes:
             n.process()
 
-    def write_teal(self, writer: "TealWriter"):
+    def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line}")
         writer.level += 1
         for n in self.child_nodes:
             n.write_teal(writer)
         writer.level -= 1
 
-    def _tealish(self):
+    def _tealish(self) -> str:
         output = "else:\n"
         for n in self.child_nodes:
             output += indent(n.tealish())
@@ -975,9 +1035,9 @@ class IfStatement(InlineStatement):
         compiler: Optional["TealishCompiler"] = None,
     ) -> None:
         super().__init__(line, parent, compiler)
-        self.if_then: Optional[IfThen] = None
         self.elifs: List[Elif] = []
         self.else_: Optional[Else] = None
+        self.if_then: IfThen
 
         self.conditional_index: int = 0
         if compiler is not None:
@@ -986,18 +1046,18 @@ class IfStatement(InlineStatement):
 
         self.end_label = f"l{self.conditional_index}_end"
 
-    def add_if_then(self, node: IfThen):
+    def add_if_then(self, node: IfThen) -> None:
         node.label = ""
         self.if_then = node
         self.add_child(node)
 
-    def add_elif(self, node: Elif):
+    def add_elif(self, node: Elif) -> None:
         i = len(self.elifs)
         node.label = f"l{self.conditional_index}_elif_{i}"
         self.elifs.append(node)
         self.add_child(node)
 
-    def add_else(self, node: Else):
+    def add_else(self, node: Else) -> None:
         node.label = f"l{self.conditional_index}_else"
         self.else_ = node
         self.add_child(node)
@@ -1018,25 +1078,59 @@ class IfStatement(InlineStatement):
                 if_statement.add_else(Else.consume(compiler, if_statement))
         return if_statement
 
-    def process(self):
+    def process(self) -> None:
         for i, node in enumerate(self.child_nodes[:-1]):
-            node.next_label = self.child_nodes[i + 1].label
+            # TODO: the type of `child_nodes` in BaseNode is a List[BaseNode] so we have to do
+            # some work to make mypy happy, this is not the best way to do it but marking to follow up
+            if not (
+                isinstance(node, IfThen)
+                or isinstance(node, Elif)
+                or isinstance(node, Else)
+            ):
+                continue
+
+            next_node = self.child_nodes[i + 1]
+            if not (
+                isinstance(next_node, IfThen)
+                or isinstance(next_node, Elif)
+                or isinstance(next_node, Else)
+            ):
+                continue
+
+            node.next_label = next_node.label
 
         if len(self.child_nodes) > 1:
-            self.next_label = self.child_nodes[1].label
+            next_node = self.child_nodes[1]
+            # TODO: same as above
+            if (
+                isinstance(next_node, IfThen)
+                or isinstance(next_node, Elif)
+                or isinstance(next_node, Else)
+            ):
+                self.next_label = next_node.label
         else:
             self.next_label = self.end_label
 
-        self.child_nodes[-1].next_label = self.end_label
+        # TODO: same as above
+        if (
+            isinstance(self.child_nodes[-1], IfThen)
+            or isinstance(self.child_nodes[-1], Elif)
+            or isinstance(self.child_nodes[-1], Else)
+        ):
+            self.child_nodes[-1].next_label = self.end_label
+
         self.condition.process()
-        self.if_then.process()
-        for i, n in enumerate(self.elifs):
-            n.process()
-        if self.else_:
-            n = self.else_
+
+        if self.if_then is not None:
+            self.if_then.process()
+
+        for n in self.elifs:
             n.process()
 
-    def write_teal(self, writer: "TealWriter"):
+        if self.else_ is not None:
+            self.else_.process()
+
+    def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line}")
         writer.level += 1
         writer.write(self, self.condition)
@@ -1062,7 +1156,7 @@ class IfStatement(InlineStatement):
         writer.write(self, f"{self.end_label}: // end")
         writer.level -= 1
 
-    def _tealish(self):
+    def _tealish(self) -> str:
         output = f"if {'not ' if self.modifier else ''}{self.condition.tealish()}:\n"
         for n in self.child_nodes:
             output += n.tealish()
@@ -1073,7 +1167,7 @@ class IfStatement(InlineStatement):
 class Break(LineStatement):
     pattern = r"break$"
 
-    def __init__(self, line, parent=None, compiler=None) -> None:
+    def __init__(self, line: str, parent: Node, compiler: "TealishCompiler") -> None:
         super().__init__(line, parent, compiler)
         self.parent_loop = self.find_parent(WhileStatement)
         if self.parent_loop is None:
@@ -1081,11 +1175,11 @@ class Break(LineStatement):
                 f'"break" should only be used in a while loop! Line {self.line_no}'
             )
 
-    def write_teal(self, writer: "TealWriter"):
+    def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line}")
         writer.write(self, f"b {self.parent_loop.end_label}")
 
-    def _tealish(self):
+    def _tealish(self) -> str:
         return "break\n"
 
 
@@ -1095,7 +1189,12 @@ class WhileStatement(InlineStatement):
     condition: GenericExpression
     modifier: str
 
-    def __init__(self, line, parent=None, compiler=None) -> None:
+    def __init__(
+        self,
+        line: str,
+        parent: Node,
+        compiler: "TealishCompiler",
+    ) -> None:
         super().__init__(line, parent, compiler)
         self.conditional_index = compiler.conditional_count
         compiler.conditional_count += 1
@@ -1103,7 +1202,7 @@ class WhileStatement(InlineStatement):
         self.end_label = f"l{self.conditional_index}_end"
 
     @classmethod
-    def consume(cls, compiler, parent):
+    def consume(cls, compiler: "TealishCompiler", parent: Node) -> "WhileStatement":
         node = WhileStatement(compiler.consume_line(), parent, compiler=compiler)
         while True:
             if compiler.peek() == "end":
@@ -1112,12 +1211,12 @@ class WhileStatement(InlineStatement):
             node.add_child(InlineStatement.consume(compiler, node))
         return node
 
-    def process(self):
+    def process(self) -> None:
         self.condition.process()
         for n in self.nodes:
             n.process()
 
-    def write_teal(self, writer: "TealWriter"):
+    def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line}")
         writer.write(self, f"{self.start_label}:")
         writer.level += 1
@@ -1132,7 +1231,7 @@ class WhileStatement(InlineStatement):
         writer.write(self, f"{self.end_label}: // end")
         writer.level -= 1
 
-    def _tealish(self):
+    def _tealish(self) -> str:
         output = f"while {'not ' if self.modifier else ''}{self.condition.tealish()}:\n"
         for n in self.child_nodes:
             output += indent(n.tealish())
@@ -1147,7 +1246,7 @@ class ForStatement(InlineStatement):
     start: GenericExpression
     end: GenericExpression
 
-    def __init__(self, line, parent=None, compiler=None) -> None:
+    def __init__(self, line: str, parent: Node, compiler: "TealishCompiler") -> None:
         super().__init__(line, parent, compiler)
         self.conditional_index = compiler.conditional_count
         compiler.conditional_count += 1
@@ -1155,7 +1254,7 @@ class ForStatement(InlineStatement):
         self.end_label = f"l{self.conditional_index}_end"
 
     @classmethod
-    def consume(cls, compiler, parent):
+    def consume(cls, compiler: "TealishCompiler", parent: Node) -> "ForStatement":
         node = ForStatement(compiler.consume_line(), parent, compiler=compiler)
         while True:
             if compiler.peek() == "end":
@@ -1164,13 +1263,13 @@ class ForStatement(InlineStatement):
             node.add_child(InlineStatement.consume(compiler, node))
         return node
 
-    def process(self):
+    def process(self) -> None:
         self.var_slot = self.declare_var(self.var, "int")
         for n in self.nodes:
             n.process()
         self.del_var(self.var)
 
-    def write_teal(self, writer: "TealWriter"):
+    def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line}")
         writer.level += 1
         writer.write(self, self.start)
@@ -1191,7 +1290,7 @@ class ForStatement(InlineStatement):
         self.del_var(self.var)
         writer.level -= 1
 
-    def _tealish(self):
+    def _tealish(self) -> str:
         output = f"for {self.var} in {self.start.tealish()}:{self.end.tealish()}:\n"
         for n in self.child_nodes:
             output += indent(n.tealish())
@@ -1205,7 +1304,12 @@ class For_Statement(InlineStatement):
     start: GenericExpression
     end: GenericExpression
 
-    def __init__(self, line, parent=None, compiler=None) -> None:
+    def __init__(
+        self,
+        line: str,
+        parent: Node,
+        compiler: "TealishCompiler",
+    ) -> None:
         super().__init__(line, parent, compiler)
         self.conditional_index = compiler.conditional_count
         compiler.conditional_count += 1
@@ -1213,7 +1317,7 @@ class For_Statement(InlineStatement):
         self.end_label = f"l{self.conditional_index}_end"
 
     @classmethod
-    def consume(cls, compiler, parent):
+    def consume(cls, compiler: "TealishCompiler", parent: Node) -> "For_Statement":
         node = For_Statement(compiler.consume_line(), parent, compiler=compiler)
         while True:
             if compiler.peek() == "end":
@@ -1222,11 +1326,11 @@ class For_Statement(InlineStatement):
             node.add_child(InlineStatement.consume(compiler, node))
         return node
 
-    def process(self):
+    def process(self) -> None:
         for n in self.nodes:
             n.process()
 
-    def write_teal(self, writer: "TealWriter"):
+    def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line}")
         writer.level += 1
         writer.write(self, self.start)
@@ -1245,7 +1349,7 @@ class For_Statement(InlineStatement):
         writer.write(self, f"{self.end_label}: // end")
         writer.level -= 1
 
-    def _tealish(self):
+    def _tealish(self) -> str:
         output = f"for _ in {self.start.tealish()}:{self.end.tealish()}:\n"
         for n in self.child_nodes:
             output += indent(n.tealish())
@@ -1256,13 +1360,14 @@ class For_Statement(InlineStatement):
 class ArgsList(Expression):
     arg_pattern = r"(?P<arg_name>[a-z][a-z_0-9]*): (?P<arg_type>int|bytes)"
     pattern = rf"(?P<args>({arg_pattern}(, )?)*)"
-    args: List[str]
+    args: List[Tuple[str, str]]
 
-    def __init__(self, string) -> None:
-        super().__init__(string)
-        self.args = re.findall(self.arg_pattern, string)
+    def __init__(self, line: str) -> None:
+        super().__init__(line)
+        self.args = re.findall(self.arg_pattern, line)
+        print(self.args)
 
-    def _tealish(self):
+    def _tealish(self) -> str:
         output = ", ".join([f"{a}: {t}" for (a, t) in self.args])
         return output
 
@@ -1274,7 +1379,12 @@ class Func(InlineStatement):
     args: ArgsList
     returns: List[str]
 
-    def __init__(self, line, parent=None, compiler=None) -> None:
+    def __init__(
+        self,
+        line: str,
+        parent: Optional[Node] = None,
+        compiler: Optional["TealishCompiler"] = None,
+    ) -> None:
         super().__init__(line, parent, compiler)
         scope = self.get_current_scope()
         scope["functions"][self.name] = self
@@ -1284,7 +1394,7 @@ class Func(InlineStatement):
         self.slots: Dict[str, int] = {}
 
     @classmethod
-    def consume(cls, compiler, parent):
+    def consume(cls, compiler: "TealishCompiler", parent: Optional[Node]) -> "Func":
         func = Func(compiler.consume_line(), parent, compiler=compiler)
         while True:
             if compiler.peek() == "end":
@@ -1298,22 +1408,22 @@ class Func(InlineStatement):
             )
         return func
 
-    def process(self):
+    def process(self) -> None:
         for (name, type) in self.args.args[::-1]:
             self.slots[name] = self.declare_var(name, type)
         for node in self.nodes:
             node.process()
 
-    def write_teal(self, writer: "TealWriter"):
+    def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line}")
         writer.write(self, f"{self.label}:")
-        for name in self.args.args[::-1]:
+        for name, _ in self.args.args[::-1]:
             slot = self.slots[name]
             writer.write(self, f"store {slot} // {name}")
         for node in self.child_nodes:
             node.write_teal(writer)
 
-    def _tealish(self):
+    def _tealish(self) -> str:
         returns = (" " + (", ".join(self.returns))) if self.returns else ""
         output = f"func {self.name}({self.args.tealish()}){returns}:\n"
         for n in self.child_nodes:
@@ -1340,7 +1450,12 @@ class Return(LineStatement):
     pattern = r"return ?(?P<args>.*?)?$"
     args: str
 
-    def __init__(self, line, parent=None, compiler=None) -> None:
+    def __init__(
+        self,
+        line: str,
+        parent: Node,
+        compiler: "TealishCompiler",
+    ) -> None:
         super().__init__(line, parent, compiler)
         if not self.is_descendant_of(Func):
             raise ParseError(
@@ -1355,18 +1470,18 @@ class Return(LineStatement):
                 self.args_expressions.append(node)
         self.nodes = self.args_expressions
 
-    def process(self):
+    def process(self) -> None:
         for n in self.nodes:
             n.process()
 
-    def write_teal(self, writer: "TealWriter"):
+    def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line}")
         if self.args:
             for expression in self.args_expressions:
                 writer.write(self, expression)
         writer.write(self, "retsub")
 
-    def _tealish(self):
+    def _tealish(self) -> str:
         output = "return"
         if self.args_expressions:
             output += (
@@ -1381,13 +1496,13 @@ class StructFieldDefinition(InlineStatement):
     data_type: str
     data_length: int
 
-    def process(self):
+    def process(self) -> None:
         self.size = 8 if self.data_type == "int" else int(self.data_length)
 
-    def write_teal(self, writer):
+    def write_teal(self, writer: "TealWriter") -> None:
         pass
 
-    def _tealish(self):
+    def _tealish(self) -> str:
         output = f"{self.field_name}: {self.data_type}"
         return output
 
@@ -1409,7 +1524,7 @@ class Struct(InlineStatement):
     name: str
 
     @classmethod
-    def consume(cls, compiler, parent):
+    def consume(cls, compiler: "TealishCompiler", parent: Optional[Node]) -> "Struct":
         node = cls(compiler.consume_line(), parent, compiler=compiler)
         if not isinstance(parent, Program):
             raise ParseError(
@@ -1429,15 +1544,18 @@ class Struct(InlineStatement):
                 )
         return node
 
-    def process(self):
+    def process(self) -> None:
         for n in self.nodes:
             n.process()
-        struct = {
+
+        struct: Dict[str, Any] = {
             "fields": {},
             "size": 0,
         }
         offset = 0
         for n in self.child_nodes:
+            # TODO: again child nodes are not the type we expect (BaseNode not StructFieldDef)
+            n = cast(StructFieldDefinition, n)
             struct["fields"][n.field_name] = {
                 "type": n.data_type,
                 "size": n.size,
@@ -1447,10 +1565,10 @@ class Struct(InlineStatement):
         struct["size"] = offset
         self.define_struct(self.name, struct)
 
-    def write_teal(self, writer):
+    def write_teal(self, writer: "TealWriter") -> None:
         pass
 
-    def _tealish(self):
+    def _tealish(self) -> str:
         output = f"struct {self.name}:\n"
         for n in self.child_nodes:
             output += indent(n.tealish()) + "\n"
@@ -1464,7 +1582,7 @@ class StructDeclaration(LineStatement):
     name: Name
     expression: GenericExpression
 
-    def process(self):
+    def process(self) -> None:
         self.name.slot = self.declare_var(self.name.value, ("struct", self.struct_name))
         if self.expression:
             self.expression.process()
@@ -1474,13 +1592,13 @@ class StructDeclaration(LineStatement):
                     node=self,
                 )
 
-    def write_teal(self, writer: "TealWriter"):
+    def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line} [slot {self.name.slot}]")
         if self.expression:
             writer.write(self, self.expression)
             writer.write(self, f"store {self.name.slot} // {self.name.value}")
 
-    def _tealish(self):
+    def _tealish(self) -> str:
         s = f"{self.struct_name} {self.name.tealish()}"
         if self.expression:
             s += f" = {self.expression.tealish()}"
@@ -1548,5 +1666,5 @@ def split_return_args(s: str) -> List[str]:
     return [s]
 
 
-def indent(s: str) -> Optional[str]:
+def indent(s: str) -> str:
     return textwrap.indent(s, "    ")
