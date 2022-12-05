@@ -8,7 +8,7 @@ from typing import List, Dict, Any, Tuple, Optional
 abc = "ABCDEFGHIJK"
 
 
-def type_lookup(a):
+def type_lookup(a: str) -> str:
     return {
         ".": "any",
         "B": "bytes",
@@ -18,7 +18,7 @@ def type_lookup(a):
 
 
 class LangSpec:
-    def __init__(self, spec) -> None:
+    def __init__(self, spec: dict[str, Any]) -> None:
         self.is_packaged = False
         self.spec = spec
         self.fields: Dict[str, Any] = {
@@ -55,10 +55,10 @@ class LangSpec:
                 sig += f"-> {ret}"
             op["sig"] = sig
 
-    def as_dict(self):
+    def as_dict(self) -> Dict[str, Any]:
         return self.spec
 
-    def new_ops(self, old_spec):
+    def new_ops(self, old_spec: "LangSpec") -> List[Any]:
         _, new_ops = compare_langspecs(old_spec, self)
         return new_ops
 
@@ -79,10 +79,10 @@ def get_active_langspec() -> LangSpec:
     return packaged_lang_spec
 
 
-def get_new_local_ops(langspec: Optional[LangSpec] = None):
+def get_new_local_ops(langspec: Optional[LangSpec] = None) -> List[Any]:
     langspec = langspec or local_lang_spec
     if langspec is None:
-        return None
+        return []
     _, new_ops = compare_langspecs(packaged_lang_spec, langspec)
     return new_ops
 

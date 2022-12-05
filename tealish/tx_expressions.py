@@ -19,6 +19,6 @@ with importlib.resources.path(tealish, "tealish_expressions.tx") as p:
     )
 
 
-def parse_expression(source) -> "Node":
+def parse_expression(source: str) -> "Node":
     node = tealish_mm.model_from_str(source)
     return node

@@ -28,11 +28,11 @@ class TealWriter:
             if hasattr(parent, "line_no"):
                 self.current_input_line = parent.line_no
             self.source_map[self.current_output_line] = self.current_input_line
-            # TODO: should be `line_no`?
-            # parent.teal_line_no = self.current_output_line
             self.current_output_line += 1
         else:
-            raise Exception("wat?")
+            raise Exception(
+                "Expected BaseNode or str type as second argument of `write` function"
+            )
 
 
 class TealishCompiler:
