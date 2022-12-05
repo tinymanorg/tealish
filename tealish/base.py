@@ -54,10 +54,10 @@ class BaseNode:
     def write_teal(self, writer):
         raise NotImplementedError(self)
 
-    def _tealish(self, formatter=None):
+    def _tealish(self):
         raise NotImplementedError()
 
-    def tealish(self, formatter=None):
+    def tealish(self):
         output = self._tealish(formatter)
         if formatter:
             output = formatter(self, output)

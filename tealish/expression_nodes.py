@@ -11,7 +11,7 @@ class Integer(BaseNode):
     def write_teal(self, writer):
         writer.write(self, f"pushint {self.value}")
 
-    def _tealish(self, formatter=None):
+    def _tealish(self):
         return f"pushint {self.value}"
 
 
@@ -24,7 +24,7 @@ class Bytes(BaseNode):
     def write_teal(self, writer):
         writer.write(self, f'pushbytes "{self.value}"')
 
-    def _tealish(self, formatter=None):
+    def _tealish(self):
         return f'"{self.value}"'
 
 
@@ -46,7 +46,7 @@ class Variable(BaseNode):
     def write_teal(self, writer):
         writer.write(self, f"load {self.slot} // {self.name}")
 
-    def _tealish(self, formatter=None):
+    def _tealish(self):
         return f"{self.name}"
 
 
@@ -80,7 +80,7 @@ class Constant(BaseNode):
         elif self.type == "bytes":
             writer.write(self, f"pushbytes {self.value} // {self.name}")
 
-    def _tealish(self, formatter=None):
+    def _tealish(self):
         return f"{self.name}"
 
 
@@ -101,7 +101,7 @@ class UnaryOp(BaseNode):
         writer.write(self, self.a)
         writer.write(self, f"{self.op}")
 
-    def _tealish(self, formatter=None):
+    def _tealish(self):
         return f"{self.op}{self.a.tealish(formatter)}"
 
 
@@ -125,7 +125,7 @@ class BinaryOp(BaseNode):
         writer.write(self, self.b)
         writer.write(self, f"{self.op}")
 
-    def _tealish(self, formatter=None):
+    def _tealish(self):
         return f"{self.a.tealish(formatter)} {self.op} {self.b.tealish(formatter)}"
 
 
@@ -142,7 +142,7 @@ class Group(BaseNode):
     def write_teal(self, writer):
         writer.write(self, self.expression)
 
-    def _tealish(self, formatter=None):
+    def _tealish(self):
         return f"({self.expression.tealish(formatter)})"
 
 
@@ -242,7 +242,7 @@ class FunctionCall(BaseNode):
         elif self.func_call_type == "special":
             self.write_teal_special_call(writer)
 
-    def _tealish(self, formatter=None):
+    def _tealish(self):
         args = [a.tealish(formatter) for a in self.args]
         if self.immediate_args:
             args = self.immediate_args.split(", ") + args
@@ -261,7 +261,7 @@ class TxnField(BaseNode):
     def write_teal(self, writer):
         writer.write(self, f"txn {self.field}")
 
-    def _tealish(self, formatter=None):
+    def _tealish(self):
         return f"Txn.{self.field}"
 
 
@@ -286,7 +286,7 @@ class TxnArrayField(BaseNode):
             # index is a constant
             writer.write(self, f"txna {self.field} {self.arrayIndex.value}")
 
-    def _tealish(self, formatter=None):
+    def _tealish(self):
         return f"Txn.{self.field}[{self.arrayIndex.tealish(formatter)}]"
 
 
@@ -314,7 +314,7 @@ class GroupTxnField(BaseNode):
             assert self.index.value < 16, "Group index > 16"
             writer.write(self, f"gtxn {self.index.value} {self.field}")
 
-    def _tealish(self, formatter=None):
+    def _tealish(self):
         return f"Gtxn[{self.index.tealish(formatter)}].{self.field}"
 
 
@@ -359,7 +359,7 @@ class GroupTxnArrayField(BaseNode):
                     f"gtxna {self.index.value} {self.field} {self.arrayIndex.value}",
                 )
 
-    def _tealish(self, formatter=None):
+    def _tealish(self):
         return f"Gtxn[{self.index.tealish(formatter)}].{self.field}[{self.arrayIndex.tealish(formatter)}]"
 
 
@@ -374,7 +374,7 @@ class PositiveGroupIndex(BaseNode):
         writer.write(self, f"pushint {self.index}")
         writer.write(self, "+")
 
-    def _tealish(self, formatter=None):
+    def _tealish(self):
         return f"+{self.index}"
 
 
@@ -389,7 +389,7 @@ class NegativeGroupIndex(BaseNode):
         writer.write(self, f"pushint {self.index}")
         writer.write(self, "-")
 
-    def _tealish(self, formatter=None):
+    def _tealish(self):
         return f"-{self.index}"
 
 
@@ -405,7 +405,7 @@ class GlobalField(BaseNode):
     def write_teal(self, writer):
         writer.write(self, f"global {self.field}")
 
-    def _tealish(self, formatter=None):
+    def _tealish(self):
         return f"Global.{self.field}"
 
 
@@ -421,7 +421,7 @@ class InnerTxnField(BaseNode):
     def write_teal(self, writer):
         writer.write(self, f"itxn {self.field}")
 
-    def _tealish(self, formatter=None):
+    def _tealish(self):
         return f"Itxn.{self.field}"
 
 
@@ -453,7 +453,7 @@ class StructField(BaseNode):
         else:
             raise Exception()
 
-    def _tealish(self, formatter=None):
+    def _tealish(self):
         return f"{self.name}.{self.field}"
 
 

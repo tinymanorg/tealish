@@ -101,12 +101,12 @@ class TealishCompiler:
             for n in node.nodes:
                 self.traverse(n, visitor)
 
-    def reformat(self, formatter=None) -> str:
+    def reformat(self) -> str:
         if not self.nodes:
             self.parse()
         if not self.processed:
             self.process()
-        return self.nodes[0].tealish(formatter)
+        return self.nodes[0].tealish()
 
     def get_map(self):
         map = TealishMap()
