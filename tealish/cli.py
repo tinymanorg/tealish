@@ -1,6 +1,7 @@
 import json
 import pathlib
 import click
+from typing import List, Optional, Tuple, IO
 from tealish import compile_program, reformat_program
 from tealish.errors import CompileError, ParseError
 from tealish.langspec import (
@@ -10,13 +11,22 @@ from tealish.langspec import (
     local_lang_spec,
 )
 from tealish.build import assemble_with_goal, assemble_with_algod
+from tealish.utils import TealishMap
 
 
-def _build(path, assembler=None, algod_url=None, quiet=False) -> None:
+def _build(
+    path: pathlib.Path,
+    assembler: Optional[str] = None,
+    algod_url: Optional[str] = None,
+    quiet: bool = False,
+) -> None:
+
+    paths: List[pathlib.Path]
     if path.is_dir():
-        paths = path.glob("*.tl")
+        paths = list(path.glob("*.tl"))
     else:
         paths = [path]
+
     for path in paths:
         output_path = pathlib.Path(path).parent / "build"
         output_path.mkdir(exist_ok=True)
@@ -49,6 +59,11 @@ def _build(path, assembler=None, algod_url=None, quiet=False) -> None:
                         f"Assembling {teal_filename} to {tok_filename} using algod ({algod_url})"
                     )
                 try:
+                    if algod_url is None:
+                        raise Exception(
+                            "algod assembler specified but algod_url is None"
+                        )
+
                     bytecode, sourcemap = assemble_with_algod(teal_string, algod_url)
                 except Exception as e:
                     raise click.ClickException(str(e))
@@ -67,20 +82,20 @@ def _build(path, assembler=None, algod_url=None, quiet=False) -> None:
                 f.write(json.dumps(tealish_map.as_dict()).replace("],", "],\n"))
 
 
-def _compile_program(source):
+def _compile_program(source: str) -> Tuple[List[str], TealishMap]:
     try:
         teal, map = compile_program(source)
     except ParseError as e:
-        raise click.ClickException(e)
+        raise click.ClickException(str(e))
     except CompileError as e:
-        raise click.ClickException(e)
+        raise click.ClickException(str(e))
     return teal, map
 
 
 @click.group(context_settings=dict(help_option_names=["-h", "--help"]))
 @click.option("--quiet", "-q", is_flag=True, help="Only print warnings and errors")
 @click.pass_context
-def cli(ctx, quiet):
+def cli(ctx: click.Context, quiet: bool) -> None:
     "Tealish Compiler & Tools"
     ctx.ensure_object(dict)
     ctx.obj["quiet"] = quiet
@@ -89,7 +104,7 @@ def cli(ctx, quiet):
 @click.command()
 @click.argument("path", type=click.Path(exists=True, path_type=pathlib.Path))
 @click.pass_context
-def compile(ctx, path):
+def compile(ctx: click.Context, path: pathlib.Path) -> None:
     """Compile .tl to .teal"""
     _build(path, assembler=None, quiet=ctx.obj["quiet"])
 
@@ -115,7 +130,9 @@ def compile(ctx, path):
     help="Algod URL to use for compiling TEAL",
 )
 @click.pass_context
-def build(ctx, path, assembler, algod_url):
+def build(
+    ctx: click.Context, path: pathlib.Path, assembler: str, algod_url: str
+) -> None:
     """Compile .tl to .teal & assemble .teal to .tok (bytecode) & output sourcemap"""
     _build(path, assembler=assembler, algod_url=algod_url, quiet=ctx.obj["quiet"])
 
@@ -123,13 +140,13 @@ def build(ctx, path, assembler, algod_url):
 @click.command()
 @click.argument("tealish_file", type=click.File("r+"))
 @click.pass_context
-def format(ctx, tealish_file):
+def format(ctx: click.Context, tealish_file: IO) -> None:
     """Rewrite .tl file using standard tealish style"""
     input = tealish_file.read()
     try:
         output = reformat_program(input)
     except ParseError as e:
-        raise click.ClickException(e)
+        raise click.ClickException(str(e))
     tealish_file.seek(0)
     tealish_file.write(output)
     tealish_file.truncate()
@@ -138,20 +155,20 @@ def format(ctx, tealish_file):
 @click.command()
 @click.argument("tealish_file", type=click.File("r"))
 @click.pass_context
-def html(ctx, tealish_file):
+def html(ctx: click.Context, tealish_file: IO) -> None:
     """Output HTML of Tealish & Teal source"""
     raise NotImplementedError()
 
 
 @click.group()
-def langspec():
+def langspec() -> None:
     """Tools to support new Teal versions by updating the langspec file"""
     pass
 
 
 @click.command()
 @click.pass_context
-def langspec_update(ctx):
+def langspec_update(ctx: click.Context) -> None:
     """Support new Teal opcodes by updating the langspec.json file from go-algorand master branch"""
     ctx.invoke(langspec_fetch, url_or_branch="master")
 
@@ -159,7 +176,7 @@ def langspec_update(ctx):
 @click.command()
 @click.argument("url_or_branch", type=str)
 @click.pass_context
-def langspec_fetch(ctx, url_or_branch):
+def langspec_fetch(ctx: click.Context, url_or_branch: str) -> None:
     """Fetch a specific langspec.json file and use it for the current project. Can be a URL or branch name of go-algorand"""
     new_langspec = fetch_langspec(url_or_branch)
     with open("langspec.json", "w") as f:
@@ -175,7 +192,7 @@ def langspec_fetch(ctx, url_or_branch):
 
 @click.command()
 @click.argument("url", type=str, default="")
-def langspec_diff(url):
+def langspec_diff(url: str) -> None:
     """Show the differences between the current local langspec.json file and the one packaged with this version Tealish"""
 
     if url:

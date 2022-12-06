@@ -50,16 +50,19 @@ class TealishCompiler:
         self.writer = TealWriter()
         self.processed = False
 
-    def consume_line(self) -> Optional[str]:
+    def consume_line(self) -> str:
         if self.line_no == len(self.source_lines):
-            return None
+            # TODO: this and the func below are Optional[str] but nodes.py uses them heavily and dont
+            # check the type is not None
+            return  # type: ignore
         line = self.source_lines[self.line_no].strip()
         self.line_no += 1
         return line
 
-    def peek(self) -> Optional[str]:
+    def peek(self) -> str:
         if self.line_no == len(self.source_lines):
-            return None
+            # TODO: see above
+            return  # type: ignore
         return self.source_lines[self.line_no].strip()
 
     def write(self, lines: Union[str, List[str]] = "", line_no: int = 0) -> None:

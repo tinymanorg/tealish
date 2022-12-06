@@ -70,7 +70,7 @@ packaged_lang_spec = LangSpec(
 )
 packaged_lang_spec.is_packaged = True
 
-local_lang_spec = None
+local_lang_spec: LangSpec
 if os.path.exists("langspec.json"):
     local_lang_spec = LangSpec(json.load(open("langspec.json")))
 
