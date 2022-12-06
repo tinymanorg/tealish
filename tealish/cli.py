@@ -152,14 +152,6 @@ def format(ctx: click.Context, tealish_file: IO) -> None:
     tealish_file.truncate()
 
 
-@click.command()
-@click.argument("tealish_file", type=click.File("r"))
-@click.pass_context
-def html(ctx: click.Context, tealish_file: IO) -> None:
-    """Output HTML of Tealish & Teal source"""
-    raise NotImplementedError()
-
-
 @click.group()
 def langspec() -> None:
     """Tools to support new Teal versions by updating the langspec file"""
@@ -169,7 +161,10 @@ def langspec() -> None:
 @click.command()
 @click.pass_context
 def langspec_update(ctx: click.Context) -> None:
-    """Support new Teal opcodes by updating the langspec.json file from go-algorand master branch"""
+    """
+    Support new Teal opcodes by updating the langspec.json file
+    from go-algorand master branch
+    """
     ctx.invoke(langspec_fetch, url_or_branch="master")
 
 
@@ -177,7 +172,10 @@ def langspec_update(ctx: click.Context) -> None:
 @click.argument("url_or_branch", type=str)
 @click.pass_context
 def langspec_fetch(ctx: click.Context, url_or_branch: str) -> None:
-    """Fetch a specific langspec.json file and use it for the current project. Can be a URL or branch name of go-algorand"""
+    """
+    Fetch a specific langspec.json file and use it for the current project.
+    Can be a URL or branch name of go-algorand
+    """
     new_langspec = fetch_langspec(url_or_branch)
     with open("langspec.json", "w") as f:
         json.dump(new_langspec.as_dict(), f)
@@ -193,7 +191,10 @@ def langspec_fetch(ctx: click.Context, url_or_branch: str) -> None:
 @click.command()
 @click.argument("url", type=str, default="")
 def langspec_diff(url: str) -> None:
-    """Show the differences between the current local langspec.json file and the one packaged with this version Tealish"""
+    """
+    Show the differences between the current local langspec.json
+    file and the one packaged with this version Tealish
+    """
 
     if url:
         local_name = url
@@ -221,5 +222,4 @@ langspec.add_command(langspec_diff, "diff")
 cli.add_command(compile)
 cli.add_command(build)
 cli.add_command(format)
-cli.add_command(html)
 cli.add_command(langspec)

@@ -1,4 +1,4 @@
-from typing import List, Dict, Callable, Union, Tuple
+from typing import List, Dict, Union, Tuple
 from .base import BaseNode
 from .nodes import Node, Program
 from .utils import TealishMap
@@ -52,7 +52,8 @@ class TealishCompiler:
 
     def consume_line(self) -> str:
         if self.line_no == len(self.source_lines):
-            # TODO: this and the func below are Optional[str] but nodes.py uses them heavily and dont
+            # TODO: this and the func below are Optional[str] but
+            # nodes.py uses them heavily and dont
             # check the type is not None
             return  # type: ignore
         line = self.source_lines[self.line_no].strip()
@@ -95,19 +96,6 @@ class TealishCompiler:
         self.output = self.writer.output
         return self.writer.output
 
-    def traverse(
-        self, node: BaseNode, visitor: Callable[[BaseNode], None] = None
-    ) -> None:
-        if node is None:
-            node = self.nodes[0]
-        if visitor:
-            visitor(node)
-        # TODO: Note i changed this from getattr
-        if hasattr(node, "nodes"):
-            # TODO: still complains about BaseNode not having `nodes`
-            for n in node.nodes:  # type: ignore
-                self.traverse(n, visitor)
-
     def reformat(self) -> str:
         if not self.nodes:
             self.parse()
@@ -118,8 +106,7 @@ class TealishCompiler:
     def get_map(self) -> TealishMap:
         map = TealishMap()
         map.teal_tealish = dict(self.source_map)
-        # TODO:
-        map.errors = dict(self.error_messages)  # type: ignore
+        map.errors = dict(self.error_messages)
         return map
 
 

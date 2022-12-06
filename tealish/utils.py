@@ -45,13 +45,15 @@ def strip_comments(teal_lines: List[str]) -> List[str]:
 
 
 class TealishMap:
-    def __init__(self, map: Optional[Dict[str, Dict[int, int]]] = None) -> None:
+    def __init__(self, map: Optional[Dict[str, Any]] = None) -> None:
         map = map or {}
         self.pc_teal = {int(k): int(v) for k, v in map.get("pc_teal", {}).items()}
         self.teal_tealish = {
             int(k): int(v) for k, v in map.get("teal_tealish", {}).items()
         }
-        self.errors = {int(k): v for k, v in map.get("errors", {}).items()}
+        self.errors: Dict[int, str] = {
+            int(k): v for k, v in map.get("errors", {}).items()
+        }
         self.tealish_teal: Dict[int, List[int]] = {}
         for teal, tealish in self.teal_tealish.items():
             if tealish not in self.tealish_teal:
@@ -73,7 +75,7 @@ class TealishMap:
     def get_tealish_line_for_teal(self, teal_line: int) -> Optional[int]:
         return self.teal_tealish.get(teal_line, None)
 
-    def get_error_for_pc(self, pc: int) -> Optional[int]:
+    def get_error_for_pc(self, pc: int) -> Optional[str]:
         tealish_line = self.get_tealish_line_for_pc(pc)
         if tealish_line is not None:
             return self.errors.get(tealish_line, None)
