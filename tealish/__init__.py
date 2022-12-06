@@ -1,4 +1,4 @@
-from typing import List, Dict, Union
+from typing import List, Dict, Callable, Optional, Union, Tuple
 from .base import BaseNode
 from .nodes import Node, Program
 from .utils import TealishMap
@@ -12,7 +12,7 @@ class TealWriter:
         self.current_output_line = 1
         self.current_input_line = 1
 
-    def write(self, parent: BaseNode, node_or_teal: Union[BaseNode, str]):
+    def write(self, parent: BaseNode, node_or_teal: Union[BaseNode, str]) -> None:
         parent._teal = []
         if isinstance(node_or_teal, BaseNode):
             node = node_or_teal
@@ -50,19 +50,19 @@ class TealishCompiler:
         self.writer = TealWriter()
         self.processed = False
 
-    def consume_line(self):
+    def consume_line(self) -> Optional[str]:
         if self.line_no == len(self.source_lines):
-            return
+            return None
         line = self.source_lines[self.line_no].strip()
         self.line_no += 1
         return line
 
-    def peek(self):
+    def peek(self) -> Optional[str]:
         if self.line_no == len(self.source_lines):
-            return
+            return None
         return self.source_lines[self.line_no].strip()
 
-    def write(self, lines=("",), line_no=0):
+    def write(self, lines: Union[str, List[str]] = "", line_no: int = 0) -> None:
         prefix = "  " * self.level
         if type(lines) == str:
             lines = [lines]
@@ -72,16 +72,16 @@ class TealishCompiler:
             self.source_map[self.current_output_line] = line_no
             self.current_output_line += 1
 
-    def parse(self):
+    def parse(self) -> None:
         node = Program.consume(self, None)
         self.nodes.append(node)
 
-    def process(self):
+    def process(self) -> None:
         for node in self.nodes:
             node.process()
         self.processed = True
 
-    def compile(self):
+    def compile(self) -> List[str]:
         if not self.nodes:
             self.parse()
         if not self.processed:
@@ -92,13 +92,17 @@ class TealishCompiler:
         self.output = self.writer.output
         return self.writer.output
 
-    def traverse(self, node=None, visitor=None):
+    def traverse(
+        self, node: BaseNode, visitor: Callable[[BaseNode], None] = None
+    ) -> None:
         if node is None:
             node = self.nodes[0]
         if visitor:
             visitor(node)
-        if getattr(node, "nodes", []):
-            for n in node.nodes:
+        # TODO: Note i changed this from getattr
+        if hasattr(node, "nodes"):
+            # TODO: still complains about BaseNode not having `nodes`
+            for n in node.nodes:  # type: ignore
                 self.traverse(n, visitor)
 
     def reformat(self) -> str:
@@ -108,21 +112,22 @@ class TealishCompiler:
             self.process()
         return self.nodes[0].tealish()
 
-    def get_map(self):
+    def get_map(self) -> TealishMap:
         map = TealishMap()
         map.teal_tealish = dict(self.source_map)
-        map.errors = dict(self.error_messages)
+        # TODO:
+        map.errors = dict(self.error_messages)  # type: ignore
         return map
 
 
-def compile_program(source: str):
+def compile_program(source: str) -> Tuple[List[str], TealishMap]:
     source_lines = source.split("\n")
     compiler = TealishCompiler(source_lines)
     teal = compiler.compile()
     return teal, compiler.get_map()
 
 
-def compile_lines(source_lines: List[str]):
+def compile_lines(source_lines: List[str]) -> List[str]:
     compiler = TealishCompiler(source_lines)
     compiler.parse()
     compiler.compile()
@@ -130,7 +135,7 @@ def compile_lines(source_lines: List[str]):
     return teal_lines
 
 
-def reformat_program(source: str):
+def reformat_program(source: str) -> str:
     source_lines = source.split("\n")
     compiler = TealishCompiler(source_lines)
     output = compiler.reformat()
