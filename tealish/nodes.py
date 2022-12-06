@@ -48,18 +48,14 @@ class Node(BaseNode):
         # self.nodes includes structural nodes and child_nodes (e.g. function args and body, if conditions and child statements)
         self.nodes: List[BaseNode] = []
         self.properties = {}
-        try:
-            matches: Optional[re.Match[str]] = re.match(self.pattern, self.line)
-            # TODO: this is weird structure, attribute error is for if pattern or line is not defined?
-            if matches is None:
-                raise ParseError(
-                    f'Pattern ({self.pattern}) does not match for {self} for line "{self.line}"'
-                )
-            self.matches = matches.groupdict()
-        except AttributeError:
+
+        matches: Optional[re.Match[str]] = re.match(self.pattern, self.line)
+        if matches is None:
             raise ParseError(
                 f'Pattern ({self.pattern}) does not match for {self} for line "{self.line}"'
             )
+        self.matches = matches.groupdict()
+
         type_hints = get_type_hints(self.__class__)
         for name, expr_class in type_hints.items():
             if name in self.matches:
@@ -1366,7 +1362,6 @@ class ArgsList(Expression):
     def __init__(self, line: str) -> None:
         super().__init__(line)
         self.args = re.findall(self.arg_pattern, line)
-        print(self.args)
 
     def _tealish(self) -> str:
         output = ", ".join([f"{a}: {t}" for (a, t) in self.args])

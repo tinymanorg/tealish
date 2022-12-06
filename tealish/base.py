@@ -1,4 +1,4 @@
-from typing import Any, List, Dict, Tuple, TYPE_CHECKING
+from typing import Any, List, Dict, Tuple, Union, TYPE_CHECKING
 from tealish.errors import CompileError
 from .tealish_builtins import constants
 from .langspec import get_active_langspec
@@ -108,7 +108,7 @@ class BaseNode:
         else:
             return (None, None)
 
-    def declare_var(self, name: str, type: str | tuple[str, str]) -> int:
+    def declare_var(self, name: str, type: Union[str, Tuple[str, str]]) -> int:
         slot, _ = self.get_var(name)
         if slot is not None:
             raise Exception(f'Redefinition of variable "{name}"')
