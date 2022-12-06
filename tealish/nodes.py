@@ -756,7 +756,7 @@ class InnerTxn(InlineStatement):
     ) -> None:
         super().__init__(line, parent, compiler)
         self.group_index: int = 0
-        self.group = None
+        self.group: InnerGroup
 
     @classmethod
     def consume(cls, compiler: "TealishCompiler", parent: Node) -> "InnerTxn":
@@ -773,8 +773,8 @@ class InnerTxn(InlineStatement):
                         compiler.consume_line(), node, compiler=compiler
                     )
                 )
-        group = cls.find_parent(node, InnerGroup)
-        if group:
+        group = cast(Optional[InnerGroup], cls.find_parent(node, InnerGroup))
+        if group is not None:
             group.inners.append(node)
             node.group_index = len(group.inners) - 1
             node.group = group
@@ -1166,8 +1166,12 @@ class Break(LineStatement):
 
     def __init__(self, line: str, parent: Node, compiler: "TealishCompiler") -> None:
         super().__init__(line, parent, compiler)
-        self.parent_loop = self.find_parent(WhileStatement)
-        if self.parent_loop is None:
+        self.parent_loop: WhileStatement
+
+        parent_loop = cast(Optional[WhileStatement], self.find_parent(WhileStatement))
+        if parent_loop is not None:
+            self.parent_loop = parent_loop
+        else:
             raise ParseError(
                 f'"break" should only be used in a while loop! Line {self.line_no}'
             )
@@ -1195,8 +1199,8 @@ class WhileStatement(InlineStatement):
         super().__init__(line, parent, compiler)
         self.conditional_index = compiler.conditional_count
         compiler.conditional_count += 1
-        self.start_label = f"l{self.conditional_index}_while"
-        self.end_label = f"l{self.conditional_index}_end"
+        self.start_label: str = f"l{self.conditional_index}_while"
+        self.end_label: str = f"l{self.conditional_index}_end"
 
     @classmethod
     def consume(cls, compiler: "TealishCompiler", parent: Node) -> "WhileStatement":
