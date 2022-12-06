@@ -2,8 +2,8 @@ from base64 import b64decode
 from typing import Tuple
 import json
 import subprocess
-from algosdk.v2client.algod import AlgodClient  # type: ignore
-from algosdk.source_map import SourceMap  # type: ignore
+from algosdk.v2client.algod import AlgodClient
+from algosdk.source_map import SourceMap
 
 
 def assemble_with_goal(teal: str) -> Tuple[bytes, SourceMap]:

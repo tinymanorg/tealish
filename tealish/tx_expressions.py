@@ -1,6 +1,6 @@
 import importlib.resources
 import tealish
-from textx.metamodel import metamodel_from_file  # type: ignore
+from textx.metamodel import metamodel_from_file
 from .expression_nodes import class_provider
 
 from typing import TYPE_CHECKING

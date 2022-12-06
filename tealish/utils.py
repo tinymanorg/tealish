@@ -1,5 +1,5 @@
 from typing import Dict, List, Tuple, Optional, Union, Any
-from algosdk import source_map  # type: ignore
+from algosdk.source_map import SourceMap
 
 
 def minify_teal(teal_lines: List[str]) -> Tuple[List[str], Dict[int, int]]:
@@ -80,10 +80,10 @@ class TealishMap:
         return None
 
     def update_from_teal_sourcemap(
-        self, sourcemap: Union[Dict[str, Any], source_map.SourceMap]
+        self, sourcemap: Union[Dict[str, Any], SourceMap]
     ) -> None:
-        sourcemap = source_map.SourceMap(sourcemap)
-        if isinstance(sourcemap, source_map.SourceMap):
+        sourcemap = SourceMap(sourcemap)
+        if isinstance(sourcemap, SourceMap):
             self.pc_teal = dict(sourcemap.pc_to_line)
 
     def as_dict(self) -> Dict[str, Any]:
