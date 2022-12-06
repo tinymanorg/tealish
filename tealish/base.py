@@ -166,7 +166,7 @@ class BaseNode:
         p: Optional["Node"] = self.parent  # type: ignore
         while p:
             if isinstance(p, node_class):
-                return cast(Node, p)
+                return cast("Node", p)
             p = p.parent  # type: ignore
         return None
 
