@@ -492,7 +492,7 @@ class StructField(BaseNode):
         return f"{self.name}.{self.field}"
 
 
-def class_provider(name: str) -> Optional[type[BaseNode]]:
+def class_provider(name: str) -> Optional[type]:
     classes = {
         "Variable": Variable,
         "Constant": Constant,

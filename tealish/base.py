@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
+from typing import cast, Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 from tealish.errors import CompileError
 from .tealish_builtins import constants
 from .langspec import get_active_langspec
@@ -149,7 +149,7 @@ class BaseNode:
                     return i
         raise Exception("No available slots!")
 
-    def get_blocks(self) -> dict[str, "Block"]:
+    def get_blocks(self) -> Dict[str, "Block"]:
         blocks = {}
         for s in self.get_scopes():
             blocks.update(s["blocks"])
@@ -162,15 +162,15 @@ class BaseNode:
         return self.find_parent(node_class) is not None
 
     # TODO: also suffers from `parent` not being defined"
-    def find_parent(self, node_class: type["Node"]) -> Optional["Node"]:
-        p = self.parent  # type: ignore
+    def find_parent(self, node_class: type) -> Optional["Node"]:
+        p: Optional["Node"] = self.parent  # type: ignore
         while p:
             if isinstance(p, node_class):
-                return p
+                return cast(Node, p)
             p = p.parent  # type: ignore
         return None
 
-    def has_child_node(self, node_class: type["Node"]) -> bool:
+    def has_child_node(self, node_class: type) -> bool:
         # TODO: Only available on Node and other subclasses
         for node in self.nodes:  # type: ignore
             if isinstance(node, node_class) or node.has_child_node(node_class):  # type: ignore
@@ -215,7 +215,7 @@ class BaseNode:
     def lookup_constant(self, name: str) -> Tuple[str, int]:
         return lookup_constant(name)
 
-    def define_struct(self, struct_name: str, struct: dict[str, Any]) -> None:
+    def define_struct(self, struct_name: str, struct: Dict[str, Any]) -> None:
         structs[struct_name] = struct
 
     def get_struct(self, struct_name: str) -> Dict[str, Any]:
