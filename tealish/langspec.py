@@ -18,7 +18,7 @@ def type_lookup(a: str) -> str:
 
 
 class LangSpec:
-    def __init__(self, spec: dict[str, Any]) -> None:
+    def __init__(self, spec: Dict[str, Any]) -> None:
         self.is_packaged = False
         self.spec = spec
         self.fields: Dict[str, Any] = {
@@ -70,7 +70,7 @@ packaged_lang_spec = LangSpec(
 )
 packaged_lang_spec.is_packaged = True
 
-local_lang_spec: LangSpec
+local_lang_spec: Optional[LangSpec] = None
 if os.path.exists("langspec.json"):
     local_lang_spec = LangSpec(json.load(open("langspec.json")))
 

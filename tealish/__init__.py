@@ -1,4 +1,4 @@
-from typing import List, Dict, Callable, Optional, Union, Tuple
+from typing import List, Dict, Callable, Union, Tuple
 from .base import BaseNode
 from .nodes import Node, Program
 from .utils import TealishMap

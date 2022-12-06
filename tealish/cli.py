@@ -202,7 +202,9 @@ def langspec_diff(url: str) -> None:
     else:
         local_name = "./langspec.json"
         base_langspec = packaged_lang_spec
-        new_langspec = local_lang_spec
+        new_langspec = packaged_lang_spec
+        if local_lang_spec is not None:
+            new_langspec = local_lang_spec
 
     new_ops = new_langspec.new_ops(base_langspec)
     if new_ops:

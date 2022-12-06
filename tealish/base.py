@@ -78,7 +78,7 @@ class BaseNode:
             scope["functions"].update(s["functions"])
         return scope
 
-    def get_scopes(self) -> list[Dict[str, Dict[str, Any]]]:
+    def get_scopes(self) -> List[Dict[str, Dict[str, Any]]]:
         scopes = []
         s = self.get_current_scope()
         while True:
@@ -205,7 +205,7 @@ class BaseNode:
             raise KeyError(f'Var "{name}" not declared in current scope')
         return scope["slots"][name]
 
-    def lookup_const(self, name: str) -> str:
+    def lookup_const(self, name: str) -> Tuple[str, int]:
         scope = self.get_scope()
         if name not in scope["consts"]:
             raise KeyError(f'Const "{name}" not declared in current scope')
