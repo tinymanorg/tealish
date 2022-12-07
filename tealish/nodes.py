@@ -62,8 +62,6 @@ class Node(BaseNode):
         type_hints = get_type_hints(self.__class__)
         for name, expr_class in type_hints.items():
             if name in self.raw_tokens:
-                print(line, expr_class, type(expr_class))
-                print(self.__class__.__name__, name, type(self.raw_tokens[name]))
                 try:
 
                     if self.raw_tokens[name] is not None and hasattr(
@@ -378,10 +376,6 @@ class Const(LineStatement):
 
     def process(self) -> None:
         scope = self.get_current_scope()
-        print(self.name)
-        print(self.type)
-        print(self.expression)
-
         scope["consts"][self.name] = [self.type, self.expression.value]
 
     def write_teal(self, writer: "TealWriter") -> None:
@@ -433,9 +427,6 @@ class FunctionCallStatement(LineStatement):
         self.expression.process()
         # TODO: wat?
         self.name = self.expression.get_current_scope()["name"]
-        print(type(self.expression))
-        print(self.expression.__class__.__name__)
-        print(self.expression.type)
         if self.expression.type:
             raise CompileError(
                 f"Unconsumed return values ({self.expression.type}) from {self.name}",
