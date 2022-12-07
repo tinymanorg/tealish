@@ -212,7 +212,8 @@ class FunctionCall(BaseNode):
 
     def process_special_call(self):
         self.func_call_type = "special"
-        self.type = "any"
+        if self.name == "pop":
+            self.type = "any"
         for arg in self.args:
             arg.process()
 
