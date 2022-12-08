@@ -12,7 +12,7 @@ class Integer(BaseNode):
         writer.write(self, f"pushint {self.value}")
 
     def _tealish(self, formatter=None):
-        return f"pushint {self.value}"
+        return f"{self.value}"
 
 
 class Bytes(BaseNode):
