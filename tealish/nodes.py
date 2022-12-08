@@ -527,28 +527,35 @@ class Assignment(LineStatement):
     def process(self) -> None:
         self.expression.process()
         t = self.expression.type
-        types = t if type(t) == list else [t]
+        incoming_types = t if type(t) == list else [t]
+
         names = [Name(s.strip()) for s in self.names.split(",")]
         self.name_nodes = names
-        if len(types) != len(names):
+        if len(incoming_types) != len(names):
             raise CompileError(
-                f"Incorrect number of names ({len(names)}) for values ({len(types)}) in assignment",
+                f"Incorrect number of names ({len(names)}) for "
+                + f"values ({len(incoming_types)}) in assignment",
                 node=self,
             )
+
         for i, name in enumerate(names):
-            if name.value != "_":
-                slot, var_type = self.get_var(name.value)
-                if slot is None:
-                    raise CompileError(
-                        f'Var "{name.value}" not declared in current scope', node=self
-                    )
-                if not (types[i] == AVMType.any or types[i] == var_type):
-                    raise CompileError(
-                        f"Incorrect type for {t} assignment. Expected {t}, got {types[i]}",
-                        node=self,
-                    )
-                name.slot = slot
-                name._type = var_type
+            if name.value == "_":
+                continue
+
+            slot, var_type = self.get_var(name.value)
+            if slot is None:
+                raise CompileError(
+                    f'Var "{name.value}" not declared in current scope', node=self
+                )
+
+            if not (incoming_types[i] == AVMType.any or incoming_types[i] == var_type):
+                raise CompileError(
+                    f"Incorrect type for {var_type} assignment. "
+                    + f"Expected {var_type}, got {incoming_types[i]}",
+                    node=self,
+                )
+            name.slot = slot
+            name._type = var_type
 
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line}")
