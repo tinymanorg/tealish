@@ -16,6 +16,7 @@ from .base import BaseNode
 from .errors import CompileError, ParseError
 from .tx_expressions import parse_expression
 from .tealish_builtins import AVMType
+from .scope import Scope
 
 LITERAL_INT = r"[0-9]+"
 LITERAL_BYTES = r'"(.+)"'
@@ -39,7 +40,7 @@ class Node(BaseNode):
         self.parent = parent
 
         if self.parent is not None:
-            self.current_scope: Dict[str, Any] = self.parent.current_scope
+            self.current_scope: Scope = self.parent.current_scope
 
         self.compiler = compiler
         self._line = line
@@ -106,25 +107,14 @@ class Node(BaseNode):
 
         self.compiler.write(lines, self.line_no)
 
-    def get_current_scope(self) -> Dict[str, Any]:
+    def get_current_scope(self) -> Scope:
         return self.current_scope
 
     def new_scope(
         self, name: str = "", slot_range: Optional[Tuple[int, int]] = None
     ) -> None:
         parent_scope = self.parent.get_current_scope() if self.parent else None
-        self.current_scope = {
-            "parent": parent_scope,
-            "slots": {},
-            "slot_range": slot_range or [0, 200],
-            "aliases": {},
-            "consts": {},
-            "blocks": {},
-            "functions": {},
-            "name": (parent_scope["name"] + "__" + name)
-            if parent_scope and parent_scope["name"]
-            else name,
-        }
+        self.current_scope = Scope(name, parent_scope, slot_range)
 
     def __repr__(self) -> str:
         name = self.__class__.__name__
@@ -255,7 +245,7 @@ class Program(Node):
         super().__init__(line, parent, compiler)
         self.new_scope("")
 
-    def get_current_scope(self) -> Dict[str, Any]:
+    def get_current_scope(self) -> Scope:
         return self.current_scope
 
     @classmethod
@@ -377,7 +367,7 @@ class Const(LineStatement):
 
     def process(self) -> None:
         scope = self.get_current_scope()
-        scope["consts"][self.name] = [self.type, self.expression.value]
+        scope.consts[self.name] = [self.type, self.expression.value]
 
     def write_teal(self, writer: "TealWriter") -> None:
         pass
@@ -427,7 +417,7 @@ class FunctionCallStatement(LineStatement):
     def process(self) -> None:
         self.expression.process()
         # TODO: wat?
-        self.name = self.expression.get_current_scope()["name"]
+        self.name = self.expression.get_current_scope().name
         if self.expression.type:
             raise CompileError(
                 f"Unconsumed return values ({self.expression.type}) from {self.name}",
@@ -588,8 +578,8 @@ class Block(Statement):
     ) -> None:
         super().__init__(line, parent, compiler)
         scope = self.get_current_scope()
-        scope["blocks"][self.name] = self
-        self.label = scope["name"] + ("__" if scope["name"] else "") + self.name
+        scope.blocks[self.name] = self
+        self.label = scope.name + ("__" if scope.name else "") + self.name
         self.new_scope(self.name)
 
     @classmethod
@@ -1347,7 +1337,7 @@ class For_Statement(InlineStatement):
 class ArgsList(Expression):
     arg_pattern = r"(?P<arg_name>[a-z][a-z_0-9]*): (?P<arg_type>int|bytes)"
     pattern = rf"(?P<args>({arg_pattern}(, )?)*)"
-    args: List[Tuple[str, str]]
+    args: List[Tuple[str, AVMType]]
 
     def __init__(self, line: str) -> None:
         super().__init__(line)
@@ -1375,8 +1365,8 @@ class Func(InlineStatement):
     ) -> None:
         super().__init__(line, parent, compiler)
         scope = self.get_current_scope()
-        scope["functions"][self.name] = self
-        self.label = scope["name"] + "__func__" + self.name
+        scope.functions[self.name] = self
+        self.label = scope.name + "__func__" + self.name
         self.new_scope("func__" + self.name)
         self.returns = list(
             filter(

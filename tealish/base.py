@@ -2,6 +2,7 @@ from typing import cast, Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 from tealish.errors import CompileError
 from .tealish_builtins import constants, AVMType
 from .langspec import get_active_langspec, Op
+from .scope import Scope
 
 
 if TYPE_CHECKING:
@@ -71,27 +72,20 @@ class BaseNode:
     def tealish(self) -> str:
         return self._tealish()
 
-    def get_scope(self) -> Dict[str, Any]:
-        scope: Dict[str, Dict[str, Any]] = {
-            "slots": {},
-            "consts": {},
-            "blocks": {},
-            "functions": {},
-        }
+    def get_scope(self) -> Scope:
+        scope: Scope = Scope()
         for s in self.get_scopes():
-            scope["consts"].update(s["consts"])
-            scope["blocks"].update(s["blocks"])
-            scope["slots"].update(s["slots"])
-            scope["functions"].update(s["functions"])
+            scope.update(s)
+
         return scope
 
-    def get_scopes(self) -> List[Dict[str, Dict[str, Any]]]:
+    def get_scopes(self) -> List[Scope]:
         scopes = []
         s = self.get_current_scope()
         while True:
             scopes.append(s)
-            if s["parent"]:
-                s = s["parent"]
+            if s.parent is not None:
+                s = s.parent
             else:
                 break
         return scopes
@@ -99,13 +93,13 @@ class BaseNode:
     def get_const(self, name: str) -> "Constant":
         consts = {}
         for s in self.get_scopes():
-            consts.update(s["consts"])
+            consts.update(s.consts)
         return consts[name]
 
     def get_slots(self) -> Dict[str, Any]:
         slots = {}
         for s in self.get_scopes():
-            slots.update(s["slots"])
+            slots.update(s.slots)
         return slots
 
     def get_var(self, name: str) -> Tuple[Any, Any]:
@@ -115,7 +109,7 @@ class BaseNode:
         else:
             return (None, None)
 
-    def declare_var(self, name: str, type: Union[str, Tuple[str, str]]) -> int:
+    def declare_var(self, name: str, type: Union[AVMType, Tuple[str, str]]) -> int:
         slot, _ = self.get_var(name)
         if slot is not None:
             raise Exception(f'Redefinition of variable "{name}"')
@@ -125,7 +119,7 @@ class BaseNode:
         # TODO: is this used in place of a type check? If we can do an isinstance check to
         # something that has `compiler` defined, we can be more certain the `compiler` attribute
         # is defined
-        if "func__" in scope["name"]:
+        if "func__" in scope.name:
             # If this var is declared in a function then use the global max slot + 1
             # This is to prevent functions using overlapping slots
             slot = self.compiler.max_slot + 1  # type: ignore
@@ -134,17 +128,17 @@ class BaseNode:
 
         # TODO: same issue here with compiler
         self.compiler.max_slot = max(self.compiler.max_slot, slot)  # type: ignore
-        scope["slots"][name] = [slot, type]
+        scope.slots[name] = (slot, type)
         return slot
 
     def del_var(self, name: str) -> None:
         scope = self.get_current_scope()
-        if name in scope["slots"]:
-            del scope["slots"][name]
+        if name in scope.slots:
+            del scope.slots[name]
 
     def find_slot(self) -> int:
         scope = self.get_current_scope()
-        min, max = scope["slot_range"]
+        min, max = scope.slot_range
         used_slots = [False] * 255
         slots = self.get_slots()
         for k in slots:
@@ -159,7 +153,7 @@ class BaseNode:
     def get_blocks(self) -> Dict[str, "Block"]:
         blocks = {}
         for s in self.get_scopes():
-            blocks.update(s["blocks"])
+            blocks.update(s.blocks)
         return blocks
 
     def get_block(self, name: str) -> "Block":
@@ -184,7 +178,7 @@ class BaseNode:
                 return True
         return False
 
-    def get_current_scope(self) -> Dict[str, Any]:
+    def get_current_scope(self) -> Scope:
         # TODO: Only available on Node and other subclasses
         return self.parent.get_current_scope()  # type: ignore
 
@@ -202,21 +196,21 @@ class BaseNode:
 
     def lookup_func(self, name: str) -> "Func":
         scope = self.get_scope()
-        if name not in scope["functions"]:
+        if name not in scope.functions:
             raise KeyError(f'Func "{name}" not declared in current scope')
-        return scope["functions"][name]
+        return scope.functions[name]
 
     def lookup_var(self, name: str) -> Any:
         scope = self.get_scope()
-        if name not in scope["slots"]:
+        if name not in scope.slots:
             raise KeyError(f'Var "{name}" not declared in current scope')
-        return scope["slots"][name]
+        return scope.slots[name]
 
     def lookup_const(self, name: str) -> Tuple[str, int]:
         scope = self.get_scope()
-        if name not in scope["consts"]:
+        if name not in scope.consts:
             raise KeyError(f'Const "{name}" not declared in current scope')
-        return scope["consts"][name]
+        return scope.consts[name]
 
     # TODO: why do we have both of these?
     def lookup_constant(self, name: str) -> Tuple[str, int]:
