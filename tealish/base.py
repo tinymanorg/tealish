@@ -1,6 +1,6 @@
 from typing import cast, Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 from tealish.errors import CompileError
-from .tealish_builtins import constants
+from .tealish_builtins import constants, AVMType
 from .langspec import get_active_langspec
 
 
@@ -35,14 +35,21 @@ def get_field_type(namespace: str, name: str) -> str:
         raise Exception(f"Unknown name in namespace {name}")
 
 
-def check_arg_types(name: str, args: List["Node"]) -> None:
+def check_arg_types(name: str, incoming_args: List["Node"]) -> None:
     op = lookup_op(name)
-    arg_types = op["arg_types"]
-    for i, arg in enumerate(args):
-        if arg.type != "any" and arg_types[i] != "any" and arg.type != arg_types[i]:  # type: ignore
-            raise Exception(
-                f"Incorrect type {arg.type} for arg {i} of {name}. Expected {arg_types[i]}"  # type: ignore
-            )
+    expected_args = op["arg_types"]
+    # TODO:
+    for i, incoming_arg in enumerate(incoming_args):
+        if incoming_arg.type == AVMType.any:  # type: ignore
+            continue
+        if expected_args[i] == AVMType.any:
+            continue
+        if incoming_arg.type == expected_args[i]:  # type: ignore
+            continue
+
+        raise Exception(
+            f"Incorrect type {incoming_arg.type} for arg {i} of {name}. Expected {expected_args[i]}"  # type: ignore
+        )
 
 
 class BaseNode:

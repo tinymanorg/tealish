@@ -1,6 +1,9 @@
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
+
 from .base import BaseNode
 from .errors import CompileError
+from .tealish_builtins import AVMType
+from .langspec import type_lookup
 
 
 if TYPE_CHECKING:
@@ -11,7 +14,7 @@ if TYPE_CHECKING:
 class Integer(BaseNode):
     def __init__(self, value: str, parent: Optional[BaseNode] = None) -> None:
         self.value = int(value)
-        self.type = "int"
+        self.type = AVMType.int
         self.parent = parent
 
     def write_teal(self, writer: "TealWriter") -> None:
@@ -24,7 +27,7 @@ class Integer(BaseNode):
 class Bytes(BaseNode):
     def __init__(self, value: str, parent: Optional[BaseNode] = None) -> None:
         self.value = value
-        self.type = "bytes"
+        self.type = AVMType.bytes
         self.parent = parent
 
     def write_teal(self, writer: "TealWriter") -> None:
@@ -47,7 +50,7 @@ class Variable(BaseNode):
         # is it a struct?
         if type(self.type) == tuple:
             if self.type[0] == "struct":
-                self.type = "bytes"
+                self.type = AVMType.bytes
 
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"load {self.slot} // {self.name}")
@@ -75,16 +78,16 @@ class Constant(BaseNode):
                 raise CompileError(
                     f'Constant "{self.name}" not declared in scope', node=self
                 )
-        if type not in ("int", "bytes"):
+        if type not in (AVMType.int, AVMType.bytes):
             raise CompileError(f"Unexpected const type {type}", node=self)
 
         self.type = type
         self.value = value
 
     def write_teal(self, writer: "TealWriter") -> None:
-        if self.type == "int":
+        if self.type == AVMType.int:
             writer.write(self, f"pushint {self.value} // {self.name}")
-        elif self.type == "bytes":
+        elif self.type == AVMType.bytes:
             writer.write(self, f"pushbytes {self.value} // {self.name}")
 
     def _tealish(self) -> str:
@@ -102,7 +105,7 @@ class UnaryOp(BaseNode):
         self.a.process()
         self.check_arg_types(self.op, [self.a])
         op = self.lookup_op(self.op)
-        self.type = {"B": "bytes", "U": "int", ".": "any"}[op.get("Returns", "")]
+        self.type = type_lookup(op.get("Returns", ""))
 
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, self.a)
@@ -127,7 +130,7 @@ class BinaryOp(BaseNode):
         self.b.process()
         self.check_arg_types(self.op, [self.a, self.b])
         op = self.lookup_op(self.op)
-        self.type = {"B": "bytes", "U": "int", ".": "any"}[op.get("Returns", "")]
+        self.type = type_lookup(op.get("Returns", ""))
 
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, self.a)
@@ -164,7 +167,7 @@ class FunctionCall(BaseNode):
         self.name = name
         self.args = args
         self.parent = parent
-        self.type: Union[str, List[str]] = ""
+        self.type: Union[AVMType, List[AVMType]] = AVMType.none
         self.func_call_type: str = ""
         self.nodes = args
         self.immediate_args = ""
@@ -224,14 +227,12 @@ class FunctionCall(BaseNode):
             elif isinstance(x, Integer):
                 immediates[i] = x.value
         self.immediate_args = " ".join(map(str, immediates))
-        returns = [
-            {"B": "bytes", "U": "int", ".": "any"}[x] for x in op.get("Returns", "")
-        ][::-1]
+        returns = [type_lookup(x) for x in op.get("Returns", "")][::-1]
         self.type = returns[0] if len(returns) == 1 else returns
 
     def process_special_call(self) -> None:
         self.func_call_type = "special"
-        self.type = "any"
+        self.type = AVMType.any
         for arg in self.args:
             arg.process()
 
@@ -399,7 +400,7 @@ class GroupTxnArrayField(BaseNode):
 class PositiveGroupIndex(BaseNode):
     def __init__(self, index: int, parent: Optional["BaseNode"] = None) -> None:
         self.index = index
-        self.type = "int"
+        self.type = AVMType.int
         self.parent = parent
 
     def write_teal(self, writer: "TealWriter") -> None:
@@ -414,7 +415,7 @@ class PositiveGroupIndex(BaseNode):
 class NegativeGroupIndex(BaseNode):
     def __init__(self, index: int, parent: Optional[BaseNode] = None) -> None:
         self.index = index
-        self.type = "int"
+        self.type = AVMType.int
         self.parent = parent
 
     def write_teal(self, writer: "TealWriter") -> None:
@@ -480,7 +481,7 @@ class StructField(BaseNode):
     def write_teal(self, writer: "TealWriter") -> None:
         if self.object_type == "struct":
             writer.write(self, f"load {self.slot} // {self.name}")
-            if self.type == "int":
+            if self.type == AVMType.int:
                 writer.write(self, f"pushint {self.offset}")
                 writer.write(self, f"extract_uint64 // {self.field}")
             else:
