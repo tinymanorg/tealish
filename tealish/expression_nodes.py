@@ -5,7 +5,7 @@ from .errors import CompileError
 
 if TYPE_CHECKING:
     from . import TealWriter
-    from .nodes import Node, GenericExpression
+    from .nodes import Node, Func, GenericExpression
 
 
 class Integer(BaseNode):
@@ -174,14 +174,14 @@ class FunctionCall(BaseNode):
         if self.name in ("error", "push", "pop"):
             return self.process_special_call()
 
-        func: Optional[str] = None
+        func: Optional[Func] = None
         try:
             func = self.lookup_func(self.name)
         except KeyError:
             pass
 
         if func is not None:
-            return self.process_user_defined_func_call(func)  # type: ignore
+            return self.process_user_defined_func_call(func)
 
         op: Optional[Dict[str, Any]] = None
         try:
@@ -194,17 +194,17 @@ class FunctionCall(BaseNode):
         else:
             raise CompileError(f'Unknown function or opcode "{self.name}"', node=self)
 
-    def process_user_defined_func_call(self, func: "FunctionCall") -> None:
+    def process_user_defined_func_call(self, func: "Func") -> None:
         self.func_call_type = "user_defined"
         self.func = func
-        self.type: List[str] = func.returns[0] if len(func.returns) == 1 else func.returns  # type: ignore
+        self.type = func.returns[0] if len(func.returns) == 1 else func.returns
         for arg in self.args:
             arg.process()
 
     def write_teal_user_defined_func_call(self, writer: "TealWriter") -> None:
         for arg in self.args:
             writer.write(self, arg)
-        writer.write(self, f"callsub {self.func.label}")  # type: ignore
+        writer.write(self, f"callsub {self.func.label}")
 
     def process_op_call(self, op: Dict[str, Any]) -> None:
         self.func_call_type = "op"

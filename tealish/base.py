@@ -7,7 +7,7 @@ from .langspec import get_active_langspec
 if TYPE_CHECKING:
     from . import TealWriter
     from .expression_nodes import Constant
-    from .nodes import Block, Node
+    from .nodes import Block, Node, Func
 
 lang_spec = get_active_langspec()
 
@@ -193,7 +193,7 @@ class BaseNode:
     def lookup_op(self, name: str) -> Dict[str, Any]:
         return lookup_op(name)
 
-    def lookup_func(self, name: str) -> Any:
+    def lookup_func(self, name: str) -> "Func":
         scope = self.get_scope()
         if name not in scope["functions"]:
             raise KeyError(f'Func "{name}" not declared in current scope')

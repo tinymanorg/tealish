@@ -43,33 +43,43 @@ class Node(BaseNode):
         self.compiler = compiler
         self._line = line
         self._line_no = compiler.line_no if compiler else None
-        # self.child_nodes includes nested nodes (e.g. function body or statements within if...else...end)
+
+        # self.child_nodes includes nested nodes
+        #   (e.g. function body or statements within if...else...end)
         self.child_nodes: List[BaseNode] = []
-        # self.nodes includes structural nodes and child_nodes (e.g. function args and body, if conditions and child statements)
+        # self.nodes includes structural nodes and child_nodes
+        #   (e.g. function args and body, if conditions and child statements)
         self.nodes: List[BaseNode] = []
         self.properties = {}
 
-        matches: Optional[re.Match[str]] = re.match(self.pattern, self.line)
-        if matches is None:
+        raw_tokens: Optional[re.Match[str]] = re.match(self.pattern, self.line)
+        if raw_tokens is None:
             raise ParseError(
                 f'Pattern ({self.pattern}) does not match for {self} for line "{self.line}"'
             )
-        self.matches = matches.groupdict()
+        self.raw_tokens = raw_tokens.groupdict()
 
         type_hints = get_type_hints(self.__class__)
         for name, expr_class in type_hints.items():
-            if name in self.matches:
+            if name in self.raw_tokens:
                 try:
-                    if self.matches[name] is not None and hasattr(expr_class, "parse"):
+
+                    if self.raw_tokens[name] is not None and hasattr(
+                        expr_class, "parse"
+                    ):
                         value = expr_class.parse(
-                            self.matches[name], parent=self, compiler=compiler
+                            self.raw_tokens[name], parent=self, compiler=compiler
                         )
                     else:
-                        value = self.matches[name]
+                        value = self.raw_tokens[name]
+
                     setattr(self, name, value)
+
                     if isinstance(value, (Node, Expression, BaseNode)):
                         self.nodes.append(value)
+
                     self.properties[name] = value
+
                 except Exception as e:
                     raise ParseError(str(e) + f" at line {self._line_no}")
 
@@ -131,18 +141,18 @@ class Expression(Node):
 
 
 class Literal(Expression):
-    pattern = rf"(?P<value>{LITERAL_BYTES}|{LITERAL_INT})$"
+    value: Union[int, str, bytes]
 
     @classmethod
     def parse(cls, line: str, parent: Node, compiler: "TealishCompiler") -> Node:
         matchable: List[Type[Expression]] = [LiteralInt, LiteralBytes]
         for expr in matchable:
             if expr.match(line):
-                return expr.parse(line, parent, compiler)
+                return expr(line, parent, compiler)
         raise ParseError(f'Cannot parse "{line}" as Literal')
 
 
-class LiteralInt(Expression):
+class LiteralInt(Literal):
     pattern = rf"(?P<value>{LITERAL_INT})$"
     value: int
 
@@ -156,7 +166,7 @@ class LiteralInt(Expression):
         return f"{self.value}"
 
 
-class LiteralBytes(Expression):
+class LiteralBytes(Literal):
     pattern = rf"(?P<value>{LITERAL_BYTES})$"
     value: str
 
@@ -362,7 +372,7 @@ class Const(LineStatement):
     pattern = r"const (?P<type>\bint\b|\bbytes\b) (?P<name>[A-Z][a-zA-Z0-9_]*) = (?P<expression>.*)$"
     type: str
     name: str
-    expression: Union[LiteralInt, LiteralBytes]
+    expression: Literal
 
     def process(self) -> None:
         scope = self.get_current_scope()
@@ -756,7 +766,7 @@ class InnerTxn(InlineStatement):
     ) -> None:
         super().__init__(line, parent, compiler)
         self.group_index: int = 0
-        self.group: InnerGroup
+        self.group: Optional[InnerGroup] = None
 
     @classmethod
     def consume(cls, compiler: "TealishCompiler", parent: Node) -> "InnerTxn":
@@ -808,31 +818,6 @@ class InnerTxn(InlineStatement):
         for a in self.array_fields.values():
             for node in a:
                 node.expression.process()
-
-    # def process(self) -> None:
-    #    self.array_fields: Dict[str, List[InnerTxnFieldSetter]] = {}
-    #    for node in self.child_nodes:
-    #        # TODO: type check the child nodes, dont just cast them
-    #        node = cast(InnerTxnFieldSetter, node)
-
-    #        if node.index is not None:
-    #            n = len(self.array_fields.get(node.field_name, []))
-    #            if n == node.index:
-    #                self.array_fields[node.field_name].append(node)
-    #            else:
-    #                # TODO: compiler might be `None` since the `Node` type accepts an Optional[Compiler] type
-    #                # this is clearly not right
-    #                if self.compiler is not None:
-    #                    print(node.index, n)
-    #                    raise ParseError(
-    #                        f"Incorrect field array index {node.index} (expected {n}) at line {self.compiler.line_no}!"
-    #                    )
-    #        else:
-    #            node.expression.process()
-
-    #    for a in self.array_fields.values():
-    #        for node in a:
-    #            node.expression.process()
 
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line}")
@@ -1374,15 +1359,17 @@ class ArgsList(Expression):
 
 class Func(InlineStatement):
     possible_child_nodes = [InlineStatement]
-    pattern = r"func (?P<name>[a-zA-Z_0-9]+)\((?P<args>.*)\)(?P<returns>.*):$"
+    pattern = r"func (?P<name>[a-zA-Z_0-9]+)\((?P<args>.*)\)(?P<return_type>.*):$"
     name: str
     args: ArgsList
+
+    return_type: str
     returns: List[str]
 
     def __init__(
         self,
         line: str,
-        parent: Optional[Node] = None,
+        parent: Node = None,
         compiler: Optional["TealishCompiler"] = None,
     ) -> None:
         super().__init__(line, parent, compiler)
@@ -1390,12 +1377,15 @@ class Func(InlineStatement):
         scope["functions"][self.name] = self
         self.label = scope["name"] + "__func__" + self.name
         self.new_scope("func__" + self.name)
-        self.returns = list(filter(None, [s.strip() for s in line.split(",")]))
+        self.returns = list(
+            filter(None, [s.strip() for s in self.return_type.split(",")])
+        )
         self.slots: Dict[str, int] = {}
 
     @classmethod
     def consume(cls, compiler: "TealishCompiler", parent: Optional[Node]) -> "Func":
         func = Func(compiler.consume_line(), parent, compiler=compiler)
+
         while True:
             if compiler.peek() == "end":
                 compiler.consume_line()
