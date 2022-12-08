@@ -95,6 +95,18 @@ class Op:
         self.doc_extra = op_def.get("DocExtra", "")
         self.groups = op_def.get("groups", [])
 
+        arg_list = [f"{abc[i]}: {t}" for i, t in enumerate(self.arg_types)]
+        if len(self.arg_enum) > 0:
+            arg_list = ["F: field"] + arg_list
+        elif self.immediate_args_num > 0:
+            arg_list = (["i: int"] * self.immediate_args_num) + arg_list
+
+        arg_string = ", ".join(arg_list)
+
+        self.sig = f"{self.name}({arg_string})"
+        if len(self.returns_types) > 0:
+            self.sig += ", ".join(self.returns_types)
+
 
 class LangSpec:
     def __init__(self, spec: Dict[str, Any]) -> None:
@@ -116,25 +128,6 @@ class LangSpec:
 
         for i, field in enumerate(self.ops["txn"].arg_enum):
             self.fields["Txn"][field] = self.ops["txn"].arg_enum_types[i]
-
-        for op in self.ops.values():
-
-            args = op.args
-            arg_types = op.arg_types
-            arg_list = [f"{abc[i]}: {arg_types[i]}" for i in range(len(args))]
-
-            if len(op.arg_enum) > 0:
-                arg_list = ["F: field"] + arg_list
-            elif op.immediate_args_num > 0:
-                arg_list = (["i: int"] * op.immediate_args_num) + arg_list
-
-            arg_string = ", ".join(arg_list)
-
-            sig = f"{op.name}({arg_string})"
-            if len(op.returns_types) > 0:
-                sig += ", ".join(op.returns_types)
-
-            op.sig = sig
 
     def as_dict(self) -> Dict[str, Any]:
         return self.spec
