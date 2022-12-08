@@ -15,6 +15,8 @@ from tealish.errors import (
 from tealish.nodes import Node
 from tealish.tx_expressions import parse_expression
 from tealish.utils import strip_comments
+from tealish.scope import Scope
+from tealish.tealish_builtins import AVMType
 
 
 def compile_min(p):
@@ -32,7 +34,7 @@ def compile_expression_min(p, **kwargs):
 def compile_expression(expression, scope=None):
     parent = Node("")
     parent.new_scope()
-    parent.current_scope.update(scope or {})
+    parent.current_scope.update(scope or Scope())
     node = parse_expression(expression)
     node.parent = parent
     node.process()
@@ -112,9 +114,9 @@ class TestFields(unittest.TestCase):
         )
 
     def test_group_index_var(self):
-        teal = compile_expression_min(
-            "Gtxn[index].TypeEnum", scope={"slots": {"index": (0, "int")}}
-        )
+        scope = Scope()
+        scope.register_var("index", (0, AVMType.int))
+        teal = compile_expression_min("Gtxn[index].TypeEnum", scope=scope)
         self.assertListEqual(teal, ["load 0", "gtxns TypeEnum"])
 
     def test_group_index_expression(self):
@@ -688,7 +690,9 @@ class TestOperators(unittest.TestCase):
         )
 
     def test_unary_variable(self):
-        teal = compile_expression_min("!x", scope={"slots": {"x": (0, "int")}})
+        scope = Scope()
+        scope.register_var("x", (0, AVMType.int))
+        teal = compile_expression_min("!x", scope=scope)
         self.assertEqual(
             teal,
             [
