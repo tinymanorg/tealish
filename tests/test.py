@@ -1,8 +1,10 @@
+from pathlib import Path
 import unittest
 from unittest import expectedFailure
 
 from tealish import (
     compile_lines,
+    reformat_program,
     TealishCompiler,
     TealWriter,
 )
@@ -1051,3 +1053,25 @@ class TestStructs(unittest.TestCase):
                 "store 0",
             ],
         )
+
+
+class TestEverythingProgram(unittest.TestCase):
+    def setUp(self) -> None:
+        tests_dir = Path(__file__).parent
+        with open(tests_dir / "everything.tl") as f:
+            self.src_lines = f.read().split("\n")
+
+        with open(tests_dir / "everything.teal") as f:
+            self.output_lines = f.read().split("\n")
+
+    def test_pass_parse(self):
+        compiler = TealishCompiler(self.src_lines)
+        compiler.parse()
+
+    def test_pass_compile(self):
+        output = compile_lines(self.src_lines)
+        self.assertListEqual(output, self.output_lines)
+
+    def test_pass_reformat(self):
+        output = reformat_program("\n".join(self.src_lines))
+        self.assertListEqual(output.split("\n"), self.src_lines)
