@@ -16,7 +16,7 @@ from .base import BaseNode
 from .errors import CompileError, ParseError
 from .tx_expressions import parse_expression
 from .tealish_builtins import AVMType
-from .scope import Scope
+from .scope import Scope, VarType
 
 LITERAL_INT = r"[0-9]+"
 LITERAL_BYTES = r'"(.+)"'
@@ -177,13 +177,13 @@ class Name(Expression):
 
     def __init__(self, line: str) -> None:
         self.slot: Optional[int] = None
-        self._type: Optional[str] = None
+        self._type: Optional[VarType] = None
         super().__init__(line)
 
     def _tealish(self) -> str:
         return f"{self.value}"
 
-    def type(self) -> Optional[str]:
+    def type(self) -> Optional[VarType]:
         return self._type
 
 
@@ -537,19 +537,18 @@ class Assignment(LineStatement):
             )
         for i, name in enumerate(names):
             if name.value != "_":
-                # TODO: we have types for vars now. We should somehow make sure the expression is the correct type
-                slot, t = self.get_var(name.value)
+                slot, var_type = self.get_var(name.value)
                 if slot is None:
                     raise CompileError(
                         f'Var "{name.value}" not declared in current scope', node=self
                     )
-                if not (types[i] == AVMType.any or types[i] == t):
+                if not (types[i] == AVMType.any or types[i] == var_type):
                     raise CompileError(
                         f"Incorrect type for {t} assignment. Expected {t}, got {types[i]}",
                         node=self,
                     )
                 name.slot = slot
-                name._type = t
+                name._type = var_type
 
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line}")

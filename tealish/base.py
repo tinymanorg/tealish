@@ -2,7 +2,7 @@ from typing import cast, Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 from tealish.errors import CompileError
 from .tealish_builtins import constants, AVMType
 from .langspec import get_active_langspec, Op
-from .scope import Scope
+from .scope import Scope, VarType
 
 
 if TYPE_CHECKING:
@@ -73,10 +73,9 @@ class BaseNode:
         return self._tealish()
 
     def get_scope(self) -> Scope:
-        scope: Scope = Scope()
+        scope = Scope()
         for s in self.get_scopes():
             scope.update(s)
-
         return scope
 
     def get_scopes(self) -> List[Scope]:
@@ -102,7 +101,7 @@ class BaseNode:
             slots.update(s.slots)
         return slots
 
-    def get_var(self, name: str) -> Tuple[Any, Any]:
+    def get_var(self, name: str) -> Tuple[int, VarType]:
         slots = self.get_slots()
         if name in slots:
             return slots[name]
@@ -110,45 +109,23 @@ class BaseNode:
             return (None, None)
 
     def declare_var(self, name: str, type: Union[AVMType, Tuple[str, str]]) -> int:
-        slot, _ = self.get_var(name)
-        if slot is not None:
-            raise Exception(f'Redefinition of variable "{name}"')
-
         scope = self.get_current_scope()
+        max_slot: Optional[int] = None
 
-        # TODO: is this used in place of a type check? If we can do an isinstance check to
-        # something that has `compiler` defined, we can be more certain the `compiler` attribute
-        # is defined
         if "func__" in scope.name:
             # If this var is declared in a function then use the global max slot + 1
             # This is to prevent functions using overlapping slots
-            slot = self.compiler.max_slot + 1  # type: ignore
-        else:
-            slot = self.find_slot()
+            max_slot = self.compiler.max_slot + 1  # type: ignore
 
-        # TODO: same issue here with compiler
+        slot = scope.declare_var(name, type, max_slot=max_slot)
+
+        # Update max_slot on compiler
         self.compiler.max_slot = max(self.compiler.max_slot, slot)  # type: ignore
-        scope.slots[name] = (slot, type)
+
         return slot
 
     def del_var(self, name: str) -> None:
-        scope = self.get_current_scope()
-        if name in scope.slots:
-            del scope.slots[name]
-
-    def find_slot(self) -> int:
-        scope = self.get_current_scope()
-        min, max = scope.slot_range
-        used_slots = [False] * 255
-        slots = self.get_slots()
-        for k in slots:
-            slot = slots[k][0]
-            used_slots[slot] = True
-        for i, _ in enumerate(used_slots):
-            if not used_slots[i]:
-                if i >= min and i <= max:
-                    return i
-        raise Exception("No available slots!")
+        self.get_current_scope().delete_var(name)
 
     def get_blocks(self) -> Dict[str, "Block"]:
         blocks = {}
@@ -195,27 +172,19 @@ class BaseNode:
         return lookup_op(name)
 
     def lookup_func(self, name: str) -> "Func":
-        scope = self.get_scope()
-        if name not in scope.functions:
-            raise KeyError(f'Func "{name}" not declared in current scope')
-        return scope.functions[name]
+        return self.get_scope().lookup_func(name)
 
     def lookup_var(self, name: str) -> Any:
-        scope = self.get_scope()
-        if name not in scope.slots:
-            raise KeyError(f'Var "{name}" not declared in current scope')
-        return scope.slots[name]
+        return self.get_scope().lookup_var(name)
 
     def lookup_const(self, name: str) -> Tuple[str, int]:
-        scope = self.get_scope()
-        if name not in scope.consts:
-            raise KeyError(f'Const "{name}" not declared in current scope')
-        return scope.consts[name]
+        return self.get_scope().lookup_const(name)
 
     # TODO: why do we have both of these?
     def lookup_constant(self, name: str) -> Tuple[str, int]:
         return lookup_constant(name)
 
+    # TODO: shouldn't these be part of the scope?
     def define_struct(self, struct_name: str, struct: Dict[str, Any]) -> None:
         structs[struct_name] = struct
 
