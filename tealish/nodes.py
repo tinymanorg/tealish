@@ -1504,6 +1504,8 @@ class StructFieldDefinition(InlineStatement):
 
     def _tealish(self) -> str:
         output = f"{self.field_name}: {self.data_type}"
+        if self.data_length:
+            output += f"[{self.data_length}]"
         return output
 
 
@@ -1644,7 +1646,7 @@ class StructAssignment(LineStatement):
             writer.write(self, f"store {self.name.slot} // {self.name.value}")
 
     def _tealish(self) -> str:
-        s = f"{self.name} {self.name.tealish()}"
+        s = f"{self.name.tealish()}.{self.field_name}"
         if self.expression:
             s += f" = {self.expression.tealish()}"
         return s + "\n"
