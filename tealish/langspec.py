@@ -3,18 +3,22 @@ import os
 import requests
 import tealish
 import json
+from .tealish_builtins import AVMType
 from typing import List, Dict, Any, Tuple, Optional
 
 abc = "ABCDEFGHIJK"
 
 
-def type_lookup(a: str) -> str:
-    return {
-        ".": "any",
-        "B": "bytes",
-        "U": "int",
-        "": "None",
-    }[a]
+_opcode_type_map = {
+    ".": AVMType.any,
+    "B": AVMType.bytes,
+    "U": AVMType.int,
+    "": AVMType.none,
+}
+
+
+def type_lookup(a: str) -> AVMType:
+    return _opcode_type_map[a]
 
 
 class LangSpec:
