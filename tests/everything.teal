@@ -1,0 +1,440 @@
+#pragma version 8
+
+// This example aims to use as many tealish language constructs as possible.
+// It is used to identify changes in the parser or compiler.
+// It should always compile but not necessarily do anything sensible when run.
+
+// A comment below a blank line
+
+// A struct
+
+// Consts
+
+// Assignments
+// int a = FOO [slot 0]
+pushint 100 // FOO
+store 0 // a
+// bytes b = BAR [slot 1]
+pushbytes "bar" // BAR
+store 1 // b
+
+
+// Structs
+// Item item1 = bzero(46) [slot 2]
+pushint 46
+bzero
+store 2 // item1
+// item1.id = 123 [slot 2]
+load 2 // item1
+pushint 123
+itob
+replace 0 // item1.id
+store 2 // item1
+// item1.name = "xyz" [slot 2]
+load 2 // item1
+pushbytes "xyz"
+replace 16 // item1.name
+store 2 // item1
+// assert(item1.id > 0)
+load 2 // item1
+pushint 0
+extract_uint64 // id
+pushint 0
+>
+assert
+// log(item1.name)
+load 2 // item1
+extract 16 10 // name
+log
+
+// Delcaration without assignment
+// int balance [slot 3]
+// int exists [slot 4]
+// Multiple assignment
+// Opcode with immediate arg
+// exists, balance = asset_holding_get(AssetBalance, 0, 5)
+pushint 0
+pushint 5
+asset_holding_get AssetBalance
+store 4 // exists
+store 3 // balance
+// Use of _ to ignore a return value
+// _, balance = asset_holding_get(AssetBalance, 1, 5)
+pushint 1
+pushint 5
+asset_holding_get AssetBalance
+pop // discarding value for _
+store 3 // balance
+
+
+// if FOO > 1:
+  pushint 100 // FOO
+  pushint 1
+  >
+  bz l0_else
+  // then:
+    // log(BAR)
+    pushbytes "bar" // BAR
+    log
+  b l0_end
+  l0_else:
+  // else:
+    // error()
+    err
+  l0_end: // end
+
+// if 1:
+  pushint 1
+  bz l1_elif_0
+  // then:
+    // log("a")
+    pushbytes "a"
+    log
+  b l1_end
+  l1_elif_0:
+  // elif 2:
+  pushint 2
+  bz l1_else
+    // log("b")
+    pushbytes "b"
+    log
+  b l1_end
+  l1_else:
+  // else:
+    // log("c")
+    pushbytes "c"
+    log
+  l1_end: // end
+
+// if 1:
+  pushint 1
+  bz l2_end
+  // then:
+    // jump main
+    b main
+  l2_end: // end
+
+
+// switch Txn.ApplicationArgs[0]:
+txna ApplicationArgs 0
+pushbytes "main"
+==
+bnz main
+txna ApplicationArgs 0
+pushbytes "inner_stuff"
+==
+bnz inner_stuff
+b fail // else
+
+
+// block main
+main:
+  // int amount = sum(2, 3) [slot 5]
+  pushint 2
+  pushint 3
+  callsub __func__sum
+  store 5 // amount
+  // transfer(0, amount, Gtxn[-1].Sender, Txn.Accounts[1])
+  pushint 0
+  load 5 // amount
+  txn GroupIndex
+  pushint 1
+  -
+  gtxns Sender
+  txna Accounts 1
+  callsub __func__transfer
+  
+  // int sum = teal_sum(2, 3) [slot 6]
+  pushint 2
+  pushint 3
+  callsub __func__teal_sum
+  store 6 // sum
+  // assert(amount == sum)
+  load 5 // amount
+  load 6 // sum
+  ==
+  assert
+  
+  // int z = add_amount(5) [slot 7]
+  pushint 5
+  callsub main__func__add_amount
+  store 7 // z
+  
+  // int i = 0 [slot 8]
+  pushint 0
+  store 8 // i
+  // while i < z:
+  l3_while:
+    load 8 // i
+    load 7 // z
+    <
+    bz l3_end
+    // i = i + 1
+    load 8 // i
+    pushint 1
+    +
+    store 8 // i
+    b l3_while
+    l3_end: // end
+  
+  // for _ in 1:10:
+    pushint 1
+    dup
+    l4_for:
+    pushint 10
+    ==
+    bnz l4_end
+    // i = i + 1
+    load 8 // i
+    pushint 1
+    +
+    store 8 // i
+    pushint 1
+    +
+    dup
+    b l4_for
+    pop
+    l4_end: // end
+  
+  // for x in 1:10:
+    pushint 1
+    store 9 // x
+    l5_for:
+    load 9 // x
+    pushint 10
+    ==
+    bnz l5_end
+    // log(itob(x))
+    load 9 // x
+    itob
+    log
+    load 9 // x
+    pushint 1
+    +
+    store 9 // x
+    b l5_for
+    l5_end: // end
+  
+  // int first = 1 [slot 9]
+  pushint 1
+  store 9 // first
+  // int last = 5 + 5 [slot 10]
+  pushint 5
+  pushint 5
+  +
+  store 10 // last
+  // For loop with variables
+  // for x in first:last:
+    load 9 // first
+    store 11 // x
+    l6_for:
+    load 11 // x
+    load 10 // last
+    ==
+    bnz l6_end
+    // log(itob(x))
+    load 11 // x
+    itob
+    log
+    load 11 // x
+    pushint 1
+    +
+    store 11 // x
+    b l6_for
+    l6_end: // end
+  
+  // Function with multiple return values
+  // int fx [slot 11]
+  // int fy [slot 12]
+  // fx, fy = foo(1, 2)
+  pushint 1
+  pushint 2
+  callsub __func__foo
+  store 11 // fx
+  store 12 // fy
+  
+  // exit(1)
+  pushint 1
+  return
+  
+  // Locally scoped function using variable from parent scope
+  // func add_amount(x: int) int:
+  main__func__add_amount:
+  store 13 // x
+  // int result = amount + x [slot 14]
+  load 5 // amount
+  load 13 // x
+  +
+  store 14 // result
+  // return result
+  load 14 // result
+  retsub
+
+
+// block inner_stuff
+inner_stuff:
+  // inner_group:
+    itxn_begin
+    // inner_txn:
+      // TypeEnum: Pay
+      pushint 1 // Pay
+      itxn_field TypeEnum
+      // Receiver: Txn.Sender
+      txn Sender
+      itxn_field Receiver
+      // Amount: 1
+      pushint 1
+      itxn_field Amount
+      // Fee: 0
+      pushint 0
+      itxn_field Fee
+    // end inner_txn
+    // if 1:
+      pushint 1
+      bz l7_end
+      // then:
+        // inner_txn:
+        itxn_next
+          // TypeEnum: Axfer
+          pushint 4 // Axfer
+          itxn_field TypeEnum
+          // AssetReceiver: Txn.Sender
+          txn Sender
+          itxn_field AssetReceiver
+          // AssetAmount: 1
+          pushint 1
+          itxn_field AssetAmount
+          // XferAsset: 1
+          pushint 1
+          itxn_field XferAsset
+          // Fee: 0
+          pushint 0
+          itxn_field Fee
+        // end inner_txn
+      l7_end: // end
+    itxn_submit
+  // end inner_group
+  // exit(1)
+  pushint 1
+  return
+
+// block fail
+fail:
+  // oops()
+  callsub __func__oops
+
+// Function with no args or return value
+// func oops():
+__func__oops:
+// error()
+err
+// return
+retsub
+
+
+// Function with args but no return value
+// func transfer(asset_id: int, amount: int, sender: bytes, receiver: bytes):
+__func__transfer:
+store 15 // receiver
+store 16 // sender
+store 17 // amount
+store 18 // asset_id
+// if asset_id == 0:
+  load 18 // asset_id
+  pushint 0
+  ==
+  bz l8_else
+  // then:
+    // inner_txn:
+    itxn_begin
+      // TypeEnum: Pay
+      pushint 1 // Pay
+      itxn_field TypeEnum
+      // Sender: sender
+      load 16 // sender
+      itxn_field Sender
+      // Receiver: receiver
+      load 15 // receiver
+      itxn_field Receiver
+      // Amount: amount
+      load 17 // amount
+      itxn_field Amount
+      // Fee: 0
+      pushint 0
+      itxn_field Fee
+    itxn_submit
+    // end inner_txn
+  b l8_end
+  l8_else:
+  // else:
+    // inner_txn:
+    itxn_begin
+      // TypeEnum: Axfer
+      pushint 4 // Axfer
+      itxn_field TypeEnum
+      // Sender: sender
+      load 16 // sender
+      itxn_field Sender
+      // AssetReceiver: receiver
+      load 15 // receiver
+      itxn_field AssetReceiver
+      // AssetAmount: amount
+      load 17 // amount
+      itxn_field AssetAmount
+      // XferAsset: asset_id
+      load 18 // asset_id
+      itxn_field XferAsset
+      // Fee: 0
+      pushint 0
+      itxn_field Fee
+    itxn_submit
+    // end inner_txn
+  l8_end: // end
+// return
+retsub
+
+// Function with return value
+// func sum(x: int, y: int) int:
+__func__sum:
+store 19 // y
+store 20 // x
+// int result = x + y [slot 21]
+load 20 // x
+load 19 // y
++
+store 21 // result
+// return result
+load 21 // result
+retsub
+
+
+// func teal_sum(x: int, y: int) int:
+__func__teal_sum:
+store 22 // y
+store 23 // x
+// push(x)
+load 23 // x
+// push
+// push(y)
+load 22 // y
+// push
+pop
+pop
++
+// int result = pop() [slot 24]
+// pop
+store 24 // result
+// return result
+load 24 // result
+retsub
+
+
+// Function with multiple return values
+// func foo(x: int, y: int) int, int:
+__func__foo:
+store 25 // y
+store 26 // x
+// return x, y
+load 25 // y
+load 26 // x
+retsub

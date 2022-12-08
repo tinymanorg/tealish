@@ -21,7 +21,7 @@ class Integer(BaseNode):
         writer.write(self, f"pushint {self.value}")
 
     def _tealish(self) -> str:
-        return f"pushint {self.value}"
+        return f"{self.value}"
 
 
 class Bytes(BaseNode):
@@ -232,7 +232,8 @@ class FunctionCall(BaseNode):
 
     def process_special_call(self) -> None:
         self.func_call_type = "special"
-        self.type = AVMType.any
+        if self.name == "pop":
+            self.type = AVMType.any
         for arg in self.args:
             arg.process()
 
