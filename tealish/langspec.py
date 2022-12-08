@@ -21,45 +21,120 @@ def type_lookup(a: str) -> AVMType:
     return _opcode_type_map[a]
 
 
+def convert_args_to_types(args: str) -> List[AVMType]:
+    return [type_lookup(args[idx]) for idx in range(len(args))]
+
+
+class Op:
+    """Definition of a single opcode in TEAL"""
+
+    #: decimal number representing the bytecode for this op
+    opcode: int
+    #: identifier used when writing into the TEAL source program
+    name: str
+    #: list of arg types this op takes off the stack, encoded as a string
+    args: str
+    #: decoded list of incoming args
+    arg_types: List[AVMType]
+    #: list of arg types this op puts on the stack, encoded as a string
+    returns: str
+    #: decoded list of outgoing args
+    returns_types: List[AVMType]
+    #: how many bytes this opcode takes up when assembled
+    size: int
+    #: describes the args to be passed as immediate arguments to this op
+    immediate_note: str
+    #: describes the list of names that can be used as immediate arguments
+    arg_enum: List[str]
+    #: describes the types returned when each arg enum is used
+    arg_enum_types: List[AVMType]
+
+    #: informational string about the op
+    doc: str
+    #: even more info about this op
+    doc_extra: str
+    #: what categories of ops this op belongs to
+    groups: List[str]
+
+    #: inferred method signature
+    sig: str
+
+    def __init__(self, op_def: Dict[str, Any]):
+        self.opcode = op_def["Opcode"]
+        self.name = op_def["Name"]
+        self.size = op_def["Size"]
+        self.immediate_args_num = self.size - 1
+
+        if "Args" in op_def:
+            self.args = op_def["Args"]
+            self.arg_types = convert_args_to_types(self.args)
+        else:
+            self.args = ""
+            self.arg_types = []
+
+        if "Returns" in op_def:
+            self.returns = op_def["Returns"]
+            self.returns_types = convert_args_to_types(self.returns)
+        else:
+            self.returns = ""
+            self.returns_types = []
+
+        if "ImmediateNote" in op_def:
+            self.immediate_note = op_def["ImmediateNote"]
+        else:
+            self.immediate_note = ""
+
+        if "ArgEnum" in op_def:
+            self.arg_enum = op_def["ArgEnum"]
+            self.arg_enum_types = convert_args_to_types(op_def["ArgEnumTypes"])
+        else:
+            self.arg_enum = []
+            self.arg_enum_types = []
+
+        self.doc = op_def.get("Doc", "")
+        self.doc_extra = op_def.get("DocExtra", "")
+        self.groups = op_def.get("groups", [])
+
+
 class LangSpec:
     def __init__(self, spec: Dict[str, Any]) -> None:
         self.is_packaged = False
         self.spec = spec
+
         self.fields: Dict[str, Any] = {
             "Global": {},
             "Txn": {},
         }
+
         self.global_fields = self.fields["Global"]
         self.txn_fields = self.fields["Txn"]
-        self.ops: Dict[str, Dict[str, Any]] = {
-            op["Name"]: dict(op) for op in spec["Ops"]
-        }
-        for i, field in enumerate(self.ops["global"]["ArgEnum"]):
-            self.fields["Global"][field] = type_lookup(
-                self.ops["global"]["ArgEnumTypes"][i]
-            )
-        for i, field in enumerate(self.ops["txn"]["ArgEnum"]):
-            self.fields["Txn"][field] = type_lookup(self.ops["txn"]["ArgEnumTypes"][i])
+
+        self.ops: Dict[str, Op] = {op["Name"]: Op(op) for op in spec["Ops"]}
+
+        for i, field in enumerate(self.ops["global"].arg_enum):
+            self.fields["Global"][field] = self.ops["global"].arg_enum_types[i]
+
+        for i, field in enumerate(self.ops["txn"].arg_enum):
+            self.fields["Txn"][field] = self.ops["txn"].arg_enum_types[i]
 
         for op in self.ops.values():
-            # print(op)
-            name = op["Name"]
-            immediate_args = op["Size"] - 1
-            args = op.get("Args", "")
-            arg_types = [type_lookup(x) for x in args]
-            op["arg_types"] = arg_types
+
+            args = op.args
+            arg_types = op.arg_types
             arg_list = [f"{abc[i]}: {arg_types[i]}" for i in range(len(args))]
-            if "ArgEnum" in op:
+
+            if len(op.arg_enum) > 0:
                 arg_list = ["F: field"] + arg_list
-            elif immediate_args:
-                arg_list = (["i: int"] * immediate_args) + arg_list
+            elif op.immediate_args_num > 0:
+                arg_list = (["i: int"] * op.immediate_args_num) + arg_list
+
             arg_string = ", ".join(arg_list)
-            returns = op.get("Returns", "")[::-1]
-            ret = ", ".join([type_lookup(returns[i]) for i in range(len(returns))])
-            sig = f"{name}({arg_string})"
-            if ret:
-                sig += f"-> {ret}"
-            op["sig"] = sig
+
+            sig = f"{op.name}({arg_string})"
+            if len(op.returns_types) > 0:
+                sig += ", ".join(op.returns_types)
+
+            op.sig = sig
 
     def as_dict(self) -> Dict[str, Any]:
         return self.spec
