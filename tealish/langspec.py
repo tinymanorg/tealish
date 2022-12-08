@@ -48,6 +48,8 @@ class Op:
     arg_enum: List[str]
     #: describes the types returned when each arg enum is used
     arg_enum_types: List[AVMType]
+    #: dictionary mapping the names in arg_enum to types in arg_enum_types
+    arg_enum_dict: Dict[str, AVMType]
 
     #: informational string about the op
     doc: str
@@ -87,9 +89,11 @@ class Op:
         if "ArgEnum" in op_def:
             self.arg_enum = op_def["ArgEnum"]
             self.arg_enum_types = convert_args_to_types(op_def["ArgEnumTypes"])
+            self.arg_enum_dict = dict(zip(self.arg_enum, self.arg_enum_types))
         else:
             self.arg_enum = []
             self.arg_enum_types = []
+            self.arg_enum_dict = {}
 
         self.doc = op_def.get("Doc", "")
         self.doc_extra = op_def.get("DocExtra", "")
@@ -112,22 +116,15 @@ class LangSpec:
     def __init__(self, spec: Dict[str, Any]) -> None:
         self.is_packaged = False
         self.spec = spec
+        self.ops: Dict[str, Op] = {op["Name"]: Op(op) for op in spec["Ops"]}
 
         self.fields: Dict[str, Any] = {
-            "Global": {},
-            "Txn": {},
+            "Global": self.ops["global"].arg_enum_dict,
+            "Txn": self.ops["txn"].arg_enum_dict,
         }
 
         self.global_fields = self.fields["Global"]
         self.txn_fields = self.fields["Txn"]
-
-        self.ops: Dict[str, Op] = {op["Name"]: Op(op) for op in spec["Ops"]}
-
-        for i, field in enumerate(self.ops["global"].arg_enum):
-            self.fields["Global"][field] = self.ops["global"].arg_enum_types[i]
-
-        for i, field in enumerate(self.ops["txn"].arg_enum):
-            self.fields["Txn"][field] = self.ops["txn"].arg_enum_types[i]
 
     def as_dict(self) -> Dict[str, Any]:
         return self.spec
