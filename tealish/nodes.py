@@ -374,7 +374,7 @@ class Const(LineStatement):
 
     def process(self) -> None:
         scope = self.get_current_scope()
-        scope.consts[self.name] = (self.type, self.expression.value)
+        scope.declare_const(self.name, (self.type, self.expression.value))
 
     def write_teal(self, writer: "TealWriter") -> None:
         pass
@@ -598,7 +598,7 @@ class Block(Statement):
     ) -> None:
         super().__init__(line, parent, compiler)
         scope = self.get_current_scope()
-        scope.blocks[self.name] = self
+        scope.declare_block(self.name, self)
         self.label = scope.name + ("__" if scope.name else "") + self.name
         self.new_scope(self.name)
 
@@ -1392,7 +1392,7 @@ class Func(InlineStatement):
     ) -> None:
         super().__init__(line, parent, compiler)
         scope = self.get_current_scope()
-        scope.functions[self.name] = self
+        scope.declare_function(self.name, self)
         self.label = scope.name + "__func__" + self.name
         self.new_scope("func__" + self.name)
         self.returns = list(
