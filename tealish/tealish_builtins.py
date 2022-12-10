@@ -1,5 +1,8 @@
 from enum import Enum
-from typing import Dict, Tuple, Union
+from typing import Dict, List, Tuple, Union, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .nodes import StructFieldDefinition
 
 
 class AVMType(str, Enum):
@@ -10,6 +13,30 @@ class AVMType(str, Enum):
     # TODO: now frame pointers support a signed int, we should account for it
     int = "int"
     none = ""
+
+
+class TealishStructField:
+    def __init__(self, type: AVMType, size: int, offset: int):
+        self.type = type
+        self.size = size
+        self.offset = offset
+
+
+class TealishStructDefinition:
+    def __init__(self, fields: List["StructFieldDefinition"]):
+        self.size: int = 0
+        self.fields: Dict[str, TealishStructField] = {}
+
+        offset = 0
+        for field in fields:
+            # TODO: again child nodes are not the type
+            # we expect (BaseNode not StructFieldDef)
+            self.fields[field.field_name] = TealishStructField(
+                field.data_type, field.size, offset
+            )
+            offset += field.size
+
+        self.size = offset
 
 
 constants: Dict[str, Tuple[AVMType, Union[str, bytes, int]]] = {

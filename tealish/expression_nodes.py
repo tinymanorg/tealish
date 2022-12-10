@@ -73,7 +73,7 @@ class Constant(BaseNode):
         except KeyError:
             try:
                 # builtin TEAL constants
-                type, value = self.lookup_constant(self.name)
+                type, value = self.lookup_avm_constant(self.name)
             except KeyError:
                 raise CompileError(
                     f'Constant "{self.name}" not declared in scope', node=self
@@ -466,17 +466,17 @@ class StructField(BaseNode):
     ) -> None:
         self.name = name
         self.field = field
-        self.type: List[str] = []
+        self.type = AVMType.none
         self.parent = parent
 
     def process(self) -> None:
         self.slot, self.type = self.lookup_var(self.name)
         self.object_type, struct_name = self.type
         struct = self.get_struct(struct_name)
-        struct_field = struct["fields"][self.field]
-        self.offset = struct_field["offset"]
-        self.size = struct_field["size"]
-        self.data_type = struct_field["type"]
+        struct_field = struct.fields[self.field]
+        self.offset = struct_field.offset
+        self.size = struct_field.size
+        self.data_type = struct_field.type
         self.type = self.data_type
 
     def write_teal(self, writer: "TealWriter") -> None:
