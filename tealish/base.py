@@ -49,7 +49,8 @@ def check_arg_types(name: str, incoming_args: List["Node"]) -> None:
             continue
 
         raise Exception(
-            f"Incorrect type {incoming_arg.type} for arg {i} of {name}. Expected {expected_args[i]}"  # type: ignore
+            f"Incorrect type {incoming_arg.type} "  # type: ignore
+            + f"for arg {i} of {name}. Expected {expected_args[i]}"
         )
 
 
@@ -151,7 +152,9 @@ class BaseNode:
     def has_child_node(self, node_class: type) -> bool:
         # TODO: Only available on Node and other subclasses
         for node in self.nodes:  # type: ignore
-            if isinstance(node, node_class) or node.has_child_node(node_class):  # type: ignore
+            if isinstance(node, node_class) or node.has_child_node(
+                node_class
+            ):  # type: ignore
                 return True
         return False
 
