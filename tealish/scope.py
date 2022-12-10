@@ -26,7 +26,6 @@ class Scope:
         )
 
         self.consts: Dict[str, Tuple["AVMType", ConstValue]] = {}
-
         self.blocks: Dict[str, "Block"] = {}
         self.functions: Dict[str, "Func"] = {}
 
