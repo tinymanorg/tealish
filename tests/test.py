@@ -1,9 +1,9 @@
 from pathlib import Path
 import unittest
 from unittest import expectedFailure
+from typing import List
 
 from tealish import (
-    compile_lines,
     reformat_program,
     TealishCompiler,
     TealWriter,
@@ -17,6 +17,14 @@ from tealish.tx_expressions import parse_expression
 from tealish.utils import strip_comments
 from tealish.scope import Scope
 from tealish.tealish_builtins import AVMType
+
+
+def compile_lines(source_lines: List[str]) -> List[str]:
+    compiler = TealishCompiler(source_lines)
+    compiler.parse()
+    compiler.compile()
+    teal_lines = compiler.output
+    return teal_lines
 
 
 def compile_min(p):
