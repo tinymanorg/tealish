@@ -1,6 +1,6 @@
 from typing import cast, Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 from tealish.errors import CompileError
-from .tealish_builtins import constants, AVMType
+from .tealish_builtins import constants, AVMType, TealishStructDefinition
 from .langspec import get_active_langspec, Op
 from .scope import Scope, VarType, ConstValue
 
@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 lang_spec = get_active_langspec()
 
-structs: Dict[str, Dict[str, Any]] = {}
+structs: Dict[str, TealishStructDefinition] = {}
 
 
 def lookup_op(name: str) -> Op:
@@ -20,7 +20,7 @@ def lookup_op(name: str) -> Op:
     return lang_spec.ops[name]
 
 
-def lookup_constant(name: str) -> Tuple[AVMType, ConstValue]:
+def lookup_avm_constant(name: str) -> Tuple[AVMType, ConstValue]:
     if name not in constants:
         raise KeyError(f'Constant "{name}" does not exist!')
     return constants[name]
@@ -180,15 +180,14 @@ class BaseNode:
     def lookup_const(self, name: str) -> Tuple["AVMType", ConstValue]:
         return self.get_scope().lookup_const(name)
 
-    # TODO: why do we have both of these?
-    def lookup_constant(self, name: str) -> Tuple["AVMType", ConstValue]:
-        return lookup_constant(name)
+    def lookup_avm_constant(self, name: str) -> Tuple["AVMType", ConstValue]:
+        return lookup_avm_constant(name)
 
-    # TODO: shouldn't these be part of the scope?
-    def define_struct(self, struct_name: str, struct: Dict[str, Any]) -> None:
+    # TODO: shouldn't these be part of the scope or global?
+    def define_struct(self, struct_name: str, struct: TealishStructDefinition) -> None:
         structs[struct_name] = struct
 
-    def get_struct(self, struct_name: str) -> Dict[str, Any]:
+    def get_struct(self, struct_name: str) -> TealishStructDefinition:
         return structs[struct_name]
 
     # TODO: these attributes are only available on Node and other children types

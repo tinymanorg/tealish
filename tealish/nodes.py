@@ -8,14 +8,13 @@ from typing import (
     Type,
     TYPE_CHECKING,
     Tuple,
-    Any,
     Union,
     cast,
 )
 from .base import BaseNode
 from .errors import CompileError, ParseError
 from .tx_expressions import parse_expression
-from .tealish_builtins import AVMType
+from .tealish_builtins import AVMType, TealishStructDefinition
 from .scope import Scope, VarType
 
 LITERAL_INT = r"[0-9]+"
@@ -1506,7 +1505,7 @@ class StructFieldDefinition(InlineStatement):
         + r"(?P<data_type>[a-z][A-Z-a-z0-9_]+)(\[(?P<data_length>\d+)\])?"
     )
     field_name: str
-    data_type: str
+    data_type: AVMType
     data_length: int
 
     def process(self) -> None:
@@ -1565,23 +1564,13 @@ class Struct(InlineStatement):
         for n in self.nodes:
             n.process()
 
-        struct: Dict[str, Any] = {
-            "fields": {},
-            "size": 0,
-        }
-        offset = 0
-        for n in self.child_nodes:
-            # TODO: again child nodes are not the type
-            # we expect (BaseNode not StructFieldDef)
-            n = cast(StructFieldDefinition, n)
-            struct["fields"][n.field_name] = {
-                "type": n.data_type,
-                "size": n.size,
-                "offset": offset,
-            }
-            offset += n.size
-        struct["size"] = offset
-        self.define_struct(self.name, struct)
+        # TODO: unsafe cast?
+        self.define_struct(
+            self.name,
+            TealishStructDefinition(
+                cast(List[StructFieldDefinition], self.child_nodes)
+            ),
+        )
 
     def write_teal(self, writer: "TealWriter") -> None:
         pass
@@ -1649,10 +1638,10 @@ class StructAssignment(LineStatement):
         self.object_type, struct_name = var_type
 
         struct = self.get_struct(struct_name)
-        struct_field = struct["fields"][self.field_name]
-        self.offset = struct_field["offset"]
-        self.size = struct_field["size"]
-        self.data_type = struct_field["type"]
+        struct_field = struct.fields[self.field_name]
+        self.offset = struct_field.offset
+        self.size = struct_field.size
+        self.data_type = struct_field.type
         self.expression.process()
         if self.expression.type not in (self.data_type, AVMType.any):
             raise CompileError(
