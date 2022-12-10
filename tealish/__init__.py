@@ -117,14 +117,6 @@ def compile_program(source: str) -> Tuple[List[str], TealishMap]:
     return teal, compiler.get_map()
 
 
-def compile_lines(source_lines: List[str]) -> List[str]:
-    compiler = TealishCompiler(source_lines)
-    compiler.parse()
-    compiler.compile()
-    teal_lines = compiler.output
-    return teal_lines
-
-
 def reformat_program(source: str) -> str:
     source_lines = source.split("\n")
     compiler = TealishCompiler(source_lines)

@@ -89,12 +89,6 @@ class BaseNode:
                 break
         return scopes
 
-    def get_const(self, name: str) -> Tuple[AVMType, Any]:
-        consts = {}
-        for s in self.get_scopes():
-            consts.update(s.consts)
-        return consts[name]
-
     def get_slots(self) -> Dict[str, Any]:
         slots = {}
         for s in self.get_scopes():
