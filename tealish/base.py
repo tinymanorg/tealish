@@ -1,6 +1,6 @@
 from typing import cast, Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 from tealish.errors import CompileError
-from .tealish_builtins import constants, AVMType, TealishStructDefinition
+from .tealish_builtins import constants, AVMType
 from .langspec import get_active_langspec, Op
 from .scope import Scope, VarType, ConstValue
 
@@ -10,8 +10,6 @@ if TYPE_CHECKING:
     from .nodes import Block, Node, Func
 
 lang_spec = get_active_langspec()
-
-structs: Dict[str, TealishStructDefinition] = {}
 
 
 def lookup_op(name: str) -> Op:
@@ -179,16 +177,6 @@ class BaseNode:
 
     def lookup_const(self, name: str) -> Tuple["AVMType", ConstValue]:
         return self.get_scope().lookup_const(name)
-
-    def lookup_avm_constant(self, name: str) -> Tuple["AVMType", ConstValue]:
-        return lookup_avm_constant(name)
-
-    # TODO: shouldn't these be part of the scope or global?
-    def define_struct(self, struct_name: str, struct: TealishStructDefinition) -> None:
-        structs[struct_name] = struct
-
-    def get_struct(self, struct_name: str) -> TealishStructDefinition:
-        return structs[struct_name]
 
     # TODO: these attributes are only available on Node and other children types
     # we should either define them here or something else?

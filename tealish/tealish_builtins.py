@@ -39,6 +39,17 @@ class TealishStructDefinition:
         self.size = offset
 
 
+structs: Dict[str, TealishStructDefinition] = {}
+
+
+def define_struct(struct_name: str, struct: TealishStructDefinition) -> None:
+    structs[struct_name] = struct
+
+
+def get_struct(struct_name: str) -> TealishStructDefinition:
+    return structs[struct_name]
+
+
 constants: Dict[str, Tuple[AVMType, Union[str, bytes, int]]] = {
     "NoOp": (AVMType.int, 0),
     "OptIn": (AVMType.int, 1),

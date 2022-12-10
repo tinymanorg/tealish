@@ -14,7 +14,12 @@ from typing import (
 from .base import BaseNode
 from .errors import CompileError, ParseError
 from .tx_expressions import parse_expression
-from .tealish_builtins import AVMType, TealishStructDefinition
+from .tealish_builtins import (
+    AVMType,
+    TealishStructDefinition,
+    define_struct,
+    get_struct,
+)
 from .scope import Scope, VarType
 
 LITERAL_INT = r"[0-9]+"
@@ -1565,7 +1570,7 @@ class Struct(InlineStatement):
             n.process()
 
         # TODO: unsafe cast?
-        self.define_struct(
+        define_struct(
             self.name,
             TealishStructDefinition(
                 cast(List[StructFieldDefinition], self.child_nodes)
@@ -1637,7 +1642,7 @@ class StructAssignment(LineStatement):
             )
         self.object_type, struct_name = var_type
 
-        struct = self.get_struct(struct_name)
+        struct = get_struct(struct_name)
         struct_field = struct.fields[self.field_name]
         self.offset = struct_field.offset
         self.size = struct_field.size

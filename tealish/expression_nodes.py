@@ -1,8 +1,8 @@
 from typing import List, Optional, Union, TYPE_CHECKING
 
-from .base import BaseNode
+from .base import BaseNode, lookup_avm_constant
 from .errors import CompileError
-from .tealish_builtins import AVMType
+from .tealish_builtins import AVMType, get_struct
 from .langspec import Op, type_lookup
 
 
@@ -73,7 +73,7 @@ class Constant(BaseNode):
         except KeyError:
             try:
                 # builtin TEAL constants
-                type, value = self.lookup_avm_constant(self.name)
+                type, value = lookup_avm_constant(self.name)
             except KeyError:
                 raise CompileError(
                     f'Constant "{self.name}" not declared in scope', node=self
@@ -472,7 +472,7 @@ class StructField(BaseNode):
     def process(self) -> None:
         self.slot, self.type = self.lookup_var(self.name)
         self.object_type, struct_name = self.type
-        struct = self.get_struct(struct_name)
+        struct = get_struct(struct_name)
         struct_field = struct.fields[self.field]
         self.offset = struct_field.offset
         self.size = struct_field.size
