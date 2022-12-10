@@ -86,9 +86,9 @@ class Constant(BaseNode):
 
     def write_teal(self, writer: "TealWriter") -> None:
         if self.type == AVMType.int:
-            writer.write(self, f"pushint {self.value!r} // {self.name}")
+            writer.write(self, f"pushint {self.value} // {self.name}")
         elif self.type == AVMType.bytes:
-            writer.write(self, f"pushbytes {self.value!r} // {self.name}")
+            writer.write(self, f"pushbytes {self.value} // {self.name}")
 
     def _tealish(self) -> str:
         return f"{self.name}"

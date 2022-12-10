@@ -110,12 +110,14 @@ class BaseNode:
 
     def declare_var(self, name: str, type: Union[AVMType, Tuple[str, str]]) -> int:
         scope = self.get_current_scope()
+        scope.update(self.get_scope())
+
         max_slot: Optional[int] = None
 
         if "func__" in scope.name:
             # If this var is declared in a function then use the global max slot + 1
             # This is to prevent functions using overlapping slots
-            max_slot = self.compiler.max_slot + 1  # type: ignore
+            max_slot = self.parent.compiler.max_slot + 1  # type: ignore
 
         slot = scope.declare_var(name, type, max_slot=max_slot)
 
@@ -142,7 +144,7 @@ class BaseNode:
     # TODO: also suffers from `parent` not being defined"
     def find_parent(self, node_class: type) -> Optional["Node"]:
         p: Optional["Node"] = self.parent  # type: ignore
-        while p:
+        while p is not None:
             if isinstance(p, node_class):
                 return cast("Node", p)
             p = p.parent  # type: ignore
