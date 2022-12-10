@@ -115,7 +115,7 @@ class TestFields(unittest.TestCase):
 
     def test_group_index_var(self):
         scope = Scope()
-        scope.register_var("index", (0, AVMType.int))
+        scope.declare_var("index", AVMType.int, 0)
         teal = compile_expression_min("Gtxn[index].TypeEnum", scope=scope)
         self.assertListEqual(teal, ["load 0", "gtxns TypeEnum"])
 
@@ -529,7 +529,8 @@ class TestInnerGroup(unittest.TestCase):
 
     @expectedFailure
     def test_pass_inner_group_with_if(self):
-        # TODO: This currently fails because we don't correctly figure out which is the first txn of the group
+        # TODO: This currently fails because we don't correctly
+        # figure out which is the first txn of the group
         teal = compile_min(
             [
                 "int asset_id",
@@ -691,7 +692,7 @@ class TestOperators(unittest.TestCase):
 
     def test_unary_variable(self):
         scope = Scope()
-        scope.register_var("x", (0, AVMType.int))
+        scope.declare_var("x", AVMType.int, 0)
         teal = compile_expression_min("!x", scope=scope)
         self.assertEqual(
             teal,
@@ -1060,6 +1061,8 @@ class TestStructs(unittest.TestCase):
 
 
 class TestEverythingProgram(unittest.TestCase):
+    maxDiff = None
+
     def setUp(self) -> None:
         tests_dir = Path(__file__).parent
         with open(tests_dir / "everything.tl") as f:
