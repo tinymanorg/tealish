@@ -32,7 +32,7 @@ class Scope:
         if parent_scope is not None and parent_scope.name:
             self.name = f"{parent_scope.name}__{name}"
 
-    def declare_function(self, name: str, fn: "Func"):
+    def declare_function(self, name: str, fn: "Func") -> None:
         self.functions[name] = fn
 
     def lookup_func(self, name: str) -> "Func":
@@ -53,7 +53,7 @@ class Scope:
         self.slots[name] = (slot, type_info)
         return slot
 
-    def delete_var(self, name: str):
+    def delete_var(self, name: str) -> None:
         if name in self.slots:
             del self.slots[name]
 
@@ -67,7 +67,7 @@ class Scope:
             raise KeyError(f'Const "{name}" not declared in current scope')
         return self.consts[name]
 
-    def find_slot(self):
+    def find_slot(self) -> int:
         used_slots = [False] * 255
         for slot, _ in self.slots.values():
             used_slots[slot] = True
@@ -79,7 +79,7 @@ class Scope:
 
         raise Exception("No available slots!")
 
-    def update(self, other: "Scope"):
+    def update(self, other: "Scope") -> None:
         self.functions.update(other.functions)
         self.blocks.update(other.blocks)
         self.slots.update(other.slots)
