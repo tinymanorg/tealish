@@ -10,7 +10,6 @@ class AVMType(str, Enum):
 
     any = "any"
     bytes = "bytes"
-    # TODO: now frame pointers support a signed int, we should account for it
     int = "int"
     none = ""
 
@@ -29,8 +28,6 @@ class TealishStructDefinition:
 
         offset = 0
         for field in fields:
-            # TODO: again child nodes are not the type
-            # we expect (BaseNode not StructFieldDef)
             self.fields[field.field_name] = TealishStructField(
                 field.data_type, field.size, offset
             )
