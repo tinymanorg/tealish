@@ -1060,6 +1060,8 @@ class TestStructs(unittest.TestCase):
 
 
 class TestEverythingProgram(unittest.TestCase):
+    maxDiff = None
+
     def setUp(self) -> None:
         tests_dir = Path(__file__).parent
         with open(tests_dir / "everything.tl") as f:
