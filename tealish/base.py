@@ -110,6 +110,8 @@ class BaseNode:
 
     def declare_var(self, name: str, type: Union[AVMType, Tuple[str, str]]) -> int:
         scope = self.get_current_scope()
+        # TODO: this fixed the issue of slot assignment in the `main`
+        # but i'm not sure why...
         scope.update(self.get_scope())
 
         max_slot: Optional[int] = None
