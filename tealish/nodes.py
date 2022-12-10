@@ -542,12 +542,13 @@ class Assignment(LineStatement):
             if name.value == "_":
                 continue
 
-            slot, var_type = self.get_var(name.value)
-            if slot is None:
+            var_def = self.get_var(name.value)
+            if var_def is None:
                 raise CompileError(
                     f'Var "{name.value}" not declared in current scope', node=self
                 )
 
+            slot, var_type = var_def
             if not (incoming_types[i] == AVMType.any or incoming_types[i] == var_type):
                 raise CompileError(
                     f"Incorrect type for {var_type} assignment. "
@@ -1603,7 +1604,11 @@ class StructAssignment(LineStatement):
     expression: GenericExpression
 
     def process(self) -> None:
-        self.name.slot, var_type = self.get_var(self.name.value)
+        var_def = self.get_var(self.name.value)
+        if var_def is None:
+            raise CompileError(f"Could not find struct with name: {self.name.value}")
+
+        self.name.slot, var_type = var_def
         if type(var_type) != tuple:
             raise CompileError(
                 f"{self.name.value} is not a struct reference", node=self

@@ -101,12 +101,12 @@ class BaseNode:
             slots.update(s.slots)
         return slots
 
-    def get_var(self, name: str) -> Tuple[int, VarType]:
+    def get_var(self, name: str) -> Optional[Tuple[int, VarType]]:
         slots = self.get_slots()
         if name in slots:
             return slots[name]
         else:
-            return (None, None)
+            return None
 
     def declare_var(self, name: str, type: Union[AVMType, Tuple[str, str]]) -> int:
         scope = self.get_current_scope()
