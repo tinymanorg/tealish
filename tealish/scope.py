@@ -69,17 +69,14 @@ class Scope:
         return self.consts[name]
 
     def find_slot(self):
-        min, max = self.slot_range
         used_slots = [False] * 255
-        for k in self.slots:
-            slot = self.slots[k][0]
+        for slot, _ in self.slots.values():
             used_slots[slot] = True
 
-        for i, _ in enumerate(used_slots):
-            if not used_slots[i]:
-                if i >= min and i <= max:
-                    print(f"assigning slot: {i}")
-                    return i
+        min, max = self.slot_range
+        for i, occupied in enumerate(used_slots):
+            if not occupied and min <= i <= max:
+                return i
 
         raise Exception("No available slots!")
 
