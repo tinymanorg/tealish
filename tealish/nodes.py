@@ -368,13 +368,13 @@ class Const(LineStatement):
         r"const (?P<type>\bint\b|\bbytes\b) "
         + r"(?P<name>[A-Z][a-zA-Z0-9_]*) = (?P<expression>.*)$"
     )
-    type: str
+    type: AVMType
     name: str
     expression: Literal
 
     def process(self) -> None:
         scope = self.get_current_scope()
-        scope.consts[self.name] = [self.type, self.expression.value]
+        scope.consts[self.name] = (self.type, self.expression.value)
 
     def write_teal(self, writer: "TealWriter") -> None:
         pass
