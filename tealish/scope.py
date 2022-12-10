@@ -53,19 +53,27 @@ class Scope:
         self.slots[name] = (slot, type_info)
         return slot
 
-    def delete_var(self, name: str) -> None:
-        if name in self.slots:
-            del self.slots[name]
-
     def lookup_var(self, name: str) -> Tuple[int, VarType]:
         if name not in self.slots:
             raise KeyError(f'Var "{name}" not declared in current scope')
         return self.slots[name]
 
+    def delete_var(self, name: str) -> None:
+        if name in self.slots:
+            del self.slots[name]
+
+    def declare_const(
+        self, name: str, const_data: Tuple["AVMType", ConstValue]
+    ) -> None:
+        self.consts[name] = const_data
+
     def lookup_const(self, name: str) -> Tuple["AVMType", ConstValue]:
         if name not in self.consts:
             raise KeyError(f'Const "{name}" not declared in current scope')
         return self.consts[name]
+
+    def declare_block(self, name: str, block: "Block") -> None:
+        self.blocks[name] = block
 
     def find_slot(self) -> int:
         used_slots = [False] * 255
