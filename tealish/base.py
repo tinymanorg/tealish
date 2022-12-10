@@ -2,12 +2,11 @@ from typing import cast, Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 from tealish.errors import CompileError
 from .tealish_builtins import constants, AVMType
 from .langspec import get_active_langspec, Op
-from .scope import Scope, VarType
+from .scope import Scope, VarType, ConstValue
 
 
 if TYPE_CHECKING:
     from . import TealWriter
-    from .expression_nodes import Constant
     from .nodes import Block, Node, Func
 
 lang_spec = get_active_langspec()
@@ -21,7 +20,7 @@ def lookup_op(name: str) -> Op:
     return lang_spec.ops[name]
 
 
-def lookup_constant(name: str) -> Tuple[str, int]:
+def lookup_constant(name: str) -> Tuple[AVMType, ConstValue]:
     if name not in constants:
         raise KeyError(f'Constant "{name}" does not exist!')
     return constants[name]
@@ -90,7 +89,7 @@ class BaseNode:
                 break
         return scopes
 
-    def get_const(self, name: str) -> "Constant":
+    def get_const(self, name: str) -> Tuple[AVMType, Any]:
         consts = {}
         for s in self.get_scopes():
             consts.update(s.consts)
@@ -180,11 +179,11 @@ class BaseNode:
     def lookup_var(self, name: str) -> Any:
         return self.get_scope().lookup_var(name)
 
-    def lookup_const(self, name: str) -> Tuple[str, int]:
+    def lookup_const(self, name: str) -> Tuple["AVMType", ConstValue]:
         return self.get_scope().lookup_const(name)
 
     # TODO: why do we have both of these?
-    def lookup_constant(self, name: str) -> Tuple[str, int]:
+    def lookup_constant(self, name: str) -> Tuple["AVMType", ConstValue]:
         return lookup_constant(name)
 
     # TODO: shouldn't these be part of the scope?

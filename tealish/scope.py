@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, Tuple, Union, TYPE_CHECKING
+from typing import Dict, Optional, Tuple, Union, TYPE_CHECKING
 
 
 if TYPE_CHECKING:
@@ -7,6 +7,7 @@ if TYPE_CHECKING:
 
 
 VarType = Union["AVMType", Tuple[str, str]]
+ConstValue = Union[str, bytes, int]
 
 
 class Scope:
@@ -24,9 +25,7 @@ class Scope:
             slot_range if slot_range is not None else (0, 200)
         )
 
-        # TODO: replace Any
-        self.aliases: Dict[Any, Any] = {}
-        self.consts: Dict[Any, Any] = {}
+        self.consts: Dict[str, Tuple["AVMType", ConstValue]] = {}
 
         self.blocks: Dict[str, "Block"] = {}
         self.functions: Dict[str, "Func"] = {}
@@ -64,7 +63,7 @@ class Scope:
             raise KeyError(f'Var "{name}" not declared in current scope')
         return self.slots[name]
 
-    def lookup_const(self, name: str) -> Tuple[str, int]:
+    def lookup_const(self, name: str) -> Tuple["AVMType", ConstValue]:
         if name not in self.consts:
             raise KeyError(f'Const "{name}" not declared in current scope')
         return self.consts[name]
