@@ -1,9 +1,9 @@
-from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
+from typing import List, Optional, Union, TYPE_CHECKING
 
 from .base import BaseNode
 from .errors import CompileError
 from .tealish_builtins import AVMType
-from .langspec import type_lookup
+from .langspec import Op, type_lookup
 
 
 if TYPE_CHECKING:
@@ -105,7 +105,7 @@ class UnaryOp(BaseNode):
         self.a.process()
         self.check_arg_types(self.op, [self.a])
         op = self.lookup_op(self.op)
-        self.type = type_lookup(op.get("Returns", ""))
+        self.type = type_lookup(op.returns)
 
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, self.a)
@@ -130,7 +130,7 @@ class BinaryOp(BaseNode):
         self.b.process()
         self.check_arg_types(self.op, [self.a, self.b])
         op = self.lookup_op(self.op)
-        self.type = type_lookup(op.get("Returns", ""))
+        self.type = type_lookup(op.returns)
 
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, self.a)
@@ -186,7 +186,7 @@ class FunctionCall(BaseNode):
         if func is not None:
             return self.process_user_defined_func_call(func)
 
-        op: Optional[Dict[str, Any]] = None
+        op: Optional[Op] = None
         try:
             op = self.lookup_op(self.name)
         except KeyError:
@@ -209,15 +209,15 @@ class FunctionCall(BaseNode):
             writer.write(self, arg)
         writer.write(self, f"callsub {self.func.label}")
 
-    def process_op_call(self, op: Dict[str, Any]) -> None:
+    def process_op_call(self, op: Op) -> None:
         self.func_call_type = "op"
         self.op = op
-        immediates = self.args[: (op["Size"] - 1)]
-        num_args = len(op.get("Args", ""))
+        immediates = self.args[: op.immediate_args_num]
+        num_args = len(op.args)
 
-        self.args = self.args[(op["Size"] - 1) :]
+        self.args = self.args[op.immediate_args_num :]
         if len(self.args) != num_args:
-            raise CompileError(f'Expected {num_args} args for {op["Name"]}!', node=self)
+            raise CompileError(f"Expected {num_args} args for {op.name}!", node=self)
         for i, arg in enumerate(self.args):
             arg.process()
         self.check_arg_types(self.name, self.args)
@@ -227,7 +227,7 @@ class FunctionCall(BaseNode):
             elif isinstance(x, Integer):
                 immediates[i] = x.value
         self.immediate_args = " ".join(map(str, immediates))
-        returns = [type_lookup(x) for x in op.get("Returns", "")][::-1]
+        returns = op.returns_types[::-1]
         self.type = returns[0] if len(returns) == 1 else returns
 
     def process_special_call(self) -> None:

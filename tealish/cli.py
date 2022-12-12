@@ -184,7 +184,7 @@ def langspec_fetch(ctx: click.Context, url_or_branch: str) -> None:
     if new_ops:
         click.echo(f"New ops @ {url_or_branch}:")
     for op in new_ops:
-        sig = new_langspec.ops[op]["sig"]
+        sig = new_langspec.ops[op].sig
         click.echo(f"{sig}")
 
 
@@ -211,7 +211,7 @@ def langspec_diff(url: str) -> None:
     if new_ops:
         click.echo(f"New ops @ {local_name}:")
     for op in new_ops:
-        sig = new_langspec.ops[op]["sig"]
+        sig = new_langspec.ops[op].sig
         click.echo(f"{sig}")
 
 

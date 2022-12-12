@@ -1,7 +1,7 @@
 from typing import cast, Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 from tealish.errors import CompileError
 from .tealish_builtins import constants, AVMType
-from .langspec import get_active_langspec
+from .langspec import get_active_langspec, Op
 
 
 if TYPE_CHECKING:
@@ -14,7 +14,7 @@ lang_spec = get_active_langspec()
 structs: Dict[str, Dict[str, Any]] = {}
 
 
-def lookup_op(name: str) -> Dict[str, Any]:
+def lookup_op(name: str) -> Op:
     if name not in lang_spec.ops:
         raise KeyError(f'Op "{name}" does not exist!')
     return lang_spec.ops[name]
@@ -37,7 +37,7 @@ def get_field_type(namespace: str, name: str) -> str:
 
 def check_arg_types(name: str, incoming_args: List["Node"]) -> None:
     op = lookup_op(name)
-    expected_args = op["arg_types"]
+    expected_args = op.arg_types
     # TODO:
     for i, incoming_arg in enumerate(incoming_args):
         if incoming_arg.type == AVMType.any:  # type: ignore
@@ -197,7 +197,7 @@ class BaseNode:
     def get_field_type(self, namespace: str, name: str) -> str:
         return get_field_type(namespace, name)
 
-    def lookup_op(self, name: str) -> Dict[str, Any]:
+    def lookup_op(self, name: str) -> Op:
         return lookup_op(name)
 
     def lookup_func(self, name: str) -> "Func":
