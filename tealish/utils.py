@@ -36,7 +36,7 @@ def minify_teal(teal_lines: List[str]) -> Tuple[List[str], Dict[int, int]]:
 
 def strip_comments(teal_lines: List[str]) -> List[str]:
     output: List[str] = []
-    for i, line in enumerate(teal_lines):
+    for line in teal_lines:
         line = line.strip()
         if not (not line or line.startswith("//")):
             line = line.split("//")[0].strip()
