@@ -14,21 +14,6 @@ class AVMType(str, Enum):
     none = ""
 
 
-# class TealishStructDefinition:
-#    def __init__(self, fields: List["StructFieldDefinition"]):
-#        self.size: int = 0
-#        self.fields: Dict[str, TealishStructField] = {}
-#
-#        offset = 0
-#        for field in fields:
-#            self.fields[field.field_name] = TealishStructField(
-#                field.data_type, field.size, offset
-#            )
-#            offset += field.size
-#
-#        self.size = offset
-#
-
 structs: Dict[str, "Struct"] = {}
 
 
