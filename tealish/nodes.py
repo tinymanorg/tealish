@@ -16,7 +16,6 @@ from .errors import CompileError, ParseError
 from .tx_expressions import parse_expression
 from .tealish_builtins import (
     AVMType,
-    TealishStructDefinition,
     define_struct,
     get_struct,
 )
@@ -1512,6 +1511,7 @@ class StructFieldDefinition(InlineStatement):
     field_name: str
     data_type: AVMType
     data_length: int
+    offset: int
 
     def process(self) -> None:
         self.size = 8 if self.data_type == AVMType.int else int(self.data_length)
@@ -1541,6 +1541,8 @@ class Struct(InlineStatement):
     possible_child_nodes = [StructFieldDefinition]
     pattern = r"struct (?P<name>[A-Z][a-zA-Z_0-9]*):$"
     name: str
+    size: int = 0
+    fields: Dict[str, StructFieldDefinition] = {}
 
     @classmethod
     def consume(cls, compiler: "TealishCompiler", parent: Optional[Node]) -> "Struct":
@@ -1569,13 +1571,16 @@ class Struct(InlineStatement):
         for n in self.nodes:
             n.process()
 
-        # TODO: unsafe cast?
-        define_struct(
-            self.name,
-            TealishStructDefinition(
-                cast(List[StructFieldDefinition], self.child_nodes)
-            ),
-        )
+        offset = 0
+        for field in self.child_nodes:
+            field = cast(StructFieldDefinition, field)
+            field.offset = offset
+            self.fields[field.field_name] = field
+            offset += field.size
+
+        self.size = offset
+
+        define_struct(self.name, self)
 
     def write_teal(self, writer: "TealWriter") -> None:
         pass
@@ -1646,7 +1651,7 @@ class StructAssignment(LineStatement):
         struct_field = struct.fields[self.field_name]
         self.offset = struct_field.offset
         self.size = struct_field.size
-        self.data_type = struct_field.type
+        self.data_type = struct_field.data_type
         self.expression.process()
         if self.expression.type not in (self.data_type, AVMType.any):
             raise CompileError(

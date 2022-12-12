@@ -476,7 +476,7 @@ class StructField(BaseNode):
         struct_field = struct.fields[self.field]
         self.offset = struct_field.offset
         self.size = struct_field.size
-        self.data_type = struct_field.type
+        self.data_type = struct_field.data_type
         self.type = self.data_type
 
     def write_teal(self, writer: "TealWriter") -> None:

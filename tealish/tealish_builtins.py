@@ -1,8 +1,8 @@
 from enum import Enum
-from typing import Dict, List, Tuple, Union, TYPE_CHECKING
+from typing import Dict, Tuple, Union, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .nodes import StructFieldDefinition
+    from .nodes import Struct
 
 
 class AVMType(str, Enum):
@@ -14,36 +14,29 @@ class AVMType(str, Enum):
     none = ""
 
 
-class TealishStructField:
-    def __init__(self, type: AVMType, size: int, offset: int):
-        self.type = type
-        self.size = size
-        self.offset = offset
+# class TealishStructDefinition:
+#    def __init__(self, fields: List["StructFieldDefinition"]):
+#        self.size: int = 0
+#        self.fields: Dict[str, TealishStructField] = {}
+#
+#        offset = 0
+#        for field in fields:
+#            self.fields[field.field_name] = TealishStructField(
+#                field.data_type, field.size, offset
+#            )
+#            offset += field.size
+#
+#        self.size = offset
+#
+
+structs: Dict[str, "Struct"] = {}
 
 
-class TealishStructDefinition:
-    def __init__(self, fields: List["StructFieldDefinition"]):
-        self.size: int = 0
-        self.fields: Dict[str, TealishStructField] = {}
-
-        offset = 0
-        for field in fields:
-            self.fields[field.field_name] = TealishStructField(
-                field.data_type, field.size, offset
-            )
-            offset += field.size
-
-        self.size = offset
-
-
-structs: Dict[str, TealishStructDefinition] = {}
-
-
-def define_struct(struct_name: str, struct: TealishStructDefinition) -> None:
+def define_struct(struct_name: str, struct: "Struct") -> None:
     structs[struct_name] = struct
 
 
-def get_struct(struct_name: str) -> TealishStructDefinition:
+def get_struct(struct_name: str) -> "Struct":
     return structs[struct_name]
 
 
