@@ -1510,7 +1510,7 @@ class BoxDeclaration(LineStatement):
         writer.write(self, f"store {self.name.slot} // {self.name.value}")
 
     def _tealish(self, formatter=None):
-        s = f"box {self.name} = OpenBox({self.struct_name}, {self.key.tealish(formatter)}"
+        s = f"box<{self.struct_name}> {self.name.tealish(formatter)} = {self.method}Box({self.key.tealish(formatter)})"
         return s + "\n"
 
 
