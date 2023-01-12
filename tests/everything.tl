@@ -58,6 +58,12 @@ if 1:
 end
 
 
+# Boxes
+box<Item> box1 = CreateBox("a")
+box1.name = "xyz"
+assert(box1.id)
+
+
 switch Txn.ApplicationArgs[0]:
     "main": main
     "inner_stuff": inner_stuff
