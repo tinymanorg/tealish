@@ -1,0 +1,31 @@
+
+// a and b are very big numbers and multiplication of them doesn't fit in to uint 64.
+// int a = MAX_INT_64 [slot 0]
+pushint 18446744073709551615 // MAX_INT_64
+store 0 // a
+// int b = MAX_INT_64 / 2 [slot 1]
+pushint 18446744073709551615 // MAX_INT_64
+pushint 2
+/
+store 1 // b
+
+// bytes mul = itob(a) b* itob(b) [slot 2]
+load 0 // a
+itob
+load 1 // b
+itob
+b*
+store 2 // mul
+// bytes sum = itob(a) b+ itob(b) [slot 3]
+load 0 // a
+itob
+load 1 // b
+itob
+b+
+store 3 // sum
+// int result = btoi(mul b/ sum) [slot 4]
+load 2 // mul
+load 3 // sum
+b/
+btoi
+store 4 // result

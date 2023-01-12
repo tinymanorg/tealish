@@ -12,7 +12,7 @@ class Integer(BaseNode):
         writer.write(self, f"pushint {self.value}")
 
     def _tealish(self, formatter=None):
-        return f"pushint {self.value}"
+        return f"{self.value}"
 
 
 class Bytes(BaseNode):
@@ -34,7 +34,10 @@ class Variable(BaseNode):
         self.parent = parent
 
     def process(self):
-        self.slot, self.type = self.lookup_var(self.name)
+        try:
+            self.slot, self.type = self.lookup_var(self.name)
+        except KeyError as e:
+            raise CompileError(e.args[0], node=self)
         # is it a struct or box?
         if type(self.type) == tuple:
             if self.type[0] == "struct":
@@ -211,7 +214,8 @@ class FunctionCall(BaseNode):
 
     def process_special_call(self):
         self.func_call_type = "special"
-        self.type = "any"
+        if self.name == "pop":
+            self.type = "any"
         for arg in self.args:
             arg.process()
 

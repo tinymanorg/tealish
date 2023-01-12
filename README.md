@@ -1,17 +1,32 @@
-# Tealish
+![Tealish, A readable language for Algorand, Powered by Tinyman](img/tealish_header.png)
 
-Tealish is a readable language for the Algorand Virtual Machine. It enables developers to write TEAL in a procedural style optimized for readability. 
+<p align="center">
+<img  src="https://visitor-badge.glitch.me/badge?page_id=tinymanorg.tealish&right_color=teal" />
+<a href="https://github.com/tinymanorg/tealish/actions/workflows/tests.yml"><img src="https://github.com/tinymanorg/tealish/actions/workflows/tests.yml/badge.svg?branch=main" /></a>
+<a href="https://tealish.readthedocs.io/en/latest/"><img src="https://img.shields.io/badge/Read-Docs-gold.svg" /></a>
+</p>
+
+---
+
+Tealish is a readable language for the Algorand Virtual Machine. It enables developers to write TEAL in a procedural style optimized for readability.
 
 Tealish transpiles to Teal rather than compiling directly to AVM bytecode. The produced Teal is as close to handwritten idiomatic Teal as possible.
 The original source Tealish (including comments) is included as comments in the generated Teal.
 The generated Teal is intended to be readable and auditable.
 The generated Teal should not be surprising - the Tealish writer should be able to easily imagine the generated Teal.
 
-Tealish is not a general purpose programming language. It is designed specifically for writing contracts for the AVM, optimizing for common patterns. 
+Tealish is not a general purpose programming language. It is designed specifically for writing contracts for the AVM, optimizing for common patterns.
 
 ## Status
-Tealish is has been used to write large production contracts but it is not currently considered Production Ready for general use. It may have unexpected behavior outside of the scenarios it has been used for until now.
+Tealish has been used to write large production contracts but it is not currently considered Production Ready for general use. It may have unexpected behavior outside of the scenarios it has been used for until now.
 
+## Docs
+
+https://tealish.readthedocs.io/
+
+## Installation
+
+`pip install tealish`
 
 ## Minimal Example
 A simple example demonstrating assertions, state, if statements and inner transactions:
@@ -46,9 +61,9 @@ exit(1)
 ## Compiling
 
 ```
-    tealish compile examples/counter_prize.tl
+    tealish compile examples/minimal_example/counter_prize.tl
 ```
-This will produce [`counter_prize.teal`](examples/build/counter_prize.teal) in the [`build`](examples/build/) subdirectory.
+This will produce [`counter_prize.teal`](examples/minimal_example/build/counter_prize.teal) in the [`build`](examples/minimal_examplebuild/) subdirectory.
 
 ## Editor Support
 
@@ -118,8 +133,8 @@ end
 ```
 
 ## Design Goals
-Tealish is designed first and foremost to be a more readable version of Teal. 
-The biggest difference between Teal and Tealish is the stack is made implicit in Tealish instead of being explicit as in Teal. 
+Tealish is designed first and foremost to be a more readable version of Teal.
+The biggest difference between Teal and Tealish is the stack is made implicit in Tealish instead of being explicit as in Teal.
 
 Readability is achieved by the following:
 - Multiple operations on a single line
@@ -151,178 +166,3 @@ Blocks are not functions:
 
 Functions are used to define reusable pieces of functionality. They can take arguments and return values. They can read variables from the scope in which they are defined but they may not assign to variables outside their local scope. Functions may have side effects through the use of state manipulation or inner transactions.
 
-
-## Tealish building blocks
-
-### Program:
-
-* Statements
-
-### Statements:
-
-#### Multiline Statements
-- If/elif/else
-    ```
-    if x > 10:
-        y = 2
-    elif x > 5:
-        y = 1
-    else:
-        y = 0
-    end
-    ```
-- Switch
-    ```
-    switch Txn.OnCompletion:
-        NoOp: main
-        OptIn: optin
-    end
-    ```
-- While Loops
-    ```
-    int x = 0
-    while x < 10:
-        x = x + 1
-        log(itob(x))
-    end
-    ```
-- For Loops
-    ```
-    for i in 0:10:
-        log(itob(i))
-    end
-    ```
-    ```
-    for _ in 0:10:
-        log("*")
-    end
-    ```
-- InnerTxn
-    ```
-    inner_txn:
-        TypeEnum: Pay
-        Receiver: Txn.Sender
-        Amount: 1000
-        Fee: 0
-    end
-    ```
-- Inline Teal
-    ```
-    pushint(6)
-    teal:
-        int 7
-        *
-        int 10
-        *
-    end
-    int result = pop()
-    ```
-- Function
-    ```
-    func get_balance(account_idx: int, asset_id: int) int:
-        int balance
-        if asset_id == 0:
-            balance = balance(account_idx) - min_balance(account_idx)
-        else:
-            _, balance = asset_holding_get(AssetBalance, account_idx, asset_id)
-        end
-        return balance
-    end
-    ```
-- Block
-    ```
-    block main:
-        int some_local_var = 10
-        do_something(some_local_var)
-        exit(1)
-    end
-    ```
-- Struct
-    ```
-    struct Item:
-        x: int
-        y: int
-        name: bytes[10]
-    end
-
-    Item item1 = Txn.ApplicationArgs[0]
-    log(item.name)
-    assert(item.x > 10)
-    item.y = 1
-    ```
-
-#### Line Statements
-
-* Declaration
-    - `int x`
-    - `bytes b`
-    - `int x = 1`
-    - `bytes b = "ABC"`
-    - `const int FOO = 1`
-    - `const bytes BAR = "ABC"`
-    - `Item item1 = Txn.ApplicationArgs[0] // struct`
-* Assignment
-    - `x = 1`
-    - `b = "ABC"`
-    - `exists, asset_1_unit_name = asset_params_get(AssetUnitName, asset_id)`
-    - `item.y = 1 // struct assignment`
-* Function Call (without return values)
-    - `assert(1)`
-    - `assert(2 > 1)`
-    - `exit(1)`
-    - `app_global_put(key, value)`
-    - `log(value)`
-* Jump
-    - `jump main`
-* Comments
-    - `# This is a comment line`
-
-### Expressions:
-
-* Values
-* Function/Op Calls
-    - `sqrt(25)` # AVM op
-    - `app_global_get(key)` # AVM op
-    - `get_balance(address, asset_id)` # user defined function
-* Math/Logic
-    - `1 + 2`
-    - `x == 3`
-    - `app_global_get(key) * 5`    
-    - Note: Math/Logic must be binary expressions. Groups (below) must be used to compose multiple expressions:
-      - Invalid: `x + 1 + 2`
-      - Valid: `(x + 1) + 2`
-      - Valid: `x + (1 + 2)`
-* Expression Groups
-    - `x > (y + 2)`
-    - `(a + b) * c`
-
-### Values:
-* Literals
-    - `42`
-    - `"swap"`
-* Constants
-    - `MIN_VALUE`
-* Variables
-    - `foo`
-    - `asset_id_1`
-* Fields
-    - Global
-        - `Global.LatestTimestamp`
-    - Current Txn Fields
-        - `Txn.Sender`
-        - `Txn.ApplicationArgs[0]`
-    - Group Txn Fields
-        - `Gtxn[0].Sender`
-        - `Gtxn[funding_txn_index].Sender`
-        - `Gtxn[-1].Sender` # Relative indexing (previous txn)
-        - `Gtxn[+1].Sender` # Relative indexing (next txn)
-    - Inner Txn Fields
-        - `Itxn.CreatedAssetID`
-    - Struct Fields
-        - `item.name`
-* Builtin Constants
-    - `Pay`
-    - `Axfer`
-    - `NoOp`
-    - `OptIn`
-    - etc

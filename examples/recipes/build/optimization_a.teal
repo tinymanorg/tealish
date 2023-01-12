@@ -1,0 +1,24 @@
+// int a = get_int() [slot 0]
+callsub __func__get_int
+store 0 // a
+// int b = get_int() [slot 1]
+callsub __func__get_int
+store 1 // b
+// int c = get_int() [slot 2]
+callsub __func__get_int
+store 2 // c
+
+// int result = (a + b) + c [slot 3]
+load 0 // a
+load 1 // b
++
+load 2 // c
++
+store 3 // result
+
+// Dummy function
+// func get_int() int:
+__func__get_int:
+// return 2
+pushint 2
+retsub

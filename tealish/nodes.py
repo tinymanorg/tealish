@@ -21,7 +21,7 @@ class Node(BaseNode):
         if parent:
             self.current_scope = parent.current_scope
         self.compiler = compiler
-        self.line = line
+        self._line = line
         self._line_no = compiler.line_no if compiler else None
         # self.child_nodes includes nested nodes (e.g. function body or statements within if...else...end)
         self.child_nodes = []
@@ -381,6 +381,11 @@ class FunctionCallStatement(LineStatement):
     def process(self):
         self.expression.process()
         self.name = self.expression.name
+        if self.expression.type:
+            raise CompileError(
+                f"Unconsumed return values ({self.expression.type}) from {self.name}",
+                node=self,
+            )
 
     def write_teal(self, writer):
         writer.write(self, f"// {self.line}")
@@ -1311,6 +1316,8 @@ class StructFieldDefinition(InlineStatement):
 
     def _tealish(self, formatter=None):
         output = f"{self.field_name}: {self.data_type}"
+        if self.data_length:
+            output += f"[{self.data_length}]"
         return output
 
 
@@ -1456,7 +1463,7 @@ class StructOrBoxAssignment(LineStatement):
             writer.write(self, f"box_replace // {self.name.value}.{self.field_name}")
 
     def _tealish(self, formatter=None):
-        s = f"{self.struct_name} {self.name.tealish(formatter)}"
+        s = f"{self.name.tealish(formatter)}.{self.field_name}"
         if self.expression:
             s += f" = {self.expression.tealish(formatter)}"
         return s + "\n"
