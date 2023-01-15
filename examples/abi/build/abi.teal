@@ -37,16 +37,6 @@ on_call:
 
 // block add
 add:
-  // func inner_add(a: int, b: int)int:
-  add__func__inner_add:
-  store 1 // b
-  store 2 // a
-  // return a + b
-  load 2 // a
-  load 1 // b
-  +
-  retsub
-  
   // int result = inner_add(btoi(Txn.ApplicationArgs[1]), btoi(Txn.ApplicationArgs[2])) [slot 0]
   txna ApplicationArgs 1
   btoi
@@ -63,4 +53,14 @@ add:
   // exit(1)
   pushint 1
   return
+  
+  // func inner_add(a: int, b: int)int:
+  add__func__inner_add:
+  store 1 // b
+  store 2 // a
+  // return a + b
+  load 2 // a
+  load 1 // b
+  +
+  retsub
 

@@ -18,17 +18,17 @@ end
 
 block on_call:
     switch Txn.ApplicationArgs[0]:
-        method("add(uint64,uin64)uint64"): add 
+        method("add(uint64,uin64)uint64"): add
     end
 end
 
 
 block add:
-    func inner_add(a: int, b: int)int:
-        return a + b
-    end
-
     int result = inner_add(btoi(Txn.ApplicationArgs[1]), btoi(Txn.ApplicationArgs[2]))
     log(concat(RETURN_PREFIX, itob(result)))
     exit(1) 
+    
+    func inner_add(a: int, b: int)int:
+        return a + b
+    end
 end
