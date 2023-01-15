@@ -127,6 +127,7 @@ class BaseNode:
         blocks = {}
         for s in self.get_scopes():
             blocks.update(s.blocks)
+        print(blocks)
         return blocks
 
     def get_block(self, name: str) -> "Block":

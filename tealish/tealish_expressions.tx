@@ -36,3 +36,5 @@ NegativeGroupIndex: '-' index=INT;
 PositiveGroupIndex: '+' index=INT;
 Integer: value=/[0-9_]+/;
 Bytes: value=STRING;
+HexBytes: 'h' value=Bytes;
+AddrBytes: 'a' value=Bytes;

@@ -57,6 +57,7 @@ end
 
 
 block on_call:
+    # test 
     switch Txn.ApplicationArgs[0]:
         "setup": on_setup
         "bid": on_bid

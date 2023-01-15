@@ -23,6 +23,7 @@ from .scope import Scope, VarType
 
 LITERAL_INT = r"[0-9]+"
 LITERAL_BYTES = r'"(.+)"'
+HEX_BYTES = r'"([a-zA-Z0-9]+)"'
 VARIABLE_NAME = r"[a-z_][a-zA-Z0-9_]*"
 
 if TYPE_CHECKING:
@@ -140,7 +141,7 @@ class Literal(Expression):
 
     @classmethod
     def parse(cls, line: str, parent: Node, compiler: "TealishCompiler") -> Node:
-        matchable: List[Type[Expression]] = [LiteralInt, LiteralBytes]
+        matchable: List[Type[Expression]] = [LiteralInt, LiteralBytes, HexBytes]
         for expr in matchable:
             if expr.match(line):
                 return expr(line, parent, compiler)
@@ -163,6 +164,20 @@ class LiteralInt(Literal):
 
 class LiteralBytes(Literal):
     pattern = rf"(?P<value>{LITERAL_BYTES})$"
+    value: str
+
+    def write_teal(self, writer: "TealWriter") -> None:
+        writer.write(self, f"pushbytes {self.value}")
+
+    def type(self) -> AVMType:
+        return AVMType.bytes
+
+    def _tealish(self) -> str:
+        return f"{self.value}"
+
+
+class HexBytes(Literal):
+    pattern = rf"h(?P<value>{HEX_BYTES})$"
     value: str
 
     def write_teal(self, writer: "TealWriter") -> None:
@@ -377,6 +392,11 @@ class Const(LineStatement):
 
     def process(self) -> None:
         scope = self.get_current_scope()
+
+        # TODO: this is sketchy
+        if isinstance(self.expression, HexBytes):
+            self.expression.value = "0x" + self.expression.value.strip('"')
+
         scope.declare_const(self.name, (self.type, self.expression.value))
 
     def write_teal(self, writer: "TealWriter") -> None:

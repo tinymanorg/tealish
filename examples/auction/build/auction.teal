@@ -112,6 +112,7 @@ on_create:
 
 // block on_call
 on_call:
+  // test
   // switch Txn.ApplicationArgs[0]:
   txna ApplicationArgs 0
   pushbytes "setup"
