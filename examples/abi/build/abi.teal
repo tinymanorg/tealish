@@ -1,14 +1,21 @@
 #pragma version 8
 
 
+// TODO:
+//    need method_signature builtin
+//    need abi_return builtin: `log(concat(RETURN_PREFIX, abi_encoded(thing)))
+//    need abi_decode/abi_encode to encode/decode arguments into abi types
+
+
 // if Txn.ApplicationID == 0:
   txn ApplicationID
   pushint 0
   ==
   bz l0_end
   // then:
-    // jump on_create
-    b on_create
+    // exit(1)
+    pushint 1
+    return
   l0_end: // end
 
 // switch Txn.OnCompletion:
@@ -18,19 +25,11 @@ pushint 0 // NoOp
 bnz on_call
 err // unexpected value
 
-
-// block on_create
-on_create:
-  // exit(1)
-  pushint 1
-  return
-
 // block on_call
 on_call:
-  // TODO: need method selector and auto arg parse?
   // switch Txn.ApplicationArgs[0]:
   txna ApplicationArgs 0
-  pushbytes "add(uint64,uin64)uint64"
+  method "add(uint64,uin64)uint64"
   ==
   bnz add
   err // unexpected value
@@ -38,29 +37,30 @@ on_call:
 
 // block add
 add:
-  // func inner_add(a: bytes, b: bytes)bytes:
+  // func inner_add(a: int, b: int)int:
   add__func__inner_add:
   store 1 // b
   store 2 // a
-  // return itob(btoi(a) + btoi(b))
+  // return a + b
   load 2 // a
-  btoi
   load 1 // b
-  btoi
   +
-  itob
   retsub
   
-  // bytes result = inner_add(Txn.ApplicationArgs[1], Txn.ApplicationArgs[2]) [slot 0]
+  // int result = inner_add(btoi(Txn.ApplicationArgs[1]), btoi(Txn.ApplicationArgs[2])) [slot 0]
   txna ApplicationArgs 1
+  btoi
   txna ApplicationArgs 2
+  btoi
   callsub add__func__inner_add
   store 0 // result
-  // log(concat(RETURN_PREFIX, result))
+  // log(concat(RETURN_PREFIX, itob(result)))
   pushbytes 0x151f7c75 // RETURN_PREFIX
   load 0 // result
+  itob
   concat
   log
   // exit(1)
   pushint 1
   return
+

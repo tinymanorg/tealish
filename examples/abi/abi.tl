@@ -2,33 +2,33 @@
 
 const bytes RETURN_PREFIX = h"151f7c75"
 
+# TODO: 
+#    need method_signature builtin
+#    need abi_return builtin: `log(concat(RETURN_PREFIX, abi_encoded(thing)))
+#    need abi_decode/abi_encode to encode/decode arguments into abi types
+
+
 if Txn.ApplicationID == 0:
-    jump on_create
+    exit(1)
 end
 
 switch Txn.OnCompletion:
     NoOp: on_call
 end
 
-
-block on_create:
-    exit(1)
-end
-
 block on_call:
-    # TODO: need method selector and auto arg parse?
     switch Txn.ApplicationArgs[0]:
-        "add(uint64,uin64)uint64": add 
+        method("add(uint64,uin64)uint64"): add 
     end
 end
 
 
 block add:
-    func inner_add(a: bytes, b: bytes)bytes:
-        return itob(btoi(a) + btoi(b))
+    func inner_add(a: int, b: int)int:
+        return a + b
     end
 
-    bytes result = inner_add(Txn.ApplicationArgs[1], Txn.ApplicationArgs[2])
-    log(concat(RETURN_PREFIX, result))
+    int result = inner_add(btoi(Txn.ApplicationArgs[1]), btoi(Txn.ApplicationArgs[2]))
+    log(concat(RETURN_PREFIX, itob(result)))
     exit(1) 
 end

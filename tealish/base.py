@@ -11,11 +11,29 @@ if TYPE_CHECKING:
 
 lang_spec = get_active_langspec()
 
+pseudo_ops = {
+    "method": Op(
+        {
+            "Name": "method",
+            "Opcode": "method",
+            "Size": 2,
+            "Args": [],
+            "Returns": ["B"],
+        }
+    )
+}
+
+
+def lookup_pseudo_op(name: str) -> Op:
+    if name not in pseudo_ops:
+        raise KeyError(f'Op "{name}" does not exist!')
+    return pseudo_ops[name]
+
 
 def lookup_op(name: str) -> Op:
-    if name not in lang_spec.ops:
-        raise KeyError(f'Op "{name}" does not exist!')
-    return lang_spec.ops[name]
+    if name in lang_spec.ops:
+        return lang_spec.ops[name]
+    return lookup_pseudo_op(name)
 
 
 def lookup_avm_constant(name: str) -> Tuple[AVMType, ConstValue]:
@@ -127,7 +145,6 @@ class BaseNode:
         blocks = {}
         for s in self.get_scopes():
             blocks.update(s.blocks)
-        print(blocks)
         return blocks
 
     def get_block(self, name: str) -> "Block":

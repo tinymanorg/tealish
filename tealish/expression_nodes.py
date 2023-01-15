@@ -20,6 +20,9 @@ class Integer(BaseNode):
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"pushint {self.value}")
 
+    def __str__(self) -> str:
+        return f"{self.value}"
+
     def _tealish(self) -> str:
         return f"{self.value}"
 
@@ -32,6 +35,9 @@ class Bytes(BaseNode):
 
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f'pushbytes "{self.value}"')
+
+    def __str__(self) -> str:
+        return f'"{self.value}"'
 
     def _tealish(self) -> str:
         return f'"{self.value}"'
@@ -218,8 +224,10 @@ class FunctionCall(BaseNode):
         self.args = self.args[op.immediate_args_num :]
         if len(self.args) != num_args:
             raise CompileError(f"Expected {num_args} args for {op.name}!", node=self)
+
         for i, arg in enumerate(self.args):
             arg.process()
+
         self.check_arg_types(self.name, self.args)
         for i, x in enumerate(immediates):
             if isinstance(x, Constant):
