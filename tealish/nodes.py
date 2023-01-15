@@ -16,6 +16,7 @@ from .base import BaseNode
 from .errors import CompileError, ParseError
 from .tx_expressions import parse_expression
 from .tealish_builtins import AVMType
+from .scope import Scope, VarType
 
 LITERAL_INT = r"[0-9]+"
 LITERAL_BYTES = r'"(.+)"'
@@ -39,7 +40,7 @@ class Node(BaseNode):
         self.parent = parent
 
         if self.parent is not None:
-            self.current_scope: Dict[str, Any] = self.parent.current_scope
+            self.current_scope: Scope = self.parent.current_scope
 
         self.compiler = compiler
         self._line = line
@@ -56,7 +57,8 @@ class Node(BaseNode):
         raw_tokens: Optional[re.Match[str]] = re.match(self.pattern, self.line)
         if raw_tokens is None:
             raise ParseError(
-                f'Pattern ({self.pattern}) does not match for {self} for line "{self.line}"'
+                f"Pattern ({self.pattern}) does not match "
+                + f'for {self} for line "{self.line}"'
             )
         self.raw_tokens = raw_tokens.groupdict()
 
@@ -106,25 +108,14 @@ class Node(BaseNode):
 
         self.compiler.write(lines, self.line_no)
 
-    def get_current_scope(self) -> Dict[str, Any]:
+    def get_current_scope(self) -> Scope:
         return self.current_scope
 
     def new_scope(
         self, name: str = "", slot_range: Optional[Tuple[int, int]] = None
     ) -> None:
         parent_scope = self.parent.get_current_scope() if self.parent else None
-        self.current_scope = {
-            "parent": parent_scope,
-            "slots": {},
-            "slot_range": slot_range or [0, 200],
-            "aliases": {},
-            "consts": {},
-            "blocks": {},
-            "functions": {},
-            "name": (parent_scope["name"] + "__" + name)
-            if parent_scope and parent_scope["name"]
-            else name,
-        }
+        self.current_scope = Scope(name, parent_scope, slot_range)
 
     def __repr__(self) -> str:
         name = self.__class__.__name__
@@ -187,13 +178,13 @@ class Name(Expression):
 
     def __init__(self, line: str) -> None:
         self.slot: Optional[int] = None
-        self._type: Optional[str] = None
+        self._type: Optional[VarType] = None
         super().__init__(line)
 
     def _tealish(self) -> str:
         return f"{self.value}"
 
-    def type(self) -> Optional[str]:
+    def type(self) -> Optional[VarType]:
         return self._type
 
 
@@ -255,7 +246,7 @@ class Program(Node):
         super().__init__(line, parent, compiler)
         self.new_scope("")
 
-    def get_current_scope(self) -> Dict[str, Any]:
+    def get_current_scope(self) -> Scope:
         return self.current_scope
 
     @classmethod
@@ -268,7 +259,9 @@ class Program(Node):
             n = Statement.consume(compiler, node)
             if not expect_struct_definition and isinstance(n, Struct):
                 raise ParseError(
-                    f"Unexpected Struct definition at line {n.line_no}. Struct definitions should be at the top of the file and only be preceeded by comments."
+                    f"Unexpected Struct definition at line {n.line_no}."
+                    + "Struct definitions should be at the top of the file and "
+                    + "only be preceeded by comments."
                 )
             if not isinstance(n, (TealVersion, Blank, Comment, Struct)):
                 expect_struct_definition = False
@@ -301,7 +294,8 @@ class LineStatement(InlineStatement):
         if line.startswith("#pragma"):
             if compiler.line_no != 1:
                 raise ParseError(
-                    f'Teal version must be specified in the first line of the program: "{line}" at {compiler.line_no}.'
+                    "Teal version must be specified in the first line of the "
+                    + f'program: "{line}" at {compiler.line_no}.'
                 )
             return TealVersion(line, parent, compiler=compiler)
         elif line.startswith("#"):
@@ -372,14 +366,17 @@ class Blank(LineStatement):
 
 
 class Const(LineStatement):
-    pattern = r"const (?P<type>\bint\b|\bbytes\b) (?P<name>[A-Z][a-zA-Z0-9_]*) = (?P<expression>.*)$"
-    type: str
+    pattern = (
+        r"const (?P<type>\bint\b|\bbytes\b) "
+        + r"(?P<name>[A-Z][a-zA-Z0-9_]*) = (?P<expression>.*)$"
+    )
+    type: AVMType
     name: str
     expression: Literal
 
     def process(self) -> None:
         scope = self.get_current_scope()
-        scope["consts"][self.name] = [self.type, self.expression.value]
+        scope.declare_const(self.name, (self.type, self.expression.value))
 
     def write_teal(self, writer: "TealWriter") -> None:
         pass
@@ -429,7 +426,7 @@ class FunctionCallStatement(LineStatement):
     def process(self) -> None:
         self.expression.process()
         # TODO: wat?
-        self.name = self.expression.get_current_scope()["name"]
+        self.name = self.expression.get_current_scope().name
         if self.expression.type:
             raise CompileError(
                 f"Unconsumed return values ({self.expression.type}) from {self.name}",
@@ -453,11 +450,13 @@ class Assert(LineStatement):
         self.arg.process()
         if self.arg.type not in (AVMType.int, AVMType.any):
             raise CompileError(
-                f"Incorrect type for assert. Expected int, got {self.arg.type} at line {self.line_no}.",
+                "Incorrect type for assert. "
+                + f"Expected int, got {self.arg.type} at line {self.line_no}.",
                 node=self,
             )
 
-        # TODO: added check for compiler not None, should it ever happen that it is None?
+        # TODO: added check for compiler not None, should it
+        # ever happen that it is None?
         if self.message and self.compiler is not None:
             self.compiler.error_messages[self.line_no] = self.message
 
@@ -485,7 +484,8 @@ class BytesDeclaration(LineStatement):
             self.expression.process()
             if self.expression.type not in (AVMType.bytes, AVMType.any):
                 raise CompileError(
-                    f"Incorrect type for bytes assignment. Expected bytes, got {self.expression.type}",
+                    "Incorrect type for bytes assignment. "
+                    + f"Expected bytes, got {self.expression.type}",
                     node=self,
                 )
 
@@ -513,7 +513,8 @@ class IntDeclaration(LineStatement):
             self.expression.process()
             if self.expression.type not in (AVMType.int, AVMType.any):
                 raise CompileError(
-                    f"Incorrect type for int assignment. Expected int, got {self.expression.type}",
+                    "Incorrect type for int assignment. "
+                    + f"Expected int, got {self.expression.type}",
                     node=self,
                 )
 
@@ -539,29 +540,36 @@ class Assignment(LineStatement):
     def process(self) -> None:
         self.expression.process()
         t = self.expression.type
-        types = t if type(t) == list else [t]
+        incoming_types = t if type(t) == list else [t]
+
         names = [Name(s.strip()) for s in self.names.split(",")]
         self.name_nodes = names
-        if len(types) != len(names):
+        if len(incoming_types) != len(names):
             raise CompileError(
-                f"Incorrect number of names ({len(names)}) for values ({len(types)}) in assignment",
+                f"Incorrect number of names ({len(names)}) for "
+                + f"values ({len(incoming_types)}) in assignment",
                 node=self,
             )
+
         for i, name in enumerate(names):
-            if name.value != "_":
-                # TODO: we have types for vars now. We should somehow make sure the expression is the correct type
-                slot, t = self.get_var(name.value)
-                if slot is None:
-                    raise CompileError(
-                        f'Var "{name.value}" not declared in current scope', node=self
-                    )
-                if not (types[i] == AVMType.any or types[i] == t):
-                    raise CompileError(
-                        f"Incorrect type for {t} assignment. Expected {t}, got {types[i]}",
-                        node=self,
-                    )
-                name.slot = slot
-                name._type = t
+            if name.value == "_":
+                continue
+
+            var_def = self.get_var(name.value)
+            if var_def is None:
+                raise CompileError(
+                    f'Var "{name.value}" not declared in current scope', node=self
+                )
+
+            slot, var_type = var_def
+            if not (incoming_types[i] == AVMType.any or incoming_types[i] == var_type):
+                raise CompileError(
+                    f"Incorrect type for {var_type} assignment. "
+                    + f"Expected {var_type}, got {incoming_types[i]}",
+                    node=self,
+                )
+            name.slot = slot
+            name._type = var_type
 
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line}")
@@ -573,8 +581,10 @@ class Assignment(LineStatement):
                 writer.write(self, f"store {name.slot} // {name.value}")
 
     def _tealish(self) -> str:
-        s = f"{', '.join(n.tealish() for n in self.name_nodes)} = {self.expression.tealish()}\n"
-        return s
+        return (
+            f"{', '.join(n.tealish() for n in self.name_nodes)}"
+            + f" = {self.expression.tealish()}\n"
+        )
 
 
 class Block(Statement):
@@ -590,8 +600,8 @@ class Block(Statement):
     ) -> None:
         super().__init__(line, parent, compiler)
         scope = self.get_current_scope()
-        scope["blocks"][self.name] = self
-        self.label = scope["name"] + ("__" if scope["name"] else "") + self.name
+        scope.declare_block(self.name, self)
+        self.label = scope.name + ("__" if scope.name else "") + self.name
         self.new_scope(self.name)
 
     @classmethod
@@ -806,14 +816,16 @@ class InnerTxn(InlineStatement):
                     self.array_fields[node.field_name].append(node)
                 else:
 
-                    # TODO: this is required since the Node base class accepts an Optional compiler
-                    # i think this is wrong but will circle back
+                    # TODO: this is required since the Node base class
+                    # accepts an Optional compiler.
+                    # I think this is wrong but will circle back
                     lno: int = 0
                     if self.compiler is not None:
                         lno = self.compiler.line_no
 
                     raise ParseError(
-                        f"Inccorrect field array index {index} (expected {n}) at line {lno}!"
+                        f"Inccorrect field array index {index} "
+                        + f"(expected {n}) at line {lno}!"
                     )
             else:
                 node.expression.process()
@@ -1065,8 +1077,10 @@ class IfStatement(InlineStatement):
 
     def process(self) -> None:
         for i, node in enumerate(self.child_nodes[:-1]):
-            # TODO: the type of `child_nodes` in BaseNode is a List[BaseNode] so we have to do
-            # some work to make mypy happy, this is not the best way to do it but marking to follow up
+            # TODO: the type of `child_nodes` in BaseNode is
+            # a List[BaseNode] so we have to do
+            # some work to make mypy happy, this is not the
+            # best way to do it but marking to follow up
             if not (
                 isinstance(node, IfThen)
                 or isinstance(node, Elif)
@@ -1230,7 +1244,10 @@ class WhileStatement(InlineStatement):
 
 class ForStatement(InlineStatement):
     possible_child_nodes = [InlineStatement]
-    pattern = r"for (?P<var>[a-z_][a-zA-Z0-9_]*) in (?P<start>[a-zA-Z0-9_]+):(?P<end>[a-zA-Z0-9_]+):$"
+    pattern = (
+        r"for (?P<var>[a-z_][a-zA-Z0-9_]*) in "
+        + r"(?P<start>[a-zA-Z0-9_]+):(?P<end>[a-zA-Z0-9_]+):$"
+    )
     var: str
     start: GenericExpression
     end: GenericExpression
@@ -1349,7 +1366,7 @@ class For_Statement(InlineStatement):
 class ArgsList(Expression):
     arg_pattern = r"(?P<arg_name>[a-z][a-z_0-9]*): (?P<arg_type>int|bytes)"
     pattern = rf"(?P<args>({arg_pattern}(, )?)*)"
-    args: List[Tuple[str, str]]
+    args: List[Tuple[str, AVMType]]
 
     def __init__(self, line: str) -> None:
         super().__init__(line)
@@ -1377,8 +1394,8 @@ class Func(InlineStatement):
     ) -> None:
         super().__init__(line, parent, compiler)
         scope = self.get_current_scope()
-        scope["functions"][self.name] = self
-        self.label = scope["name"] + "__func__" + self.name
+        scope.declare_function(self.name, self)
+        self.label = scope.name + "__func__" + self.name
         self.new_scope("func__" + self.name)
         self.returns = list(
             filter(
@@ -1486,7 +1503,10 @@ class Return(LineStatement):
 
 
 class StructFieldDefinition(InlineStatement):
-    pattern = r"(?P<field_name>[a-z][A-Z-a-z0-9_]*): (?P<data_type>[a-z][A-Z-a-z0-9_]+)(\[(?P<data_length>\d+)\])?"
+    pattern = (
+        r"(?P<field_name>[a-z][A-Z-a-z0-9_]*): "
+        + r"(?P<data_type>[a-z][A-Z-a-z0-9_]+)(\[(?P<data_length>\d+)\])?"
+    )
     field_name: str
     data_type: str
     data_length: int
@@ -1525,7 +1545,9 @@ class Struct(InlineStatement):
         node = cls(compiler.consume_line(), parent, compiler=compiler)
         if not isinstance(parent, Program):
             raise ParseError(
-                f"Unexpected Struct definition at line {node.line_no}. Struct definitions should be at the top of the file and only be preceeded by comments."
+                f"Unexpected Struct definition at line {node.line_no}. "
+                + "Struct definitions should be at the top of the file "
+                + "and only be preceeded by comments."
             )
         while True:
             if compiler.peek() == "end":
@@ -1551,7 +1573,8 @@ class Struct(InlineStatement):
         }
         offset = 0
         for n in self.child_nodes:
-            # TODO: again child nodes are not the type we expect (BaseNode not StructFieldDef)
+            # TODO: again child nodes are not the type
+            # we expect (BaseNode not StructFieldDef)
             n = cast(StructFieldDefinition, n)
             struct["fields"][n.field_name] = {
                 "type": n.data_type,
@@ -1574,7 +1597,10 @@ class Struct(InlineStatement):
 
 
 class StructDeclaration(LineStatement):
-    pattern = r"(?P<struct_name>[A-Z][a-zA-Z0-9_]*) (?P<name>[a-z][a-zA-Z0-9_]*)( = (?P<expression>.*))?$"
+    pattern = (
+        r"(?P<struct_name>[A-Z][a-zA-Z0-9_]*) "
+        + r"(?P<name>[a-z][a-zA-Z0-9_]*)( = (?P<expression>.*))?$"
+    )
     struct_name: str
     name: Name
     expression: GenericExpression
@@ -1585,7 +1611,8 @@ class StructDeclaration(LineStatement):
             self.expression.process()
             if self.expression.type not in (AVMType.bytes, AVMType.any):
                 raise CompileError(
-                    f"Incorrect type for struct assignment. Expected bytes, got {self.expression.type}",
+                    "Incorrect type for struct assignment. "
+                    + f"Expected bytes, got {self.expression.type}",
                     node=self,
                 )
 
@@ -1609,7 +1636,11 @@ class StructOrBoxAssignment(LineStatement):
     expression: GenericExpression
 
     def process(self) -> None:
-        self.name.slot, var_type = self.get_var(self.name.value)
+        var_def = self.get_var(self.name.value)
+        if var_def is None:
+            raise CompileError(f"Could not find struct with name: {self.name.value}")
+
+        self.name.slot, var_type = var_def
         if type(var_type) != tuple:
             raise CompileError(
                 f"{self.name.value} is not a struct or Box reference", node=self
@@ -1624,7 +1655,8 @@ class StructOrBoxAssignment(LineStatement):
         self.expression.process()
         if self.expression.type not in (self.data_type, AVMType.any):
             raise CompileError(
-                f"Incorrect type for struct field assignment. Expected {self.data_type}, got {self.expression.type}",
+                "Incorrect type for struct field assignment. "
+                + f"Expected {self.data_type}, got {self.expression.type}",
                 node=self,
             )
 

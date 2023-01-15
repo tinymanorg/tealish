@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Union
 
 
 class AVMType(str, Enum):
@@ -12,16 +12,16 @@ class AVMType(str, Enum):
     none = ""
 
 
-constants: Dict[str, Tuple[str, int]] = {
-    "NoOp": ("int", 0),
-    "OptIn": ("int", 1),
-    "CloseOut": ("int", 2),
-    "ClearState": ("int", 3),
-    "UpdateApplication": ("int", 4),
-    "DeleteApplication": ("int", 5),
-    "Pay": ("int", 1),
-    "Acfg": ("int", 3),
-    "Axfer": ("int", 4),
-    "Afrz": ("int", 5),
-    "Appl": ("int", 6),
+constants: Dict[str, Tuple[AVMType, Union[str, bytes, int]]] = {
+    "NoOp": (AVMType.int, 0),
+    "OptIn": (AVMType.int, 1),
+    "CloseOut": (AVMType.int, 2),
+    "ClearState": (AVMType.int, 3),
+    "UpdateApplication": (AVMType.int, 4),
+    "DeleteApplication": (AVMType.int, 5),
+    "Pay": (AVMType.int, 1),
+    "Acfg": (AVMType.int, 3),
+    "Axfer": (AVMType.int, 4),
+    "Afrz": (AVMType.int, 5),
+    "Appl": (AVMType.int, 6),
 }
