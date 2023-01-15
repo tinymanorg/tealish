@@ -429,7 +429,7 @@ Examples:
 
 
 Structs
-------
+-------
 
 Structs are used to define structure for byte strings.
 
@@ -448,3 +448,26 @@ Examples:
 
 .. literalinclude:: ./source/language/structs.tl
 
+
+Boxes
+-----
+
+Boxes can be accessed and manipulated using the standard opcodes (``box_put``, ``box_get``, ``box_extract``, etc). 
+
+Tealish also supports a higher level syntax that makes it easier to deal with structured data in boxes using structs_. 
+A typed box reference can created with the following forms::
+
+    box<{Struct_name}> {box_name} = CreateBox("{box_key}") # asserts box does not already exist
+    box<{Struct_name}> {box_name} = OpenBox("{box_key}")   # asserts box does already exist and has the correct size for the struct
+    box<{Struct_name}> {box_name} = Box("{box_key}")       # makes no assertions about the box
+
+A box field can be set or accessed just like a struct field::
+
+    {box_name}.{field_name} = {value}
+
+    log({box_name}.{field_name})
+
+
+Examples:
+
+.. literalinclude:: ./source/language/boxes.tl

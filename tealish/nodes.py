@@ -314,10 +314,12 @@ class LineStatement(InlineStatement):
             return IntDeclaration(line, parent, compiler=compiler)
         elif line.startswith("bytes "):
             return BytesDeclaration(line, parent, compiler=compiler)
+        elif line.startswith("box<"):
+            return BoxDeclaration(line, parent, compiler=compiler)
         elif re.match(r"[A-Z][a-zA-Z_0-9]+ [a-zA-Z_0-9]+ = .*", line):
             return StructDeclaration(line, parent, compiler=compiler)
         elif re.match(r"[a-z][a-zA-Z_0-9]+\.[a-z][a-zA-Z_0-9]* = .*", line):
-            return StructAssignment(line, parent, compiler=compiler)
+            return StructOrBoxAssignment(line, parent, compiler=compiler)
         elif line.startswith("jump "):
             return Jump(line, parent, compiler=compiler)
         elif line.startswith("return"):
@@ -1600,7 +1602,7 @@ class StructDeclaration(LineStatement):
         return s + "\n"
 
 
-class StructAssignment(LineStatement):
+class StructOrBoxAssignment(LineStatement):
     pattern = r"(?P<name>[a-z][a-zA-Z0-9_]*).(?P<field_name>[a-z][a-zA-Z0-9_]*)( = (?P<expression>.*))?$"
     name: Name
     field_name: str
@@ -1610,7 +1612,7 @@ class StructAssignment(LineStatement):
         self.name.slot, var_type = self.get_var(self.name.value)
         if type(var_type) != tuple:
             raise CompileError(
-                f"{self.name.value} is not a struct reference", node=self
+                f"{self.name.value} is not a struct or Box reference", node=self
             )
         self.object_type, struct_name = var_type
 
@@ -1637,6 +1639,14 @@ class StructAssignment(LineStatement):
                 self, f"replace {self.offset} // {self.name.value}.{self.field_name}"
             )
             writer.write(self, f"store {self.name.slot} // {self.name.value}")
+        elif self.object_type == "box":
+            writer.write(self, f"// {self.line} [box]")
+            writer.write(self, f"load {self.name.slot} // box key {self.name.value}")
+            writer.write(self, f"pushint {self.offset} // offset")
+            writer.write(self, self.expression)
+            if self.data_type == "int":
+                writer.write(self, "itob")
+            writer.write(self, f"box_replace // {self.name.value}.{self.field_name}")
 
     def _tealish(self) -> str:
         s = f"{self.name.tealish()}.{self.field_name}"
@@ -1645,7 +1655,52 @@ class StructAssignment(LineStatement):
         return s + "\n"
 
 
-def split_return_args(s: str) -> List[str]:
+class BoxDeclaration(LineStatement):
+    # box<Item> item1 = CreateBox("a") # asserts box does not already exist
+    # box<Item> item1 = OpenBox("a")   # asserts box does already exist and has the correct size for the struct
+    # box<Item> item1 = Box("a")       # makes no assertions about the box
+    pattern = r"box<(?P<struct_name>[A-Z][a-zA-Z0-9_]*)> (?P<name>[a-z][a-zA-Z0-9_]*) = (?P<method>Open|Create)?Box\((?P<key>.*)\)$"
+    struct_name: str
+    name: Name
+    method: str
+    key: GenericExpression
+
+    def process(self):
+        self.struct = self.get_struct(self.struct_name)
+        self.box_size = self.struct["size"]
+        self.name.slot = self.declare_var(self.name.value, ("box", self.struct_name))
+        self.key.process()
+        if self.key.type not in ("bytes", "any"):
+            raise CompileError(
+                f"Incorrect type for box key. Expected bytes, got {self.key.type}",
+                node=self,
+            )
+
+    def write_teal(self, writer):
+        writer.write(self, f"// {self.line} [slot {self.name.slot}]")
+        writer.write(self, self.key)
+        if self.method == "Open":
+            writer.write(self, "dup")
+            writer.write(self, "box_len")
+            writer.write(self, "assert // exists")
+            writer.write(self, f"pushint {self.box_size}")
+            writer.write(self, "==")
+            writer.write(self, "assert // len(box) == {self.struct_name}.size")
+        elif self.method == "Create":
+            writer.write(self, "dup")
+            writer.write(self, f"pushint {self.box_size}")
+            writer.write(self, "box_create")
+            writer.write(self, "assert // assert created")
+        else:
+            writer.write(self, "// assume box exists")
+        writer.write(self, f"store {self.name.slot} // {self.name.value}")
+
+    def _tealish(self, formatter=None):
+        s = f"box<{self.struct_name}> {self.name.tealish(formatter)} = {self.method}Box({self.key.tealish(formatter)})"
+        return s + "\n"
+
+
+def split_return_args(s):
     parentheses = 0
     quotes = False
     for i in range(len(s)):
