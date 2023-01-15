@@ -19,6 +19,7 @@ bytes my_encoded_int = abi_encode("uint32", my_int)
 # "0x00FF"
 bytes my_encoded_int = abi_encode("uint16", my_int)
 
+assert abi_decode("uint64", abi_encode("uint64", 123)) == 123
 
 Strings
 --------
@@ -48,6 +49,8 @@ Static Arrays
 
 Dynamic Arrays
 ---------------
+
+guh
 
 """
 
