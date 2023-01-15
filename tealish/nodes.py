@@ -1727,8 +1727,8 @@ class BoxDeclaration(LineStatement):
             writer.write(self, "// assume box exists")
         writer.write(self, f"store {self.name.slot} // {self.name.value}")
 
-    def _tealish(self, formatter=None):
-        s = f"box<{self.struct_name}> {self.name.tealish(formatter)} = {self.method}Box({self.key.tealish(formatter)})"
+    def _tealish(self):
+        s = f"box<{self.struct_name}> {self.name.tealish()} = {self.method}Box({self.key.tealish()})"
         return s + "\n"
 
 
