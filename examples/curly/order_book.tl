@@ -23,6 +23,7 @@ Box[Book] bids = Box("bids");
 Box[Book] asks = Box("asks")
 
 GlobalState[addr[byte[32]]] admin = GlobalState("admin")
+GlobalState[uint64[int]] mid_price = GlobalState("mid")
 
 // Main Entry and router, single nested flow  
 switch Txn.ApplicationID {
@@ -43,6 +44,8 @@ on_create:
     CreateBox(asks) 
 
     InitState(admin, Txn.sender)
+    InitState(mid_price, 0)
+
     exit(1)
 }
 
