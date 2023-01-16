@@ -19,7 +19,7 @@ end
 
 
 
-extern func add(a: U64[int], b: U64[int])uint64:
+extern func add(a: u64[int], b: u64[int])u64:
     return a + b
 end
 
@@ -42,12 +42,12 @@ end
 
 
 struct order:
-    symbol: U64[int]
-    price: U64[int]
-    vol: U64[int]
+    symbol: u64[int]
+    price: u64[int]
+    vol: u64[int]
 end
 
-external func place_order(o: order)uint64:
+external func place_order(o: order)u64:
     int remaining = fill_order(order.symbol, order.price, order.vol)
 
     if remaining>0:
