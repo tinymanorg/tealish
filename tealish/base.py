@@ -11,8 +11,6 @@ if TYPE_CHECKING:
 
 lang_spec = get_active_langspec()
 
-structs: Dict[str, Dict[str, Any]] = {}
-
 
 def lookup_op(name: str) -> Op:
     if name not in lang_spec.ops:
@@ -20,7 +18,7 @@ def lookup_op(name: str) -> Op:
     return lang_spec.ops[name]
 
 
-def lookup_constant(name: str) -> Tuple[AVMType, ConstValue]:
+def lookup_avm_constant(name: str) -> Tuple[AVMType, ConstValue]:
     if name not in constants:
         raise KeyError(f'Constant "{name}" does not exist!')
     return constants[name]
@@ -179,17 +177,6 @@ class BaseNode:
 
     def lookup_const(self, name: str) -> Tuple["AVMType", ConstValue]:
         return self.get_scope().lookup_const(name)
-
-    # TODO: why do we have both of these?
-    def lookup_constant(self, name: str) -> Tuple["AVMType", ConstValue]:
-        return lookup_constant(name)
-
-    # TODO: shouldn't these be part of the scope?
-    def define_struct(self, struct_name: str, struct: Dict[str, Any]) -> None:
-        structs[struct_name] = struct
-
-    def get_struct(self, struct_name: str) -> Dict[str, Any]:
-        return structs[struct_name]
 
     # TODO: these attributes are only available on Node and other children types
     # we should either define them here or something else?

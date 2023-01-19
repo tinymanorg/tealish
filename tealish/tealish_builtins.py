@@ -1,5 +1,8 @@
 from enum import Enum
-from typing import Dict, Tuple, Union
+from typing import Dict, Tuple, Union, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .nodes import Struct
 
 
 class AVMType(str, Enum):
@@ -7,9 +10,19 @@ class AVMType(str, Enum):
 
     any = "any"
     bytes = "bytes"
-    # TODO: now frame pointers support a signed int, we should account for it
     int = "int"
     none = ""
+
+
+structs: Dict[str, "Struct"] = {}
+
+
+def define_struct(struct_name: str, struct: "Struct") -> None:
+    structs[struct_name] = struct
+
+
+def get_struct(struct_name: str) -> "Struct":
+    return structs[struct_name]
 
 
 constants: Dict[str, Tuple[AVMType, Union[str, bytes, int]]] = {
