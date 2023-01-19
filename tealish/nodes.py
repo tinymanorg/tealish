@@ -1697,8 +1697,8 @@ class BoxDeclaration(LineStatement):
     key: GenericExpression
 
     def process(self):
-        self.struct = self.get_struct(self.struct_name)
-        self.box_size = self.struct["size"]
+        self.struct = get_struct(self.struct_name)
+        self.box_size = self.struct.size
         self.name.slot = self.declare_var(self.name.value, ("box", self.struct_name))
         self.key.process()
         if self.key.type not in ("bytes", "any"):

@@ -491,7 +491,7 @@ class StructOrBoxField(BaseNode):
             writer.write(self, f"pushint {self.offset} // offset")
             writer.write(self, f"pushint {self.size} // size")
             writer.write(self, f"box_extract // {self.name}.{self.field}")
-            if self.data_type == "int":
+            if self.type == AVMType.int:
                 writer.write(self, "btoi")
         else:
             raise Exception()
