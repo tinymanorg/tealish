@@ -1068,6 +1068,175 @@ class TestStructs(unittest.TestCase):
         )
 
 
+class TestBoxes(unittest.TestCase):
+    def test_pass_create_box(self):
+        teal = compile_min(
+            [
+                "struct Item:",
+                "   a: int",
+                "   b: int",
+                "   c: bytes[10]",
+                "end",
+                'box<Item> item1 = CreateBox("a")',
+            ]
+        )
+        self.assertListEqual(
+            teal,
+            [
+                'pushbytes "a"',
+                "dup",
+                "pushint 26",
+                "box_create",
+                "assert",
+                "store 0",
+            ],
+        )
+
+    def test_pass_open_box(self):
+        teal = compile_min(
+            [
+                "struct Item:",
+                "   a: int",
+                "   b: int",
+                "   c: bytes[10]",
+                "end",
+                'box<Item> item1 = OpenBox("a")',
+            ]
+        )
+        self.assertListEqual(
+            teal,
+            [
+                'pushbytes "a"',
+                "dup",
+                "box_len",
+                "assert",
+                "pushint 26",
+                "==",
+                "assert",
+                "store 0",
+            ],
+        )
+
+    def test_pass_box(self):
+        teal = compile_min(
+            [
+                "struct Item:",
+                "   a: int",
+                "   b: int",
+                "   c: bytes[10]",
+                "end",
+                'box<Item> item1 = Box("a")',
+            ]
+        )
+        self.assertListEqual(
+            teal,
+            [
+                'pushbytes "a"',
+                "store 0",
+            ],
+        )
+
+    def test_pass_int_field_access(self):
+        teal = compile_min(
+            [
+                "struct Item:",
+                "   a: int",
+                "   b: int",
+                "   c: bytes[10]",
+                "end",
+                'box<Item> item1 = Box("a")',
+                "assert(item1.a)",
+            ]
+        )
+        self.assertListEqual(
+            teal,
+            [
+                'pushbytes "a"',
+                "store 0",
+                "load 0",
+                "pushint 0",
+                "pushint 8",
+                "box_extract",
+                "btoi",
+                "assert",
+            ],
+        )
+
+    def test_pass_byte_field_access(self):
+        teal = compile_min(
+            [
+                "struct Item:",
+                "   a: int",
+                "   b: int",
+                "   c: bytes[10]",
+                "end",
+                'box<Item> item1 = Box("a")',
+                "log(item1.c)",
+            ]
+        )
+        self.assertListEqual(
+            teal,
+            [
+                'pushbytes "a"',
+                "store 0",
+                "load 0",
+                "pushint 16",
+                "pushint 10",
+                "box_extract",
+                "log",
+            ],
+        )
+
+    def test_pass_byte_field_assignment(self):
+        teal = compile_min(
+            [
+                "struct Item:",
+                "   a: int",
+                "   b: int",
+                "   c: bytes[10]",
+                "end",
+                'box<Item> item1 = Box("a")',
+                "item1.c = Txn.ApplicationArgs[0]",
+            ]
+        )
+        self.assertListEqual(
+            teal,
+            [
+                'pushbytes "a"',
+                "store 0",
+                "load 0",
+                "pushint 16",
+                "txna ApplicationArgs 0",
+                "box_replace",
+            ],
+        )
+
+    def test_pass_int_field_assignment(self):
+        teal = compile_min(
+            [
+                "struct Item:",
+                "   a: int",
+                "   b: int",
+                "   c: bytes[10]",
+                "end",
+                'box<Item> item1 = Box("a")',
+                "item1.a = 1",
+            ]
+        )
+        self.assertListEqual(
+            teal,
+            [
+                'pushbytes "a"',
+                "store 0",
+                "load 0",
+                "pushint 0",
+                "pushint 1",
+                "itob",
+                "box_replace",
+            ],
+        )
+
+
 class TestEverythingProgram(unittest.TestCase):
     maxDiff = None
 
