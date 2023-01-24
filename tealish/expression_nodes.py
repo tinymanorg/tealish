@@ -302,7 +302,7 @@ class TxnArrayField(BaseNode):
 
     def process(self) -> None:
         self.type = self.get_field_type("txn", self.field)
-        if isinstance(self.arrayIndex, Integer):
+        if not isinstance(self.arrayIndex, Integer):
             # index is an expression that needs to be evaluated
             self.arrayIndex.process()
 
@@ -329,7 +329,7 @@ class GroupTxnField(BaseNode):
 
     def process(self) -> None:
         self.type = self.get_field_type("gtxn", self.field)
-        if type(self.index) != Integer:
+        if not isinstance(self.index, Integer):
             # index is an expression that needs to be evaluated
             self.index.process()
 
@@ -365,17 +365,17 @@ class GroupTxnArrayField(BaseNode):
 
     def process(self) -> None:
         self.type = self.get_field_type("gtxn", self.field)
-        if type(self.index) != Integer:
+        if not isinstance(self.index, Integer):
             # index is an expression that needs to be evaluated
             self.index.process()
-        if type(self.arrayIndex) != Integer:
+        if not isinstance(self.arrayIndex, Integer):
             self.arrayIndex.process()
 
     def write_teal(self, writer: "TealWriter") -> None:
         if not isinstance(self.index, Integer):
             # index is an expression that needs to be evaluated
             writer.write(self, self.index)
-            if type(self.arrayIndex) != Integer:
+            if not isinstance(self.arrayIndex, Integer):
                 # arrayIndex is an expression that needs to be evaluated
                 writer.write(self, self.arrayIndex)
                 writer.write(self, f"gtxnsas {self.field}")
@@ -385,7 +385,7 @@ class GroupTxnArrayField(BaseNode):
         else:
             # index is a constant
             assert self.index.value >= 0 and self.index.value < 16
-            if type(self.arrayIndex) != Integer:
+            if not isinstance(self.arrayIndex, Integer):
                 # arrayIndex is an expression that needs to be evaluated
                 writer.write(self, self.arrayIndex)
                 writer.write(self, f"gtxnas {self.index.value} {self.field}")

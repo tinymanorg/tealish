@@ -88,7 +88,10 @@ class Op:
 
         if "ArgEnum" in op_def:
             self.arg_enum = op_def["ArgEnum"]
-            self.arg_enum_types = convert_args_to_types(op_def["ArgEnumTypes"])
+            if "ArgEnumTypes" in op_def:
+                self.arg_enum_types = convert_args_to_types(op_def["ArgEnumTypes"])
+            else:
+                self.arg_enum_types = [AVMType.int] * len(self.arg_enum)
             self.arg_enum_dict = dict(zip(self.arg_enum, self.arg_enum_types))
         else:
             self.arg_enum = []

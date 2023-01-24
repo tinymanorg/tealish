@@ -84,9 +84,9 @@ class TealishMap:
     def update_from_teal_sourcemap(
         self, sourcemap: Union[Dict[str, Any], SourceMap]
     ) -> None:
-        sourcemap = SourceMap(sourcemap)
-        if isinstance(sourcemap, SourceMap):
-            self.pc_teal = dict(sourcemap.pc_to_line)
+        if not isinstance(sourcemap, SourceMap):
+            sourcemap = SourceMap(sourcemap)
+        self.pc_teal = dict(sourcemap.pc_to_line)
 
     def as_dict(self) -> Dict[str, Any]:
         return {

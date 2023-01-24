@@ -27,7 +27,7 @@ def assemble_with_algod(teal: str, algod_url: str) -> Tuple[bytes, SourceMap]:
     if "#" in algod_url:
         algod_url, token = algod_url.split("#")
     algod = AlgodClient(token, algod_url)
-    result = algod.compile("\n".join(teal), source_map=True)
+    result = algod.compile(teal, source_map=True)
     bytecode = b64decode(result["result"])
     algod_sourcemap = result["sourcemap"]
     return bytecode, SourceMap(algod_sourcemap)
