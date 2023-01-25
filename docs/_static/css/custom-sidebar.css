@@ -1,0 +1,59 @@
+.sphinxsidebarwrapper,
+.sidebar-container {
+  height: 100%;
+}
+
+.index-page .sidebar-sticky-content {
+  margin-top: 253px;
+}
+
+.logo-link {
+  display: block;
+
+  margin: 20px 0 72px;
+}
+
+.logo {
+  width: 140px;
+}
+
+.logo-green {
+  display: none;
+}
+
+.index-page .logo-green {
+  display: block;
+}
+
+.index-page .logo-white {
+  display: none;
+}
+
+.toctree-l1.current a.current {
+  font-weight: 600;
+}
+
+ul .toctree-l2 {
+  line-height: 23px;
+}
+
+.social-links {
+  margin-top: 64px;
+}
+
+.social-links .social-link {
+  color: rgba(0, 0, 0, 0.7);
+
+  font-size: 16px;
+}
+
+.social-link .social-link__anchor,
+.social-link .social-link__anchor:hover,
+.social-link .social-link__anchor:active {
+  color: inherit;
+}
+
+.social-links .social-link:hover,
+.social-link .social-link__anchor:focus {
+  color: #000000;
+}
