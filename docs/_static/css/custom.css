@@ -67,10 +67,15 @@ a.headerlink:focus {
 .documentwrapper {
   display: grid;
   justify-content: space-between;
-  grid-template-columns: 220px 556px 220px;
+  grid-template-columns: 220px 1fr 220px;
   gap: 64px;
 
   padding: 0 48px;
+}
+
+.bodywrapper {
+  max-width: 556px;
+  margin: 0 auto;
 }
 
 .bodywrapper .body {
@@ -91,7 +96,7 @@ a.headerlink:focus {
 }
 
 .homepage-tealish-cannister img {
-  max-width: 969px;
+  max-width: 692px;
 }
 
 .copyright {

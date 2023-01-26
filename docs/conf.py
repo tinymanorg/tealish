@@ -30,6 +30,7 @@ html_static_path = [
 ]
 
 html_css_files = [
+  'css/typography/fonts.css',
   'css/override.css',
   'css/custom.css',
   'css/util-classes.css',

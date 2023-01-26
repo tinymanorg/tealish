@@ -1,0 +1,9 @@
+@import url("https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,500;1,400;1,500&family=JetBrains+Mono:ital@0;1&display=swap");
+
+@font-face {
+  font-family: "Tiny";
+  src: url("./Tiny/Tiny-Regular.ttf") format("truetype");
+
+  font-weight: 400;
+  font-style: normal;
+}
