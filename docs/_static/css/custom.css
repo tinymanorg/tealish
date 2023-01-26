@@ -70,7 +70,7 @@ a.headerlink:focus {
   grid-template-columns: 220px 1fr 220px;
   gap: 64px;
 
-  padding: 0 48px;
+  padding: 45px 48px 0;
 }
 
 .bodywrapper {
