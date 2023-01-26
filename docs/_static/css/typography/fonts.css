@@ -7,3 +7,11 @@
   font-weight: 400;
   font-style: normal;
 }
+
+@font-face {
+  font-family: "Tiny";
+  src: url("./Tiny/Tiny-Medium.ttf") format("truetype");
+
+  font-weight: 500;
+  font-style: normal;
+}

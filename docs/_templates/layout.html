@@ -1,44 +1,43 @@
-{%- extends "basic/layout.html" %} {%- block extrahead %} {{ super() }}
-<link
-  rel="stylesheet"
-  href="{{ pathto('_static/custom.css', 1) }}"
-  type="text/css"
-/>
-{% if theme_touch_icon %}
-<link
-  rel="apple-touch-icon"
-  href="{{ pathto('_static/' ~ theme_touch_icon, 1) }}"
-/>
-{% endif %} {% if theme_canonical_url %}
-<link rel="canonical" href="{{ theme_canonical_url }}{{ pagename }}.html" />
-{% endif %}
-<meta
-  name="viewport"
-  content="width=device-width, initial-scale=0.9, maximum-scale=0.9"
-/>
-{% endblock %} {# top+bottom related navs; we also have our own in sidebar #}
+{%- extends "basic/layout.html" %}
+
+{%- block extrahead %}
+  {{ super() }}
+  <link rel="stylesheet" href="{{ pathto('_static/custom.css', 1) }}" type="text/css" />
+  {% if theme_touch_icon %}
+    <link rel="apple-touch-icon" href="{{ pathto('_static/' ~ theme_touch_icon, 1) }}" />
+  {% endif %}
+  {% if theme_canonical_url %}
+    <link rel="canonical" href="{{ theme_canonical_url }}{{ pagename }}.html"/>
+  {% endif %}
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+{% endblock %}
+
+{# top+bottom related navs; we also have our own in sidebar #}
 {%- macro rellink_markup() %}
-<nav id="rellinks">
-  <ul>
-    {%- if prev %}
-    <li>
-      &larr;
-      <a href="{{ prev.link|e }}" title="Previous document">{{ prev.title }}</a>
-    </li>
-    {%- endif %} {%- if next %}
-    <li>
-      <a href="{{ next.link|e }}" title="Next document">{{ next.title }}</a>
-      &rarr;
-    </li>
-    {%- endif %}
-  </ul>
-</nav>
-{%- endmacro %} {%- set theme_show_relbar_top = theme_show_relbar_top or
-theme_show_relbars %} {%- set theme_show_relbar_bottom =
-theme_show_relbar_bottom or theme_show_relbars %} {# removed existing top+bottom
-related nav, and embed in main content #} {%- block relbar1 %}{% endblock %} {%-
-block relbar2 %}{% endblock %} {# Nav should appear before content, not after #}
-{%- block content %} {%- if theme_fixed_sidebar|lower == 'true' %}
+  <nav id="rellinks">
+    <ul>
+      {%- if prev %}
+        <li>
+          &larr;
+          <a href="{{ prev.link|e }}" title="Previous document">{{ prev.title }}</a>
+        </li>
+      {%- endif %}
+      {%- if next %}
+        <li>
+          <a href="{{ next.link|e }}" title="Next document">{{ next.title }}</a>
+          &rarr;
+        </li>
+      {%- endif %}
+    </ul>
+  </nav>
+{%- endmacro %}
+
+{%- set theme_show_relbar_top = theme_show_relbar_top or theme_show_relbars %}
+{%- set theme_show_relbar_bottom = theme_show_relbar_bottom or theme_show_relbars %}
+
+{# removed existing top+bottom related nav, and embed in main content #}
+{%- block relbar1 %}{% endblock %}
+{%- block relbar2 %}{% endblock %}
 
 <figure class="homepage-tealish-cannister">
   <img
@@ -47,116 +46,124 @@ block relbar2 %}{% endblock %} {# Nav should appear before content, not after #}
   />
 </figure>
 
-<div class="document">
-  <div class="rolling-text">
-    ////// powered by tinyman ////// readable and auditable ////// a readable
-    language for algorand ////// powered by tinyman ////// readable and
-    auditable ////// a readable language for algorand ////// powered by tinyman
-    ////// readable and auditable ////// a readable language for algorand //////
-    powered by tinyman ////// readable and auditable ////// a readable language
-    for algorand ////// powered by tinyman ////// readable and auditable //////
-    a readable language for algorand
-  </div>
-
-  <div class="documentwrapper">
-    {{ sidebar() }} {%- block document %} {%- if render_sidebar %}
-
-    <div class="bodywrapper">
-      {%- block sidebarsearch %} {%- include "searchbox.html" %} {%- endblock %}
-      {%- endif %} {%- block relbar_top %} {%- if theme_show_relbar_top|tobool
-      %}
-      <div class="related top">&nbsp; {{- rellink_markup () }}</div>
-      {%- endif %} {% endblock %}
-
-      <div class="body" role="main">{% block body %} {% endblock %}</div>
-
-      {%- block relbar_bottom %} {%- if theme_show_relbar_bottom|tobool %}
-      <div class="related bottom">&nbsp; {{- rellink_markup () }}</div>
-      {%- endif %} {% endblock %} {%- if render_sidebar %}
-
-      <div class="copyright">
-        {% if show_copyright %}&copy;{{ copyright }}.{% endif %}
-      </div>
+{# Nav should appear before content, not after #}
+{%- block content %}
+{%- if theme_fixed_sidebar|lower == 'true' %}
+  <div class="document">
+    <div class="rolling-text">
+      ////// powered by tinyman ////// readable and auditable ////// a readable
+      language for algorand ////// powered by tinyman ////// readable and
+      auditable ////// a readable language for algorand ////// powered by tinyman
+      ////// readable and auditable ////// a readable language for algorand //////
+      powered by tinyman ////// readable and auditable ////// a readable language
+      for algorand ////// powered by tinyman ////// readable and auditable //////
+      a readable language for algorand
     </div>
-    {%- endif %}
 
-    <div class="right-column">
-      <div class="sticky">
-        <a
-          href="https://github.com/tinymanorg/tealish"
-          target="_blank"
-          class="github-button"
-          >Go to Tealish GitHub</a
-        >
+    <div class="documentwrapper">
+      {{ sidebar() }}
 
-        <div class="presentation-link-container">
+      {%- block document %}
+        <div class="bodywrapper">
+          {%- include "searchbox.html" %}
+
+          {%- block relbar_top %}
+            {%- if theme_show_relbar_top|tobool %}
+              <div class="related top">
+                &nbsp;
+                {{- rellink_markup () }}
+              </div>
+            {%- endif %}
+          {% endblock %}
+
+          <div class="body" role="main">
+            {% block body %} {% endblock %}
+          </div>
+
+          {%- block relbar_bottom %}
+            {%- if theme_show_relbar_bottom|tobool %}
+              <div class="related bottom">
+                &nbsp;
+                {{- rellink_markup () }}
+              </div>
+            {%- endif %}
+          {% endblock %}
+
+          <div class="copyright">
+            {% if show_copyright %}&copy;{{ copyright }}.{% endif %}
+          </div>
+        </div>
+      {%- endblock %}
+
+      <div class="right-column">
+        <div class="sticky">
           <a
-            href="https://youtu.be/R9oKjwSYuXM"
+            href="https://github.com/tinymanorg/tealish"
             target="_blank"
-            class="presentation-link-container__thumbnail-link"
+            class="github-button"
+            >Go to Tealish GitHub</a
           >
-            <img
-              src="{{ pathto('_static/image/presentation-thumbnail.png', 1) }}"
-              alt="Fergal Walsh Decipher 22 Tealish Presentation"
-            />
-          </a>
-
-          <p class="presentation-link-container__description">
-            Watch the Decipher’22 presentation and and find out how and why
-            Tealish came out.
-          </p>
-
-          <a
-            href="https://youtu.be/R9oKjwSYuXM"
-            target="_blank"
-            class="presentation-link-container__watch-link"
-            >Watch the presentation
-            <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
-              <path
-                d="M2 1.25H9.5M9.5 1.25L1 9.75M9.5 1.25V8.75"
-                stroke="currentColor"
-                stroke-width="1.5"
+  
+          <div class="presentation-link-container">
+            <a
+              href="https://youtu.be/R9oKjwSYuXM"
+              target="_blank"
+              class="presentation-link-container__thumbnail-link"
+            >
+              <img
+                src="{{ pathto('_static/image/presentation-thumbnail.png', 1) }}"
+                alt="Fergal Walsh Decipher 22 Tealish Presentation"
               />
-            </svg>
-          </a>
+            </a>
+  
+            <p class="presentation-link-container__description">
+              Watch the Decipher’22 presentation and and find out how and why
+              Tealish came out.
+            </p>
+  
+            <a
+              href="https://youtu.be/R9oKjwSYuXM"
+              target="_blank"
+              class="presentation-link-container__watch-link"
+              >Watch the presentation
+              <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+                <path
+                  d="M2 1.25H9.5M9.5 1.25L1 9.75M9.5 1.25V8.75"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                />
+              </svg>
+            </a>
+          </div>
         </div>
       </div>
     </div>
+    <div class="clearer"></div>
   </div>
-  {%- endblock %}
-</div>
+{%- else %}
+{{ super() }}
+{%- endif %}
+{%- endblock %}
 
-{%- else %} {{ super() }} {%- endif %} {%- endblock %} {%- block footer %} {% if
-theme_github_banner|lower != 'false' %}
-<a
-  href="https://github.com/{{ theme_github_user }}/{{ theme_github_repo }}"
-  class="github"
->
-  <img
-    style="position: absolute; top: 0; right: 0; border: 0"
-    src="{{ pathto('_static/' ~ theme_github_banner, 1) if theme_github_banner|lower != 'true' else 'https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png' }}"
-    alt="Fork me on GitHub"
-    class="github"
-  />
-</a>
+{%- block footer %}
+  {% if theme_analytics_id %}
+  <script type="text/javascript">
+    var _gaq = _gaq || [];
+    _gaq.push(["_setAccount", "{{ theme_analytics_id }}"]);
+    _gaq.push(["_setDomainName", "none"]);
+    _gaq.push(["_setAllowLinker", true]);
+    _gaq.push(["_trackPageview"]);
 
-{% endif %} {% if theme_analytics_id %}
-<script type="text/javascript">
-  var _gaq = _gaq || [];
-  _gaq.push(["_setAccount", "{{ theme_analytics_id }}"]);
-  _gaq.push(["_setDomainName", "none"]);
-  _gaq.push(["_setAllowLinker", true]);
-  _gaq.push(["_trackPageview"]);
-
-  (function () {
-    var ga = document.createElement("script");
-    ga.type = "text/javascript";
-    ga.async = true;
-    ga.src =
-      ("https:" == document.location.protocol ? "https://ssl" : "http://www") +
-      ".google-analytics.com/ga.js";
-    var s = document.getElementsByTagName("script")[0];
-    s.parentNode.insertBefore(ga, s);
-  })();
-</script>
-{% endif %} {%- endblock %}
+    (function () {
+      var ga = document.createElement("script");
+      ga.type = "text/javascript";
+      ga.async = true;
+      ga.src =
+        ("https:" == document.location.protocol ? "https://ssl" : "http://www") +
+        ".google-analytics.com/ga.js";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(ga, s);
+    })();
+  </script>
+  {% endif %}
+{%- endblock %}

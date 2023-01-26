@@ -1,3 +1,5 @@
+"use strict";
+
 (function () {
   const documentElement = document.documentElement;
   const currentPath = window.location.pathname;

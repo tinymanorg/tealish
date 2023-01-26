@@ -1,7 +1,8 @@
 {# basic/searchbox.html ~~~~~~~~~~~~~~~~~~~~ Sphinx sidebar template: quick
 search box. :copyright: Copyright 2007-2023 by the Sphinx team, see AUTHORS.
-:license: BSD, see LICENSE for details. #} {%- if pagename != "search" and
-builder != "singlehtml" %}
+:license: BSD, see LICENSE for details. #} 
+
+{%- if builder != "singlehtml" %}
 <div
   id="searchbox"
   style="display: none"

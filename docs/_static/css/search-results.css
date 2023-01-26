@@ -1,0 +1,47 @@
+.search-results__title {
+  margin-bottom: 45px;
+
+  color: #9a9a9a;
+
+  font-family: "Tiny", monospace;
+  font-size: 40px;
+  font-weight: 500;
+  line-height: 52px;
+}
+
+.search-results__title strong {
+  color: #000000;
+}
+
+.search-results__item {
+  padding: 32px 0;
+
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+
+  font-size: 16px;
+  line-height: 19px;
+}
+
+.search-results__item:first-of-type {
+  padding-top: 0;
+}
+
+.search-results__item:last-of-type {
+  border-bottom: none;
+}
+
+.search-results__item__page-link {
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+}
+
+.search-results__item__page-link .next-icon {
+  margin: 1px 8px 0;
+}
+
+.search-results__item__description {
+  margin: 8px 0 0;
+
+  line-height: 24px;
+}
