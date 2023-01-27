@@ -132,6 +132,14 @@ class BaseNode:
                 return True
         return False
 
+    def find_child_nodes(self, node_class: type, filter=None) -> List["Node"]:
+        results = []
+        for node in getattr(self, "nodes", []):  # type: ignore
+            if isinstance(node, node_class) and (filter and filter(node)):
+                results.append(node)
+            results += node.find_child_nodes(node_class, filter)
+        return results
+
     def get_current_scope(self) -> Scope:
         # TODO: Only available on Node and other subclasses
         return self.parent.get_current_scope()  # type: ignore
