@@ -33,3 +33,6 @@ dependencies = [
 
 [project.scripts]
 tealish = "tealish.cli:cli"
+
+[tool.setuptools.package-data]
+tealish = ["langspec.json", "tealish_expressions.tx"]
