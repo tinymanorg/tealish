@@ -1,6 +1,6 @@
 from typing import List, Optional, Union, TYPE_CHECKING
 
-from .base import BaseNode, lookup_avm_constant
+from .base import BaseNode
 from .errors import CompileError
 from .tealish_builtins import AVMType, get_struct
 from .langspec import Op, type_lookup
@@ -75,7 +75,7 @@ class Constant(BaseNode):
         except KeyError:
             try:
                 # builtin TEAL constants
-                type, value = lookup_avm_constant(self.name)
+                type, value = self.lookup_avm_constant(self.name)
             except KeyError:
                 raise CompileError(
                     f'Constant "{self.name}" not declared in scope', node=self

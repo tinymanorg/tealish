@@ -1,6 +1,6 @@
 from typing import cast, Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 from tealish.errors import CompileError
-from .tealish_builtins import constants, AVMType
+from .tealish_builtins import AVMType
 from .langspec import get_active_langspec, Op
 from .scope import Scope, VarType, ConstValue
 
@@ -12,29 +12,8 @@ if TYPE_CHECKING:
 lang_spec = get_active_langspec()
 
 
-def lookup_op(name: str) -> Op:
-    if name not in lang_spec.ops:
-        raise KeyError(f'Op "{name}" does not exist!')
-    return lang_spec.ops[name]
-
-
-def lookup_avm_constant(name: str) -> Tuple[AVMType, ConstValue]:
-    if name not in constants:
-        raise KeyError(f'Constant "{name}" does not exist!')
-    return constants[name]
-
-
-def get_field_type(namespace: str, name: str) -> str:
-    if "txn" in namespace:
-        return lang_spec.txn_fields[name]
-    elif namespace == "global":
-        return lang_spec.global_fields[name]
-    else:
-        raise Exception(f"Unknown name in namespace {name}")
-
-
 def check_arg_types(name: str, incoming_args: List["Node"]) -> None:
-    op = lookup_op(name)
+    op = lang_spec.lookup_op(name)
     expected_args = op.arg_types
     # TODO:
     for i, incoming_arg in enumerate(incoming_args):
@@ -164,10 +143,10 @@ class BaseNode:
             raise CompileError(str(e), node=self)  # type: ignore
 
     def get_field_type(self, namespace: str, name: str) -> str:
-        return get_field_type(namespace, name)
+        return lang_spec.get_field_type(namespace, name)
 
     def lookup_op(self, name: str) -> Op:
-        return lookup_op(name)
+        return lang_spec.lookup_op(name)
 
     def lookup_func(self, name: str) -> "Func":
         return self.get_scope().lookup_func(name)
@@ -177,6 +156,9 @@ class BaseNode:
 
     def lookup_const(self, name: str) -> Tuple["AVMType", ConstValue]:
         return self.get_scope().lookup_const(name)
+
+    def lookup_avm_constant(self, name: str) -> Tuple["AVMType", Any]:
+        return lang_spec.lookup_avm_constant(name)
 
     # TODO: these attributes are only available on Node and other children types
     # we should either define them here or something else?

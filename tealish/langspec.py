@@ -3,7 +3,7 @@ import os
 import requests
 import tealish
 import json
-from .tealish_builtins import AVMType
+from .tealish_builtins import constants, AVMType
 from typing import List, Dict, Any, Tuple, Optional
 
 abc = "ABCDEFGHIJK"
@@ -135,6 +135,24 @@ class LangSpec:
     def new_ops(self, old_spec: "LangSpec") -> List[Any]:
         _, new_ops = compare_langspecs(old_spec, self)
         return new_ops
+
+    def lookup_op(self, name: str) -> Op:
+        if name not in self.ops:
+            raise KeyError(f'Op "{name}" does not exist!')
+        return self.ops[name]
+
+    def lookup_avm_constant(self, name: str) -> Tuple[AVMType, Any]:
+        if name not in constants:
+            raise KeyError(f'Constant "{name}" does not exist!')
+        return constants[name]
+
+    def get_field_type(self, namespace: str, name: str) -> str:
+        if "txn" in namespace:
+            return self.txn_fields[name]
+        elif namespace == "global":
+            return self.global_fields[name]
+        else:
+            raise Exception(f"Unknown name in namespace {name}")
 
 
 packaged_lang_spec = LangSpec(
