@@ -79,11 +79,11 @@ a.headerlink:focus {
 }
 
 .bodywrapper .body {
-  margin: 90px auto 0;
+  margin: 68px auto 0;
 }
 
 .index-page .bodywrapper .body {
-  margin-top: 278px;
+  margin-top: 249px;
 }
 
 .homepage-tealish-cannister {
@@ -96,7 +96,7 @@ a.headerlink:focus {
 }
 
 .homepage-tealish-cannister img {
-  max-width: 692px;
+  width: 692px;
 }
 
 .copyright {

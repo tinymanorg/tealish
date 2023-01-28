@@ -38,7 +38,8 @@ html_css_files = [
   'css/custom-sidebar.css',
   'css/right-column.css',
   'css/searchbox.css',
-  'css/search-results.css'
+  'css/search-results.css',
+  'css/responsive.css'
 ]
 
 html_js_files = [

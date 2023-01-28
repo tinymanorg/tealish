@@ -1,0 +1,132 @@
+.mobile-header {
+  display: none;
+}
+
+#contents-menu-button {
+  display: grid;
+  align-items: center;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+}
+
+.mobile-header__buttons {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 16px;
+}
+
+#sidebar__close-button {
+  display: none;
+}
+
+#sidebar__overlay {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 0;
+
+  visibility: hidden;
+  background-color: rgba(31, 31, 31, 0.5);
+}
+
+@media screen and (max-width: 1121px) {
+  .documentwrapper {
+    gap: 24px;
+
+    padding: 45px 24px 0;
+  }
+}
+
+@media screen and (max-width: 995px) {
+  .documentwrapper {
+    display: block;
+
+    padding-top: 24px;
+  }
+
+  .mobile-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    margin-bottom: 48px;
+  }
+
+  .logo-link {
+    margin: 0;
+  }
+
+  .homepage-tealish-cannister img,
+  .right-column {
+    display: none;
+  }
+
+  .index-page .bodywrapper .body {
+    margin-top: 24px;
+  }
+
+  .sphinxsidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: -9999px;
+    z-index: 3;
+
+    width: 260px;
+  }
+
+  .sphinxsidebar.visible {
+    left: 0;
+  }
+
+  .sphinxsidebar.visible #sidebar__overlay {
+    visibility: visible;
+  }
+
+  .sphinxsidebar .logo-link {
+    margin-top: 48px;
+    margin-bottom: 64px;
+  }
+
+  .sidebar-container {
+    position: relative;
+    z-index: 1;
+
+    padding-top: 16px;
+    padding-left: 24px;
+
+    overflow: auto;
+    background-color: #20e2bf;
+    box-shadow: 0px 0px 20px rgb(0 0 0 / 16%);
+  }
+
+  .index-page .sidebar-container {
+    background-color: white;
+  }
+
+  .index-page .sidebar-sticky-content {
+    margin-top: 0;
+  }
+
+  #sidebar__close-button {
+    display: grid;
+    align-items: center;
+    grid-template-columns: auto 1fr;
+    gap: 8px;
+
+    margin-left: auto;
+    margin-right: 16px;
+  }
+}
+
+@media screen and (max-width: 620px) {
+  .mobile-header__buttons {
+    display: block;
+  }
+
+  .mobile-header .github-button {
+    display: none;
+  }
+}
