@@ -14,12 +14,7 @@ from typing import (
 from .base import BaseNode
 from .errors import CompileError, ParseError
 from .tx_expressions import parse_expression
-from .tealish_builtins import (
-    AVMType,
-    define_struct,
-    get_struct,
-    VarType
-)
+from .tealish_builtins import AVMType, TealishType, define_struct, get_struct, VarType
 from .scope import Scope
 
 LITERAL_INT = r"[0-9]+"
@@ -1606,7 +1601,9 @@ class StructDeclaration(LineStatement):
     expression: GenericExpression
 
     def process(self) -> None:
-        self.name.slot = self.declare_var(self.name.value, ("struct", self.struct_name))
+        self.name.slot = self.declare_var(
+            self.name.value, (TealishType.struct, self.struct_name)
+        )
         if self.expression:
             self.expression.process()
             if self.expression.type not in (AVMType.bytes, AVMType.any):
@@ -1700,7 +1697,9 @@ class BoxDeclaration(LineStatement):
     def process(self):
         self.struct = get_struct(self.struct_name)
         self.box_size = self.struct.size
-        self.name.slot = self.declare_var(self.name.value, ("box", self.struct_name))
+        self.name.slot = self.declare_var(
+            self.name.value, (TealishType.box, self.struct_name)
+        )
         self.key.process()
         if self.key.type not in ("bytes", "any"):
             raise CompileError(

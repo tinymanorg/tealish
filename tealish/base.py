@@ -1,6 +1,6 @@
 from typing import cast, Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 from tealish.errors import CompileError
-from .tealish_builtins import AVMType, VarType, ConstValue
+from .tealish_builtins import AVMType, ConstValue, ScratchRecord, VarType
 from .langspec import get_active_langspec, Op
 from .scope import Scope
 
@@ -72,14 +72,14 @@ class BaseNode:
             slots.update(s.slots)
         return slots
 
-    def get_var(self, name: str) -> Optional[Tuple[int, VarType]]:
+    def get_var(self, name: str) -> Optional[ScratchRecord]:
         slots = self.get_slots()
         if name in slots:
             return slots[name]
         else:
             return None
 
-    def declare_var(self, name: str, type: Union[AVMType, Tuple[str, str]]) -> int:
+    def declare_var(self, name: str, type: VarType) -> int:
         scope = self.get_current_scope()
         # TODO: this fixed the issue of slot assignment in the `main`
         # but i'm not sure why...

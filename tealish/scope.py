@@ -2,10 +2,8 @@ from typing import Dict, Optional, Tuple, Union, TYPE_CHECKING
 
 
 if TYPE_CHECKING:
-    from .tealish_builtins import AVMType, VarType, ConstValue
+    from .tealish_builtins import AVMType, VarType, ConstValue, ScratchRecord
     from .nodes import Func, Block
-
-
 
 
 class Scope:
@@ -18,7 +16,7 @@ class Scope:
         self.name = name
         self.parent = parent_scope
 
-        self.slots: Dict[str, Tuple[int, "VarType"]] = {}
+        self.slots: Dict[str, "ScratchRecord"] = {}
         self.slot_range: Tuple[int, int] = (
             slot_range if slot_range is not None else (0, 200)
         )
@@ -51,7 +49,7 @@ class Scope:
         self.slots[name] = (slot, type_info)
         return slot
 
-    def lookup_var(self, name: str) -> Tuple[int, "VarType"]:
+    def lookup_var(self, name: str) -> "ScratchRecord":
         if name not in self.slots:
             raise KeyError(f'Var "{name}" not declared in current scope')
         return self.slots[name]

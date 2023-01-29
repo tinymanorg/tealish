@@ -14,8 +14,24 @@ class AVMType(str, Enum):
     int = "int"
     none = ""
 
-VarType = Union[AVMType, Tuple[str, str]]
+
+class TealishType(str, Enum):
+    struct = "struct"
+    box = "box"
+
+
+# refers to a the custom type name, ie struct_name or box_name
+StructName = str
+CustomType = Tuple[TealishType, StructName]
+
+# either AVM native type or summn special
+VarType = Union[AVMType, CustomType]
+
+# a constant value introduced in source
 ConstValue = Union[str, bytes, int]
+
+# The data structure representing a value stored in a scratch slot
+ScratchRecord = Tuple[int, VarType]
 
 structs: Dict[str, "Struct"] = {}
 
