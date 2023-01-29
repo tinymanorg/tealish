@@ -24,6 +24,7 @@ from .scope import Scope, VarType
 LITERAL_INT = r"[0-9]+"
 LITERAL_BYTE_STRING = r'"(.+)"'
 LITERAL_BYTE_HEX = r"0x([a-zA-Z0-9]+)"
+LITERAL_BYTE_ADDR = r"([A-Z2-7]+)"
 VARIABLE_NAME = r"[a-z_][a-zA-Z0-9_]*"
 
 if TYPE_CHECKING:
@@ -141,7 +142,12 @@ class Literal(Expression):
 
     @classmethod
     def parse(cls, line: str, parent: Node, compiler: "TealishCompiler") -> Node:
-        matchable: List[Type[Expression]] = [LiteralInt, LiteralBytes, LiteralHex]
+        matchable: List[Type[Expression]] = [
+            LiteralAddr,
+            LiteralHex,
+            LiteralInt,
+            LiteralBytes,
+        ]
         for expr in matchable:
             if expr.match(line):
                 return expr(line, parent, compiler)
@@ -174,6 +180,20 @@ class LiteralBytes(Literal):
 
     def _tealish(self) -> str:
         return f"{self.value}"
+
+
+class LiteralAddr(Literal):
+    pattern = rf"addr\((?P<value>{LITERAL_BYTE_ADDR})\)$"
+    value: str
+
+    def write_teal(self, writer: "TealWriter") -> None:
+        writer.write(self, f"addr {self.value}")
+
+    def type(self) -> AVMType:
+        return AVMType.bytes
+
+    def _tealish(self) -> str:
+        return f"addr({self.value})"
 
 
 class LiteralHex(Literal):
@@ -394,7 +414,16 @@ class Const(LineStatement):
 
     def process(self) -> None:
         scope = self.get_current_scope()
-        scope.declare_const(self.name, (self.type, self.expression.value))
+        if isinstance(self.expression, LiteralAddr):
+            # requires post processing
+            from algosdk.encoding import decode_address
+
+            scope.declare_const(
+                self.name,
+                (self.type, f"0x{decode_address(self.expression.value).hex()}"),
+            )
+        else:
+            scope.declare_const(self.name, (self.type, self.expression.value))
 
     def write_teal(self, writer: "TealWriter") -> None:
         pass
