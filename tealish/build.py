@@ -1,11 +1,12 @@
 from base64 import b64decode
+from typing import Tuple
 import json
 import subprocess
 from algosdk.v2client.algod import AlgodClient
 from algosdk.source_map import SourceMap
 
 
-def assemble_with_goal(teal):
+def assemble_with_goal(teal: str) -> Tuple[bytes, SourceMap]:
     tmp_out_filename = "/tmp/out.tok"
     try:
         subprocess.check_output(
@@ -21,12 +22,12 @@ def assemble_with_goal(teal):
     return bytecode, SourceMap(algod_sourcemap)
 
 
-def assemble_with_algod(teal, algod_url):
+def assemble_with_algod(teal: str, algod_url: str) -> Tuple[bytes, SourceMap]:
     token = ""
     if "#" in algod_url:
         algod_url, token = algod_url.split("#")
     algod = AlgodClient(token, algod_url)
-    result = algod.compile("\n".join(teal), source_map=True)
+    result = algod.compile(teal, source_map=True)
     bytecode = b64decode(result["result"])
     algod_sourcemap = result["sourcemap"]
     return bytecode, SourceMap(algod_sourcemap)
