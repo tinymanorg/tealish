@@ -67,10 +67,11 @@ class Constant(BaseNode):
         self.name = name
         self.type: AVMType = AVMType.none
         self.parent = parent
+        self.value: Union[ConstValue, "Literal"]
 
     def process(self) -> None:
         type: AVMType = AVMType.none
-        value: Union[ConstValue, "Literal"] = None  # type: ignore
+        value: Union[ConstValue, "Literal"] = 0
         try:
             # user defined const
             type, value = self.lookup_const(self.name)
@@ -89,11 +90,12 @@ class Constant(BaseNode):
         self.value = value
 
     def write_teal(self, writer: "TealWriter") -> None:
-        if isinstance(self.value, ConstValue):
-            if self.type == AVMType.int:
-                writer.write(self, f"pushint {self.value} // {self.name}")  # type: ignore
-            elif self.type == AVMType.bytes:
-                writer.write(self, f"pushbytes {self.value} // {self.name}")  # type: ignore
+        if isinstance(self.value, str) or isinstance(self.value, bytes):
+            assert self.type == AVMType.bytes
+            writer.write(self, f"pushbytes {self.value} // {self.name}")  # type: ignore
+        elif isinstance(self.value, int):
+            assert self.type == AVMType.int
+            writer.write(self, f"pushint {self.value} // {self.name}")
         else:
             self.value.write_teal(writer)
 
