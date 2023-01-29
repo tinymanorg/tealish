@@ -12,6 +12,8 @@ class AVMType(str, Enum):
     none = ""
 
 
+# TODO: add frame ptr or stack? rename to something like `storage type?`
+# I think `struct` here should probably just be `scratch`?
 class ObjectType(str, Enum):
     """ObjectType determines where to get the bytes for a struct field.
 
@@ -28,9 +30,8 @@ class ObjectType(str, Enum):
 # to make it more obvious what the fields are
 
 # refers to a the custom type name, ie struct_name or box_name
-# so we can look it up
-StructName = str
-CustomType = Tuple[ObjectType, StructName]
+# so we can look it up,
+CustomType = Tuple[ObjectType, str]
 
 
 @dataclass
@@ -42,12 +43,17 @@ class StructField:
 
 
 class Struct:
+    """
+    Holds definition of a struct type with a map of
+        `field name` =>  `struct field` details
+    """
+
     def __init__(self, fields: Dict[str, StructField], size: int):
         self.fields = fields
         self.size = size
 
 
-# either AVM native type or a CustomType definition
+# either AVM native type or a CustomType (only struct atm) definition
 VarType = Union[AVMType, CustomType]
 
 # a constant value introduced in source
@@ -57,7 +63,7 @@ ConstValue = Union[str, bytes, int]
 ScratchRecord = Tuple[int, VarType]
 
 # Set of custom defined types
-_structs: Dict[StructName, Struct] = {}
+_structs: Dict[str, Struct] = {}
 
 
 def define_struct(struct_name: str, struct: Struct) -> None:
