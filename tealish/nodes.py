@@ -18,8 +18,9 @@ from .tealish_builtins import (
     AVMType,
     define_struct,
     get_struct,
+    VarType
 )
-from .scope import Scope, VarType
+from .scope import Scope
 
 LITERAL_INT = r"[0-9]+"
 LITERAL_BYTES = r'"(.+)"'

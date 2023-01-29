@@ -1,8 +1,8 @@
 from typing import cast, Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 from tealish.errors import CompileError
-from .tealish_builtins import AVMType
+from .tealish_builtins import AVMType, VarType, ConstValue
 from .langspec import get_active_langspec, Op
-from .scope import Scope, VarType, ConstValue
+from .scope import Scope
 
 
 if TYPE_CHECKING:

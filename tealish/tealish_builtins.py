@@ -1,6 +1,7 @@
 from enum import Enum
 from typing import Dict, Tuple, Union, TYPE_CHECKING
 
+
 if TYPE_CHECKING:
     from .nodes import Struct
 
@@ -13,6 +14,8 @@ class AVMType(str, Enum):
     int = "int"
     none = ""
 
+VarType = Union[AVMType, Tuple[str, str]]
+ConstValue = Union[str, bytes, int]
 
 structs: Dict[str, "Struct"] = {}
 
