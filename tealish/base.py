@@ -7,7 +7,7 @@ from .scope import Scope, VarType, ConstValue
 
 if TYPE_CHECKING:
     from . import TealWriter
-    from .nodes import Block, Node, Func
+    from .nodes import Block, Node, Func, Literal
 
 lang_spec = get_active_langspec()
 
@@ -154,10 +154,10 @@ class BaseNode:
     def lookup_var(self, name: str) -> Any:
         return self.get_scope().lookup_var(name)
 
-    def lookup_const(self, name: str) -> Tuple["AVMType", ConstValue]:
+    def lookup_const(self, name: str) -> Tuple["AVMType", Union["Literal", ConstValue]]:
         return self.get_scope().lookup_const(name)
 
-    def lookup_avm_constant(self, name: str) -> Tuple["AVMType", Any]:
+    def lookup_avm_constant(self, name: str) -> Tuple["AVMType", ConstValue]:
         return lang_spec.lookup_avm_constant(name)
 
     # TODO: these attributes are only available on Node and other children types

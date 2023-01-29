@@ -3,7 +3,7 @@ from typing import Dict, Optional, Tuple, Union, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .tealish_builtins import AVMType
-    from .nodes import Func, Block
+    from .nodes import Func, Block, Literal
 
 
 VarType = Union["AVMType", Tuple[str, str]]
@@ -25,7 +25,7 @@ class Scope:
             slot_range if slot_range is not None else (0, 200)
         )
 
-        self.consts: Dict[str, Tuple["AVMType", ConstValue]] = {}
+        self.consts: Dict[str, Tuple["AVMType", Union[ConstValue, "Literal"]]] = {}
         self.blocks: Dict[str, "Block"] = {}
         self.functions: Dict[str, "Func"] = {}
 
@@ -63,11 +63,11 @@ class Scope:
             del self.slots[name]
 
     def declare_const(
-        self, name: str, const_data: Tuple["AVMType", ConstValue]
+        self, name: str, const_data: Tuple["AVMType", Union["Literal", ConstValue]]
     ) -> None:
         self.consts[name] = const_data
 
-    def lookup_const(self, name: str) -> Tuple["AVMType", ConstValue]:
+    def lookup_const(self, name: str) -> Tuple["AVMType", Union["Literal", ConstValue]]:
         if name not in self.consts:
             raise KeyError(f'Const "{name}" not declared in current scope')
         return self.consts[name]

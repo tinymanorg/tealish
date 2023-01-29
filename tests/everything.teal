@@ -12,16 +12,16 @@
 
 // Assignments
 // int a = FOO [slot 0]
-pushint 100 // FOO
+pushint 100
 store 0 // a
 // bytes b = BAR [slot 1]
-pushbytes "bar" // BAR
+pushbytes "bar"
 store 1 // b
 // bytes c = BAZ [slot 2]
-pushbytes 0xDEADBEEF // BAZ
+pushbytes 0xDEADBEEF
 store 2 // c
 // bytes d = ADDR [slot 3]
-pushbytes 0x8a14b874e4adc0e05b12b696681706b55dc4f9680421fd663459f3c54bad8bc4 // ADDR
+addr RIKLQ5HEVXAOAWYSW2LGQFYGWVO4J6LIAQQ72ZRULHZ4KS5NRPCCKYPCUU
 store 3 // d
 
 // Structs
@@ -73,13 +73,13 @@ store 5 // balance
 
 
 // if FOO > 1:
-  pushint 100 // FOO
+  pushint 100
   pushint 1
   >
   bz l0_else
   // then:
     // log(BAR)
-    pushbytes "bar" // BAR
+    pushbytes "bar"
     log
   b l0_end
   l0_else:

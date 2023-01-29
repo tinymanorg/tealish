@@ -4,11 +4,12 @@ from .base import BaseNode
 from .errors import CompileError
 from .tealish_builtins import AVMType, get_struct
 from .langspec import Op, type_lookup
+from .scope import ConstValue
 
 
 if TYPE_CHECKING:
     from . import TealWriter
-    from .nodes import Node, Func, GenericExpression
+    from .nodes import Node, Func, GenericExpression, Literal
 
 
 class Integer(BaseNode):
@@ -68,7 +69,8 @@ class Constant(BaseNode):
         self.parent = parent
 
     def process(self) -> None:
-        type, value = None, None
+        type: AVMType = AVMType.none
+        value: Union[ConstValue, "Literal"] = None  # type: ignore
         try:
             # user defined const
             type, value = self.lookup_const(self.name)
@@ -87,10 +89,13 @@ class Constant(BaseNode):
         self.value = value
 
     def write_teal(self, writer: "TealWriter") -> None:
-        if self.type == AVMType.int:
-            writer.write(self, f"pushint {self.value} // {self.name}")  # type: ignore
-        elif self.type == AVMType.bytes:
-            writer.write(self, f"pushbytes {self.value} // {self.name}")  # type: ignore
+        if isinstance(self.value, ConstValue):
+            if self.type == AVMType.int:
+                writer.write(self, f"pushint {self.value} // {self.name}")  # type: ignore
+            elif self.type == AVMType.bytes:
+                writer.write(self, f"pushbytes {self.value} // {self.name}")  # type: ignore
+        else:
+            self.value.write_teal(writer)
 
     def _tealish(self) -> str:
         return f"{self.name}"

@@ -414,16 +414,7 @@ class Const(LineStatement):
 
     def process(self) -> None:
         scope = self.get_current_scope()
-        if isinstance(self.expression, LiteralAddr):
-            # requires post processing
-            from algosdk.encoding import decode_address
-
-            scope.declare_const(
-                self.name,
-                (self.type, f"0x{decode_address(self.expression.value).hex()}"),
-            )
-        else:
-            scope.declare_const(self.name, (self.type, self.expression.value))
+        scope.declare_const(self.name, (self.type, self.expression))
 
     def write_teal(self, writer: "TealWriter") -> None:
         pass
