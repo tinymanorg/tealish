@@ -14,7 +14,7 @@ from typing import (
 from .base import BaseNode
 from .errors import CompileError, ParseError
 from .tx_expressions import parse_expression
-from .tealish_builtins import AVMType, TealishType, define_struct, get_struct, VarType
+from .tealish_builtins import AVMType, ObjectType, define_struct, get_struct, VarType
 from .scope import Scope
 
 LITERAL_INT = r"[0-9]+"
@@ -1602,7 +1602,7 @@ class StructDeclaration(LineStatement):
 
     def process(self) -> None:
         self.name.slot = self.declare_var(
-            self.name.value, (TealishType.struct, self.struct_name)
+            self.name.value, (ObjectType.struct, self.struct_name)
         )
         if self.expression:
             self.expression.process()
@@ -1627,7 +1627,10 @@ class StructDeclaration(LineStatement):
 
 
 class StructOrBoxAssignment(LineStatement):
-    pattern = r"(?P<name>[a-z][a-zA-Z0-9_]*).(?P<field_name>[a-z][a-zA-Z0-9_]*)( = (?P<expression>.*))?$"
+    pattern = (
+        r"(?P<name>[a-z][a-zA-Z0-9_]*).(?P<field_name>[a-z][a-zA-Z0-9_]*)"
+        r"( = (?P<expression>.*))?$"
+    )
     name: Name
     field_name: str
     expression: GenericExpression
@@ -1658,7 +1661,7 @@ class StructOrBoxAssignment(LineStatement):
             )
 
     def write_teal(self, writer: "TealWriter") -> None:
-        if self.object_type == "struct":
+        if self.object_type == ObjectType.struct:
             writer.write(self, f"// {self.line} [slot {self.name.slot}]")
             writer.write(self, f"load {self.name.slot} // {self.name.value}")
             writer.write(self, self.expression)
@@ -1668,12 +1671,12 @@ class StructOrBoxAssignment(LineStatement):
                 self, f"replace {self.offset} // {self.name.value}.{self.field_name}"
             )
             writer.write(self, f"store {self.name.slot} // {self.name.value}")
-        elif self.object_type == "box":
+        elif self.object_type == ObjectType.box:
             writer.write(self, f"// {self.line} [box]")
             writer.write(self, f"load {self.name.slot} // box key {self.name.value}")
             writer.write(self, f"pushint {self.offset} // offset")
             writer.write(self, self.expression)
-            if self.data_type == "int":
+            if self.data_type == AVMType.int:
                 writer.write(self, "itob")
             writer.write(self, f"box_replace // {self.name.value}.{self.field_name}")
 
@@ -1685,10 +1688,17 @@ class StructOrBoxAssignment(LineStatement):
 
 
 class BoxDeclaration(LineStatement):
-    # box<Item> item1 = CreateBox("a") # asserts box does not already exist
-    # box<Item> item1 = OpenBox("a")   # asserts box does already exist and has the correct size for the struct
-    # box<Item> item1 = Box("a")       # makes no assertions about the box
-    pattern = r"box<(?P<struct_name>[A-Z][a-zA-Z0-9_]*)> (?P<name>[a-z][a-zA-Z0-9_]*) = (?P<method>Open|Create)?Box\((?P<key>.*)\)$"
+    # asserts box does not already exist
+    # box<Item> item1 = CreateBox("a")
+    # asserts box does already exist and has the correct size for the struct
+    # box<Item> item1 = OpenBox("a")
+    # makes no assertions about the box
+    # box<Item> item1 = Box("a")
+    pattern = (
+        r"box<(?P<struct_name>[A-Z][a-zA-Z0-9_]*)> (?P<name>[a-z][a-zA-Z0-9_]*)"
+        r" = (?P<method>Open|Create)?Box\((?P<key>.*)\)$"
+    )
+    # Name to struct type
     struct_name: str
     name: Name
     method: str
@@ -1698,7 +1708,7 @@ class BoxDeclaration(LineStatement):
         self.struct = get_struct(self.struct_name)
         self.box_size = self.struct.size
         self.name.slot = self.declare_var(
-            self.name.value, (TealishType.box, self.struct_name)
+            self.name.value, (ObjectType.box, self.struct_name)
         )
         self.key.process()
         if self.key.type not in (AVMType.bytes, AVMType.any):
@@ -1727,7 +1737,10 @@ class BoxDeclaration(LineStatement):
         writer.write(self, f"store {self.name.slot} // {self.name.value}")
 
     def _tealish(self):
-        s = f"box<{self.struct_name}> {self.name.tealish()} = {self.method}Box({self.key.tealish()})"
+        s = (
+            f"box<{self.struct_name}> {self.name.tealish()} = "
+            f"{self.method}Box({self.key.tealish()})"
+        )
         return s + "\n"
 
 

@@ -2,7 +2,7 @@ from typing import List, Optional, Union, TYPE_CHECKING
 
 from .base import BaseNode
 from .errors import CompileError
-from .tealish_builtins import AVMType, get_struct
+from .tealish_builtins import AVMType, get_struct, ObjectType
 from .langspec import Op, type_lookup
 
 
@@ -49,9 +49,9 @@ class Variable(BaseNode):
             raise CompileError(e.args[0], node=self)
         # is it a struct or box?
         if type(self.type) == tuple:
-            if self.type[0] == "struct":
-                self.type = "bytes"
-            elif self.type[0] == "box":
+            if self.type[0] == ObjectType.struct:
+                self.type = AVMType.bytes
+            elif self.type[0] == ObjectType.box:
                 raise CompileError("Invalid use of a Box reference", node=self)
 
     def write_teal(self, writer: "TealWriter") -> None:
@@ -275,7 +275,7 @@ class FunctionCall(BaseNode):
 class TxnField(BaseNode):
     def __init__(self, field: str, parent: Optional[BaseNode] = None) -> None:
         self.field = field
-        self.type = "any"
+        self.type = AVMType.any
         self.parent = parent
 
     def process(self) -> None:
@@ -297,7 +297,7 @@ class TxnArrayField(BaseNode):
     ) -> None:
         self.field = field
         self.arrayIndex = arrayIndex
-        self.type = "any"
+        self.type = AVMType.any
         self.parent = parent
 
     def process(self) -> None:
@@ -324,7 +324,7 @@ class GroupTxnField(BaseNode):
     ) -> None:
         self.field = field
         self.index = index
-        self.type = "any"
+        self.type = AVMType.any
         self.parent = parent
 
     def process(self) -> None:
@@ -360,7 +360,7 @@ class GroupTxnArrayField(BaseNode):
         self.field = field
         self.index = index
         self.arrayIndex = arrayIndex
-        self.type = "any"
+        self.type = AVMType.any
         self.parent = parent
 
     def process(self) -> None:
@@ -433,7 +433,7 @@ class NegativeGroupIndex(BaseNode):
 class GlobalField(BaseNode):
     def __init__(self, field: str, parent: Optional[BaseNode] = None) -> None:
         self.field = field
-        self.type = "any"
+        self.type = AVMType.any
         self.parent = parent
 
     def process(self) -> None:
@@ -449,7 +449,7 @@ class GlobalField(BaseNode):
 class InnerTxnField(BaseNode):
     def __init__(self, field: str, parent: Optional[BaseNode] = None) -> None:
         self.field = field
-        self.type = "any"
+        self.type = AVMType.any
         self.parent = parent
 
     def process(self) -> None:
@@ -479,14 +479,14 @@ class StructOrBoxField(BaseNode):
         self.type = struct_field.data_type
 
     def write_teal(self, writer: "TealWriter") -> None:
-        if self.object_type == "struct":
+        if self.object_type == ObjectType.struct:
             writer.write(self, f"load {self.slot} // {self.name}")
             if self.type == AVMType.int:
                 writer.write(self, f"pushint {self.offset}")
                 writer.write(self, f"extract_uint64 // {self.field}")
             else:
                 writer.write(self, f"extract {self.offset} {self.size} // {self.field}")
-        elif self.object_type == "box":
+        elif self.object_type == ObjectType.box:
             writer.write(self, f"load {self.slot} // box key {self.name}")
             writer.write(self, f"pushint {self.offset} // offset")
             writer.write(self, f"pushint {self.size} // size")

@@ -1,4 +1,4 @@
-from typing import cast, Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
+from typing import cast, Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 from tealish.errors import CompileError
 from .tealish_builtins import AVMType, ConstValue, ScratchRecord, VarType
 from .langspec import get_active_langspec, Op
@@ -142,7 +142,7 @@ class BaseNode:
         except Exception as e:
             raise CompileError(str(e), node=self)  # type: ignore
 
-    def get_field_type(self, namespace: str, name: str) -> str:
+    def get_field_type(self, namespace: str, name: str) -> AVMType:
         return lang_spec.get_field_type(namespace, name)
 
     def lookup_op(self, name: str) -> Op:
