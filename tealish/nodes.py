@@ -1701,7 +1701,7 @@ class BoxDeclaration(LineStatement):
             self.name.value, (TealishType.box, self.struct_name)
         )
         self.key.process()
-        if self.key.type not in ("bytes", "any"):
+        if self.key.type not in (AVMType.bytes, AVMType.any):
             raise CompileError(
                 f"Incorrect type for box key. Expected bytes, got {self.key.type}",
                 node=self,
