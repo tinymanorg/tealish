@@ -14,7 +14,15 @@ from typing import (
 from .base import BaseNode
 from .errors import CompileError, ParseError
 from .tx_expressions import parse_expression
-from .tealish_builtins import AVMType, ObjectType, define_struct, get_struct, VarType
+from .tealish_builtins import (
+    AVMType,
+    ObjectType,
+    define_struct,
+    get_struct,
+    VarType,
+    Struct,
+    StructField,
+)
 from .scope import Scope
 
 LITERAL_INT = r"[0-9]+"
@@ -228,7 +236,7 @@ class Statement(Node):
         elif line.startswith("inner_txn:"):
             return InnerTxn.consume(compiler, parent)
         elif line.startswith("struct "):
-            return Struct.consume(compiler, parent)
+            return StructDefinition.consume(compiler, parent)
         else:
             return LineStatement.consume(compiler, parent)
 
@@ -256,13 +264,13 @@ class Program(Node):
             if compiler.peek() is None:
                 break
             n = Statement.consume(compiler, node)
-            if not expect_struct_definition and isinstance(n, Struct):
+            if not expect_struct_definition and isinstance(n, StructDefinition):
                 raise ParseError(
                     f"Unexpected Struct definition at line {n.line_no}."
                     + "Struct definitions should be at the top of the file and "
                     + "only be preceeded by comments."
                 )
-            if not isinstance(n, (TealVersion, Blank, Comment, Struct)):
+            if not isinstance(n, (TealVersion, Blank, Comment, StructDefinition)):
                 expect_struct_definition = False
             node.add_child(n)
         return node
@@ -1443,20 +1451,6 @@ class Func(InlineStatement):
         return output
 
 
-# class ReturnArgsList(Expression):
-#     arg_pattern = r"(?P<arg_name>[a-z][a-z_0-9]*): (?P<arg_type>int|bytes)"
-#     pattern = rf"(?P<args>({arg_pattern}(, )?)*)"
-#     args: str
-
-#     def __init__(self, string) -> None:
-#         super().__init__(string)
-#         self.args = re.findall(self.arg_pattern, string)
-
-#     def _tealish(self):
-#         output = ", ".join([f"{a}: {t}" for (a, t) in self.args])
-#         return output
-
-
 class Return(LineStatement):
     pattern = r"return ?(?P<args>.*?)?$"
     args: str
@@ -1512,7 +1506,7 @@ class StructFieldDefinition(InlineStatement):
     offset: int
 
     def process(self) -> None:
-        self.size = 8 if self.data_type == AVMType.int else int(self.data_length)
+        pass
 
     def write_teal(self, writer: "TealWriter") -> None:
         pass
@@ -1524,7 +1518,7 @@ class StructFieldDefinition(InlineStatement):
         return output
 
 
-class Struct(InlineStatement):
+class StructDefinition(InlineStatement):
     """
     struct Item:
         asset_id: int
@@ -1539,16 +1533,17 @@ class Struct(InlineStatement):
     possible_child_nodes = [StructFieldDefinition]
     pattern = r"struct (?P<name>[A-Z][a-zA-Z_0-9]*):$"
     name: str
-    size: int = 0
-    fields: Dict[str, StructFieldDefinition] = {}
+    struct: Struct
 
     @classmethod
-    def consume(cls, compiler: "TealishCompiler", parent: Optional[Node]) -> "Struct":
+    def consume(
+        cls, compiler: "TealishCompiler", parent: Optional[Node]
+    ) -> "StructDefinition":
         node = cls(compiler.consume_line(), parent, compiler=compiler)
         if not isinstance(parent, Program):
             raise ParseError(
-                f"Unexpected Struct definition at line {node.line_no}. "
-                + "Struct definitions should be at the top of the file "
+                f"Unexpected StructDefinition definition at line {node.line_no}. "
+                + "StructDefinition definitions should be at the top of the file "
                 + "and only be preceeded by comments."
             )
         while True:
@@ -1563,6 +1558,7 @@ class Struct(InlineStatement):
                         compiler.consume_line(), node, compiler=compiler
                     )
                 )
+
         return node
 
     def process(self) -> None:
@@ -1570,15 +1566,25 @@ class Struct(InlineStatement):
             n.process()
 
         offset = 0
+        fields: Dict[str, StructField] = {}
         for field in self.child_nodes:
-            field = cast(StructFieldDefinition, field)
-            field.offset = offset
-            self.fields[field.field_name] = field
-            offset += field.size
+            field_node = cast(StructFieldDefinition, field)
+            # Create StructField obj from processed StructFieldDefinition Node
+            sf = StructField(
+                data_type=field_node.data_type,
+                data_length=field_node.data_length,
+                offset=offset,
+                size=8
+                if field_node.data_type == AVMType.int
+                else int(field_node.data_length),
+            )
+            fields[field_node.field_name] = sf
 
-        self.size = offset
+            offset += sf.size
 
-        define_struct(self.name, self)
+        self.struct = Struct(fields, offset)
+
+        define_struct(self.name, self.struct)
 
     def write_teal(self, writer: "TealWriter") -> None:
         pass

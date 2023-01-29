@@ -1,9 +1,6 @@
 from enum import Enum
-from typing import Dict, Tuple, Union, TYPE_CHECKING
-
-
-if TYPE_CHECKING:
-    from .nodes import Struct
+from dataclasses import dataclass
+from typing import Dict, Tuple, Union
 
 
 class AVMType(str, Enum):
@@ -35,6 +32,21 @@ class ObjectType(str, Enum):
 StructName = str
 CustomType = Tuple[ObjectType, StructName]
 
+
+@dataclass
+class StructField:
+    data_type: AVMType
+    data_length: int
+    offset: int
+    size: int
+
+
+class Struct:
+    def __init__(self, fields: Dict[str, StructField], size: int):
+        self.fields = fields
+        self.size = size
+
+
 # either AVM native type or a CustomType definition
 VarType = Union[AVMType, CustomType]
 
@@ -45,14 +57,14 @@ ConstValue = Union[str, bytes, int]
 ScratchRecord = Tuple[int, VarType]
 
 # Set of custom defined types
-_structs: Dict[StructName, "Struct"] = {}
+_structs: Dict[StructName, Struct] = {}
 
 
-def define_struct(struct_name: str, struct: "Struct") -> None:
+def define_struct(struct_name: str, struct: Struct) -> None:
     _structs[struct_name] = struct
 
 
-def get_struct(struct_name: str) -> "Struct":
+def get_struct(struct_name: str) -> Struct:
     return _structs[struct_name]
 
 
