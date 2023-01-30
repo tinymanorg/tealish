@@ -12,17 +12,26 @@ class AVMType(str, Enum):
     none = ""
 
 
-# TODO: add frame ptr or stack? rename to something like `storage type?`
-# I think `struct` here should probably just be `scratch`?
 class ObjectType(str, Enum):
     """ObjectType determines where to get the bytes for a struct field.
 
-    `struct` - the field is in a byte array in a scratch var, use extract to get bytes
+    `scratch` - the field is in a byte array in a scratch var, use extract to get bytes
     `box` - the field is in a box, use box_extract to get the bytes
     """
 
     scratch = "scratch"
     box = "box"
+
+
+class TealishType(str, Enum):
+    int = "int"
+    bytes = "bytes"
+    bigint = "bigint"
+    addr = "addr"
+
+
+def tealish_to_avm_type(tt: TealishType) -> AVMType:
+    return AVMType.bytes if tt != TealishType.int.value else AVMType.int
 
 
 # TODO: for CustomType and ScratchRecord we should consider

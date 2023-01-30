@@ -16,6 +16,7 @@ from .errors import CompileError, ParseError
 from .tx_expressions import parse_expression
 from .tealish_builtins import (
     AVMType,
+    TealishType,
     ObjectType,
     define_struct,
     get_struct,
@@ -373,23 +374,37 @@ class Blank(LineStatement):
 
 
 class Const(LineStatement):
+    type_pattern = "|".join([f"\\b{tt.value}\\b" for tt in TealishType])
+    print(type_pattern)
+
     pattern = (
-        r"const (?P<type>\bint\b|\bbytes\b) "
+        rf"const (?P<t_type>{type_pattern}) "
         + r"(?P<name>[A-Z][a-zA-Z0-9_]*) = (?P<expression>.*)$"
     )
+    t_type: TealishType
     type: AVMType
     name: str
     expression: Literal
 
     def process(self) -> None:
         scope = self.get_current_scope()
-        scope.declare_const(self.name, (self.type, self.expression.value))
+        self.type = (
+            AVMType.bytes if self.t_type != TealishType.int.value else AVMType.int
+        )
+
+        # TODO: have to compare against Enum.value ?
+        if self.t_type == TealishType.bigint.value:
+            # Hardcoded to uint256 or 32 bytes
+            new_value = cast(int, int(self.expression.value)).to_bytes(32, "big")
+            self.expression.value = f"0x{new_value.hex()}"
+
+        scope.declare_const(self.name, (self.t_type, self.expression.value))
 
     def write_teal(self, writer: "TealWriter") -> None:
         pass
 
     def _tealish(self) -> str:
-        s = f"const {self.type} {self.name}"
+        s = f"const {self.t_type} {self.name}"
         if self.expression:
             s += f" = {self.expression.tealish()}"
         return s + "\n"

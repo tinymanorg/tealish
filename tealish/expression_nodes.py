@@ -2,7 +2,13 @@ from typing import List, Optional, Union, TYPE_CHECKING
 
 from .base import BaseNode
 from .errors import CompileError
-from .tealish_builtins import AVMType, get_struct, ObjectType
+from .tealish_builtins import (
+    AVMType,
+    get_struct,
+    ObjectType,
+    TealishType,
+    tealish_to_avm_type,
+)
 from .langspec import Op, type_lookup
 
 
@@ -64,8 +70,8 @@ class Variable(BaseNode):
 class Constant(BaseNode):
     def __init__(self, name: str, parent: Optional[BaseNode] = None) -> None:
         self.name = name
-        self.type: AVMType = AVMType.none
         self.parent = parent
+        self.type: TealishType
 
     def process(self) -> None:
         type, value = None, None
@@ -80,10 +86,11 @@ class Constant(BaseNode):
                 raise CompileError(
                     f'Constant "{self.name}" not declared in scope', node=self
                 )
-        if type not in (AVMType.int, AVMType.bytes):
-            raise CompileError(f"Unexpected const type {type}", node=self)
+        # if type not in (AVMType.int, AVMType.bytes):
+        #    raise CompileError(f"Unexpected const type {type}", node=self)
 
-        self.type = type
+        self.t_type = type
+        self.type = tealish_to_avm_type(type)
         self.value = value
 
     def write_teal(self, writer: "TealWriter") -> None:
@@ -130,6 +137,14 @@ class BinaryOp(BaseNode):
     def process(self) -> None:
         self.a.process()
         self.b.process()
+
+        print(self.a.tealish_type())
+        print(self.b.tealish_type())
+        print(self.op)
+        if self.a.tealish_type() == TealishType.bigint:
+            self.t_type = TealishType.bigint
+            self.op = "b" + self.op
+
         self.check_arg_types(self.op, [self.a, self.b])
         op = self.lookup_op(self.op)
         self.type = type_lookup(op.returns)
@@ -154,6 +169,7 @@ class Group(BaseNode):
     def process(self) -> None:
         self.expression.process()
         self.type = self.expression.type
+        self.t_type = self.expression.tealish_type()
 
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, self.expression)

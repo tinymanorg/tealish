@@ -1,8 +1,14 @@
-from typing import Dict, Optional, Tuple, TYPE_CHECKING
+from typing import Dict, Optional, Tuple, TYPE_CHECKING, Union
 
 
 if TYPE_CHECKING:
-    from .tealish_builtins import AVMType, VarType, ConstValue, ScratchRecord
+    from .tealish_builtins import (
+        AVMType,
+        VarType,
+        ConstValue,
+        ScratchRecord,
+        TealishType,
+    )
     from .nodes import Func, Block
 
 
@@ -59,11 +65,13 @@ class Scope:
             del self.slots[name]
 
     def declare_const(
-        self, name: str, const_data: Tuple["AVMType", "ConstValue"]
+        self,
+        name: str,
+        const_data: Tuple["TealishType", "ConstValue"],
     ) -> None:
         self.consts[name] = const_data
 
-    def lookup_const(self, name: str) -> Tuple["AVMType", "ConstValue"]:
+    def lookup_const(self, name: str) -> Tuple["TealishType", "ConstValue"]:
         if name not in self.consts:
             raise KeyError(f'Const "{name}" not declared in current scope')
         return self.consts[name]
