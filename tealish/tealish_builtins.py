@@ -24,12 +24,15 @@ class ObjectType(str, Enum):
 
 
 class TealishType(str, Enum):
-    int = "int"
+    # Mirrors AVM Types
+    any = "any"
     bytes = "bytes"
+    int = "int"
+    none = ""
+
+    # New types for tealish
     bigint = "bigint"
     addr = "addr"
-    any = "any"
-    none = ""
 
 
 def stack_type(tt: TealishType) -> AVMType:

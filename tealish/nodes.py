@@ -199,8 +199,7 @@ class Name(Expression):
 
 class GenericExpression(Expression):
 
-    # TODO: never set?
-    type: str
+    type: TealishType
 
     @classmethod
     def parse(cls, line: str, parent: Node, compiler: "TealishCompiler") -> Node:
@@ -376,8 +375,6 @@ class Blank(LineStatement):
 
 class Const(LineStatement):
     type_pattern = "|".join([f"\\b{tt.value}\\b" for tt in TealishType])
-    print(type_pattern)
-
     pattern = (
         rf"const (?P<type>{type_pattern}) "
         + r"(?P<name>[A-Z][a-zA-Z0-9_]*) = (?P<expression>.*)$"
@@ -467,6 +464,8 @@ class Assert(LineStatement):
 
     def process(self) -> None:
         self.arg.process()
+        print(self.arg.type)
+        print(stack_type(self.arg.type))
         if stack_type(self.arg.type) not in (AVMType.int, AVMType.any):
             raise CompileError(
                 "Incorrect type for assert. "
@@ -559,7 +558,7 @@ class Assignment(LineStatement):
     def process(self) -> None:
         self.expression.process()
         t = self.expression.type
-        incoming_types = t if type(t) == list else [t]
+        incoming_types: List[TealishType] = t if type(t) == list else [t]  # type: ignore
 
         names = [Name(s.strip()) for s in self.names.split(",")]
         self.name_nodes = names
@@ -1673,9 +1672,12 @@ class StructOrBoxAssignment(LineStatement):
         struct_field = struct.fields[self.field_name]
         self.offset = struct_field.offset
         self.size = struct_field.size
-        self.data_type = stack_type(struct_field.data_type)
+        self.data_type = struct_field.data_type
         self.expression.process()
-        if stack_type(self.expression.type) not in (self.data_type, AVMType.any):
+        if stack_type(self.expression.type) not in (
+            stack_type(self.data_type),
+            AVMType.any,
+        ):
             raise CompileError(
                 "Incorrect type for struct field assignment. "
                 + f"Expected {self.data_type}, got {self.expression.type}",
