@@ -21,7 +21,7 @@ class ObjectType(str, Enum):
     `box` - the field is in a box, use box_extract to get the bytes
     """
 
-    struct = "struct"
+    scratch = "scratch"
     box = "box"
 
 
