@@ -1,6 +1,13 @@
 from typing import cast, Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 from tealish.errors import CompileError
-from .tealish_builtins import AVMType, ConstValue, ScratchRecord, VarType, TealishType
+from .tealish_builtins import (
+    AVMType,
+    ConstValue,
+    ScratchRecord,
+    VarType,
+    TealishType,
+    stack_type,
+)
 from .langspec import get_active_langspec, Op
 from .scope import Scope
 
@@ -17,15 +24,18 @@ def check_arg_types(name: str, incoming_args: List["Node"]) -> None:
     expected_args = op.arg_types
     # TODO:
     for i, incoming_arg in enumerate(incoming_args):
-        if incoming_arg.type == AVMType.any:  # type: ignore
+        tealish_type = incoming_arg.tealish_type()
+        avm_type = stack_type(tealish_type)
+
+        if avm_type == AVMType.any:  # type: ignore
             continue
         if expected_args[i] == AVMType.any:
             continue
-        if incoming_arg.type == expected_args[i]:  # type: ignore
+        if avm_type == expected_args[i]:  # type: ignore
             continue
 
         raise Exception(
-            f"Incorrect type {incoming_arg.type} "  # type: ignore
+            f"Incorrect type {tealish_type} "  # type: ignore
             + f"for arg {i} of {name}. Expected {expected_args[i]}"
         )
 
@@ -161,8 +171,8 @@ class BaseNode:
         return lang_spec.lookup_avm_constant(name)
 
     def tealish_type(self) -> TealishType:
-        if hasattr(self, "t_type"):
-            return getattr(self, "t_type")
+        if hasattr(self, "type"):
+            return getattr(self, "type")
         print(self.__class__)
         # TODO: cop out
         return TealishType.int
