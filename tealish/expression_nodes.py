@@ -137,14 +137,18 @@ class BinaryOp(BaseNode):
         self.a.process()
         self.b.process()
 
-        print(self.a.tealish_type())
+        # Make sure they're the same type we're trying to binop
+        assert self.a.tealish_type() == self.b.tealish_type()
+
         if self.a.tealish_type() == TealishType.bigint.value:
+            # TODO: remap op based on TealishType
+            # for bigint, / => b/, * => b*, ...
+            # for string, + => concat
+            # lazy punt is prepend b for bigints
             self.op = "b" + self.op
-            self.type = TealishType.bigint
 
         self.check_arg_types(self.op, [self.a, self.b])
         op = self.lookup_op(self.op)
-
         self.type = type_lookup(op.returns)
         if (
             self.a.tealish_type() == TealishType.bigint.value
