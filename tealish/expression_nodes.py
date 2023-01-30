@@ -137,13 +137,20 @@ class BinaryOp(BaseNode):
         self.a.process()
         self.b.process()
 
-        if self.a.tealish_type() == TealishType.bigint:
-            self.t_type = TealishType.bigint
+        print(self.a.tealish_type())
+        if self.a.tealish_type() == TealishType.bigint.value:
             self.op = "b" + self.op
+            self.type = TealishType.bigint
 
         self.check_arg_types(self.op, [self.a, self.b])
         op = self.lookup_op(self.op)
+
         self.type = type_lookup(op.returns)
+        if (
+            self.a.tealish_type() == TealishType.bigint.value
+            and self.type == TealishType.bytes
+        ):
+            self.type = TealishType.bigint
 
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, self.a)
@@ -164,8 +171,7 @@ class Group(BaseNode):
 
     def process(self) -> None:
         self.expression.process()
-        self.type = self.expression.type
-        self.t_type = self.expression.tealish_type()
+        self.type = self.expression.tealish_type()
 
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, self.expression)

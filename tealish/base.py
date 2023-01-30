@@ -152,7 +152,7 @@ class BaseNode:
         except Exception as e:
             raise CompileError(str(e), node=self)  # type: ignore
 
-    def get_field_type(self, namespace: str, name: str) -> AVMType:
+    def get_field_type(self, namespace: str, name: str) -> TealishType:
         return lang_spec.get_field_type(namespace, name)
 
     def lookup_op(self, name: str) -> Op:
@@ -164,18 +164,16 @@ class BaseNode:
     def lookup_var(self, name: str) -> Any:
         return self.get_scope().lookup_var(name)
 
-    def lookup_const(self, name: str) -> Tuple["AVMType", ConstValue]:
+    def lookup_const(self, name: str) -> Tuple["TealishType", ConstValue]:
         return self.get_scope().lookup_const(name)
 
-    def lookup_avm_constant(self, name: str) -> Tuple["AVMType", Any]:
+    def lookup_avm_constant(self, name: str) -> Tuple["TealishType", Any]:
         return lang_spec.lookup_avm_constant(name)
 
     def tealish_type(self) -> TealishType:
         if hasattr(self, "type"):
             return getattr(self, "type")
-        print(self.__class__)
-        # TODO: cop out
-        return TealishType.int
+        return TealishType.any
 
     # TODO: these attributes are only available on Node and other children types
     # we should either define them here or something else?
