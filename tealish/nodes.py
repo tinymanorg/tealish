@@ -1608,7 +1608,7 @@ class StructDeclaration(LineStatement):
 
     def process(self) -> None:
         self.name.slot = self.declare_var(
-            self.name.value, (ObjectType.struct, self.struct_name)
+            self.name.value, (ObjectType.scratch, self.struct_name)
         )
         if self.expression:
             self.expression.process()
@@ -1667,7 +1667,7 @@ class StructOrBoxAssignment(LineStatement):
             )
 
     def write_teal(self, writer: "TealWriter") -> None:
-        if self.object_type == ObjectType.struct:
+        if self.object_type == ObjectType.scratch:
             writer.write(self, f"// {self.line} [slot {self.name.slot}]")
             writer.write(self, f"load {self.name.slot} // {self.name.value}")
             writer.write(self, self.expression)

@@ -49,7 +49,7 @@ class Variable(BaseNode):
             raise CompileError(e.args[0], node=self)
         # is it a struct or box?
         if type(self.type) == tuple:
-            if self.type[0] == ObjectType.struct:
+            if self.type[0] == ObjectType.scratch:
                 self.type = AVMType.bytes
             elif self.type[0] == ObjectType.box:
                 raise CompileError("Invalid use of a Box reference", node=self)
@@ -479,7 +479,7 @@ class StructOrBoxField(BaseNode):
         self.type = struct_field.data_type
 
     def write_teal(self, writer: "TealWriter") -> None:
-        if self.object_type == ObjectType.struct:
+        if self.object_type == ObjectType.scratch:
             writer.write(self, f"load {self.slot} // {self.name}")
             if self.type == AVMType.int:
                 writer.write(self, f"pushint {self.offset}")
