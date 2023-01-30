@@ -1,6 +1,6 @@
 from typing import cast, Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 from tealish.errors import CompileError
-from .tealish_builtins import AVMType, ConstValue, ScratchRecord, VarType
+from .tealish_builtins import AVMType, ConstValue, ScratchRecord, VarType, TealishType
 from .langspec import get_active_langspec, Op
 from .scope import Scope
 
@@ -159,6 +159,13 @@ class BaseNode:
 
     def lookup_avm_constant(self, name: str) -> Tuple["AVMType", Any]:
         return lang_spec.lookup_avm_constant(name)
+
+    def tealish_type(self) -> TealishType:
+        if hasattr(self, "t_type"):
+            return getattr(self, "t_type")
+        print(self.__class__)
+        # TODO: cop out
+        return TealishType.int
 
     # TODO: these attributes are only available on Node and other children types
     # we should either define them here or something else?
