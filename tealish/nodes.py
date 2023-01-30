@@ -23,7 +23,7 @@ from .scope import Scope, VarType
 
 LITERAL_INT = r"[0-9]+"
 LITERAL_BYTE_STRING = r'"(.+)"'
-LITERAL_BYTE_HEX = r"0x([a-zA-Z0-9]+)"
+LITERAL_BYTE_HEX = r"0x([a-fA-F0-9]+)"
 LITERAL_BYTE_ADDR = r"([A-Z2-7]+)"
 VARIABLE_NAME = r"[a-z_][a-zA-Z0-9_]*"
 
