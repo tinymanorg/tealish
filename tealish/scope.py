@@ -1,9 +1,8 @@
-from typing import Dict, Optional, Tuple, TYPE_CHECKING, Union
+from typing import Dict, Optional, Tuple, TYPE_CHECKING
 
 
 if TYPE_CHECKING:
     from .tealish_builtins import (
-        AVMType,
         VarType,
         ConstValue,
         ScratchRecord,
@@ -27,7 +26,7 @@ class Scope:
             slot_range if slot_range is not None else (0, 200)
         )
 
-        self.consts: Dict[str, Tuple["AVMType", "ConstValue"]] = {}
+        self.consts: Dict[str, Tuple["TealishType", "ConstValue"]] = {}
         self.blocks: Dict[str, "Block"] = {}
         self.functions: Dict[str, "Func"] = {}
 
