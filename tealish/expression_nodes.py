@@ -2,7 +2,13 @@ from typing import List, Optional, Union, TYPE_CHECKING
 
 from .base import BaseNode
 from .errors import CompileError
-from .tealish_builtins import AVMType, get_struct, ObjectType
+from .tealish_builtins import (
+    AVMType,
+    get_struct,
+    ObjectType,
+    TealishType,
+    stack_type,
+)
 from .langspec import Op, type_lookup
 
 
@@ -14,7 +20,7 @@ if TYPE_CHECKING:
 class Integer(BaseNode):
     def __init__(self, value: str, parent: Optional[BaseNode] = None) -> None:
         self.value = int(value)
-        self.type = AVMType.int
+        self.type = TealishType.int
         self.parent = parent
 
     def write_teal(self, writer: "TealWriter") -> None:
@@ -27,7 +33,7 @@ class Integer(BaseNode):
 class Bytes(BaseNode):
     def __init__(self, value: str, parent: Optional[BaseNode] = None) -> None:
         self.value = value
-        self.type = AVMType.bytes
+        self.type = TealishType.bytes
         self.parent = parent
 
     def write_teal(self, writer: "TealWriter") -> None:
@@ -49,8 +55,8 @@ class Variable(BaseNode):
             raise CompileError(e.args[0], node=self)
         # is it a struct or box?
         if type(self.type) == tuple:
-            if self.type[0] == ObjectType.struct:
-                self.type = AVMType.bytes
+            if self.type[0] == ObjectType.scratch:
+                self.type = TealishType.bytes
             elif self.type[0] == ObjectType.box:
                 raise CompileError("Invalid use of a Box reference", node=self)
 
@@ -64,8 +70,8 @@ class Variable(BaseNode):
 class Constant(BaseNode):
     def __init__(self, name: str, parent: Optional[BaseNode] = None) -> None:
         self.name = name
-        self.type: AVMType = AVMType.none
         self.parent = parent
+        self.type: TealishType
 
     def process(self) -> None:
         type, value = None, None
@@ -80,16 +86,16 @@ class Constant(BaseNode):
                 raise CompileError(
                     f'Constant "{self.name}" not declared in scope', node=self
                 )
-        if type not in (AVMType.int, AVMType.bytes):
+        if stack_type(type) not in (AVMType.int, AVMType.bytes):
             raise CompileError(f"Unexpected const type {type}", node=self)
 
         self.type = type
         self.value = value
 
     def write_teal(self, writer: "TealWriter") -> None:
-        if self.type == AVMType.int:
+        if stack_type(self.type) == AVMType.int:
             writer.write(self, f"pushint {self.value} // {self.name}")  # type: ignore
-        elif self.type == AVMType.bytes:
+        elif stack_type(self.type) == AVMType.bytes:
             writer.write(self, f"pushbytes {self.value} // {self.name}")  # type: ignore
 
     def _tealish(self) -> str:
@@ -153,7 +159,7 @@ class Group(BaseNode):
 
     def process(self) -> None:
         self.expression.process()
-        self.type = self.expression.type
+        self.type = self.expression.tealish_type()
 
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, self.expression)
@@ -169,7 +175,7 @@ class FunctionCall(BaseNode):
         self.name = name
         self.args = args
         self.parent = parent
-        self.type: Union[AVMType, List[AVMType]] = AVMType.none
+        self.type: Union[TealishType, List[TealishType]] = TealishType.none
         self.func_call_type: str = ""
         self.nodes = args
         self.immediate_args = ""
@@ -235,7 +241,7 @@ class FunctionCall(BaseNode):
     def process_special_call(self) -> None:
         self.func_call_type = "special"
         if self.name == "pop":
-            self.type = AVMType.any
+            self.type = TealishType.any
         for arg in self.args:
             arg.process()
 
@@ -275,7 +281,7 @@ class FunctionCall(BaseNode):
 class TxnField(BaseNode):
     def __init__(self, field: str, parent: Optional[BaseNode] = None) -> None:
         self.field = field
-        self.type = AVMType.any
+        self.type = TealishType.any
         self.parent = parent
 
     def process(self) -> None:
@@ -297,7 +303,7 @@ class TxnArrayField(BaseNode):
     ) -> None:
         self.field = field
         self.arrayIndex = arrayIndex
-        self.type = AVMType.any
+        self.type = TealishType.any
         self.parent = parent
 
     def process(self) -> None:
@@ -324,7 +330,7 @@ class GroupTxnField(BaseNode):
     ) -> None:
         self.field = field
         self.index = index
-        self.type = AVMType.any
+        self.type = TealishType.any
         self.parent = parent
 
     def process(self) -> None:
@@ -360,7 +366,7 @@ class GroupTxnArrayField(BaseNode):
         self.field = field
         self.index = index
         self.arrayIndex = arrayIndex
-        self.type = AVMType.any
+        self.type = TealishType.any
         self.parent = parent
 
     def process(self) -> None:
@@ -403,7 +409,7 @@ class GroupTxnArrayField(BaseNode):
 class PositiveGroupIndex(BaseNode):
     def __init__(self, index: int, parent: Optional["BaseNode"] = None) -> None:
         self.index = index
-        self.type = AVMType.int
+        self.type = TealishType.int
         self.parent = parent
 
     def write_teal(self, writer: "TealWriter") -> None:
@@ -418,7 +424,7 @@ class PositiveGroupIndex(BaseNode):
 class NegativeGroupIndex(BaseNode):
     def __init__(self, index: int, parent: Optional[BaseNode] = None) -> None:
         self.index = index
-        self.type = AVMType.int
+        self.type = TealishType.int
         self.parent = parent
 
     def write_teal(self, writer: "TealWriter") -> None:
@@ -433,7 +439,7 @@ class NegativeGroupIndex(BaseNode):
 class GlobalField(BaseNode):
     def __init__(self, field: str, parent: Optional[BaseNode] = None) -> None:
         self.field = field
-        self.type = AVMType.any
+        self.type = TealishType.any
         self.parent = parent
 
     def process(self) -> None:
@@ -449,7 +455,7 @@ class GlobalField(BaseNode):
 class InnerTxnField(BaseNode):
     def __init__(self, field: str, parent: Optional[BaseNode] = None) -> None:
         self.field = field
-        self.type = AVMType.any
+        self.type = TealishType.any
         self.parent = parent
 
     def process(self) -> None:
@@ -466,7 +472,7 @@ class StructOrBoxField(BaseNode):
     def __init__(self, name, field, parent=None) -> None:
         self.name = name
         self.field = field
-        self.type = AVMType.none
+        self.type = TealishType.none
         self.parent = parent
 
     def process(self) -> None:
@@ -479,9 +485,9 @@ class StructOrBoxField(BaseNode):
         self.type = struct_field.data_type
 
     def write_teal(self, writer: "TealWriter") -> None:
-        if self.object_type == ObjectType.struct:
+        if self.object_type == ObjectType.scratch:
             writer.write(self, f"load {self.slot} // {self.name}")
-            if self.type == AVMType.int:
+            if self.type == TealishType.int:
                 writer.write(self, f"pushint {self.offset}")
                 writer.write(self, f"extract_uint64 // {self.field}")
             else:
@@ -491,7 +497,7 @@ class StructOrBoxField(BaseNode):
             writer.write(self, f"pushint {self.offset} // offset")
             writer.write(self, f"pushint {self.size} // size")
             writer.write(self, f"box_extract // {self.name}.{self.field}")
-            if self.type == AVMType.int:
+            if self.type == TealishType.int:
                 writer.write(self, "btoi")
         else:
             raise Exception()

@@ -16,12 +16,14 @@ from .errors import CompileError, ParseError
 from .tx_expressions import parse_expression
 from .tealish_builtins import (
     AVMType,
+    TealishType,
     ObjectType,
     define_struct,
     get_struct,
     VarType,
     Struct,
     StructField,
+    stack_type,
 )
 from .scope import Scope
 
@@ -158,9 +160,6 @@ class LiteralInt(Literal):
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"pushint {self.value}")
 
-    def type(self) -> AVMType:
-        return AVMType.int
-
     def _tealish(self) -> str:
         return f"{self.value}"
 
@@ -171,9 +170,6 @@ class LiteralBytes(Literal):
 
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"pushbytes {self.value}")
-
-    def type(self) -> AVMType:
-        return AVMType.bytes
 
     def _tealish(self) -> str:
         return f"{self.value}"
@@ -191,14 +187,10 @@ class Name(Expression):
     def _tealish(self) -> str:
         return f"{self.value}"
 
-    def type(self) -> Optional[VarType]:
-        return self._type
-
 
 class GenericExpression(Expression):
 
-    # TODO: never set?
-    type: str
+    type: TealishType
 
     @classmethod
     def parse(cls, line: str, parent: Node, compiler: "TealishCompiler") -> Node:
@@ -373,16 +365,24 @@ class Blank(LineStatement):
 
 
 class Const(LineStatement):
+    type_pattern = "|".join([f"\\b{tt.value}\\b" for tt in TealishType])
     pattern = (
-        r"const (?P<type>\bint\b|\bbytes\b) "
+        rf"const (?P<type>{type_pattern}) "
         + r"(?P<name>[A-Z][a-zA-Z0-9_]*) = (?P<expression>.*)$"
     )
-    type: AVMType
+    type: TealishType
     name: str
     expression: Literal
 
     def process(self) -> None:
         scope = self.get_current_scope()
+
+        # TODO: have to compare against Enum.value ?
+        if self.type == TealishType.bigint.value:
+            # Hardcoded to uint256 or 32 bytes
+            new_value = cast(int, int(self.expression.value)).to_bytes(32, "big")
+            self.expression.value = f"0x{new_value.hex()}"
+
         scope.declare_const(self.name, (self.type, self.expression.value))
 
     def write_teal(self, writer: "TealWriter") -> None:
@@ -455,7 +455,8 @@ class Assert(LineStatement):
 
     def process(self) -> None:
         self.arg.process()
-        if self.arg.type not in (AVMType.int, AVMType.any):
+
+        if stack_type(self.arg.type) not in (AVMType.int, AVMType.any):
             raise CompileError(
                 "Incorrect type for assert. "
                 + f"Expected int, got {self.arg.type} at line {self.line_no}.",
@@ -486,10 +487,10 @@ class BytesDeclaration(LineStatement):
     expression: GenericExpression
 
     def process(self) -> None:
-        self.name.slot = self.declare_var(self.name.value, AVMType.bytes)
+        self.name.slot = self.declare_var(self.name.value, TealishType.bytes)
         if self.expression:
             self.expression.process()
-            if self.expression.type not in (AVMType.bytes, AVMType.any):
+            if stack_type(self.expression.type) not in (AVMType.bytes, AVMType.any):
                 raise CompileError(
                     "Incorrect type for bytes assignment. "
                     + f"Expected bytes, got {self.expression.type}",
@@ -515,10 +516,10 @@ class IntDeclaration(LineStatement):
     expression: GenericExpression
 
     def process(self) -> None:
-        self.name.slot = self.declare_var(self.name.value, AVMType.int)
+        self.name.slot = self.declare_var(self.name.value, TealishType.int)
         if self.expression:
             self.expression.process()
-            if self.expression.type not in (AVMType.int, AVMType.any):
+            if stack_type(self.expression.type) not in (AVMType.int, AVMType.any):
                 raise CompileError(
                     "Incorrect type for int assignment. "
                     + f"Expected int, got {self.expression.type}",
@@ -547,7 +548,7 @@ class Assignment(LineStatement):
     def process(self) -> None:
         self.expression.process()
         t = self.expression.type
-        incoming_types = t if type(t) == list else [t]
+        incoming_types: List[TealishType] = t if type(t) == list else [t]  # type: ignore
 
         names = [Name(s.strip()) for s in self.names.split(",")]
         self.name_nodes = names
@@ -569,7 +570,10 @@ class Assignment(LineStatement):
                 )
 
             slot, var_type = var_def
-            if not (incoming_types[i] == AVMType.any or incoming_types[i] == var_type):
+            if not (
+                stack_type(incoming_types[i]) == AVMType.any
+                or stack_type(incoming_types[i]) == var_type
+            ):
                 raise CompileError(
                     f"Incorrect type for {var_type} assignment. "
                     + f"Expected {var_type}, got {incoming_types[i]}",
@@ -1277,7 +1281,7 @@ class ForStatement(InlineStatement):
         return node
 
     def process(self) -> None:
-        self.var_slot = self.declare_var(self.var, AVMType.int)
+        self.var_slot = self.declare_var(self.var, TealishType.int)
         for n in self.nodes:
             n.process()
         self.del_var(self.var)
@@ -1373,7 +1377,7 @@ class For_Statement(InlineStatement):
 class ArgsList(Expression):
     arg_pattern = r"(?P<arg_name>[a-z][a-z_0-9]*): (?P<arg_type>int|bytes)"
     pattern = rf"(?P<args>({arg_pattern}(, )?)*)"
-    args: List[Tuple[str, AVMType]]
+    args: List[Tuple[str, TealishType]]
 
     def __init__(self, line: str) -> None:
         super().__init__(line)
@@ -1391,7 +1395,7 @@ class Func(InlineStatement):
     args: ArgsList
 
     return_type: str
-    returns: List[AVMType]
+    returns: List[TealishType]
 
     def __init__(
         self,
@@ -1406,7 +1410,8 @@ class Func(InlineStatement):
         self.new_scope("func__" + self.name)
         self.returns = list(
             filter(
-                None, [cast(AVMType, s.strip()) for s in self.return_type.split(",")]
+                None,
+                [cast(TealishType, s.strip()) for s in self.return_type.split(",")],
             )
         )
         self.slots: Dict[str, int] = {}
@@ -1501,7 +1506,7 @@ class StructFieldDefinition(InlineStatement):
         + r"(?P<data_type>[a-z][A-Z-a-z0-9_]+)(\[(?P<data_length>\d+)\])?"
     )
     field_name: str
-    data_type: AVMType
+    data_type: TealishType
     data_length: int
     offset: int
 
@@ -1575,7 +1580,7 @@ class StructDefinition(InlineStatement):
                 data_length=field_node.data_length,
                 offset=offset,
                 size=8
-                if field_node.data_type == AVMType.int
+                if stack_type(field_node.data_type) == AVMType.int
                 else int(field_node.data_length),
             )
             fields[field_node.field_name] = sf
@@ -1608,11 +1613,11 @@ class StructDeclaration(LineStatement):
 
     def process(self) -> None:
         self.name.slot = self.declare_var(
-            self.name.value, (ObjectType.struct, self.struct_name)
+            self.name.value, (ObjectType.scratch, self.struct_name)
         )
         if self.expression:
             self.expression.process()
-            if self.expression.type not in (AVMType.bytes, AVMType.any):
+            if stack_type(self.expression.type) not in (AVMType.bytes, AVMType.any):
                 raise CompileError(
                     "Incorrect type for struct assignment. "
                     + f"Expected bytes, got {self.expression.type}",
@@ -1659,7 +1664,10 @@ class StructOrBoxAssignment(LineStatement):
         self.size = struct_field.size
         self.data_type = struct_field.data_type
         self.expression.process()
-        if self.expression.type not in (self.data_type, AVMType.any):
+        if stack_type(self.expression.type) not in (
+            stack_type(self.data_type),
+            AVMType.any,
+        ):
             raise CompileError(
                 "Incorrect type for struct field assignment. "
                 + f"Expected {self.data_type}, got {self.expression.type}",
@@ -1667,11 +1675,11 @@ class StructOrBoxAssignment(LineStatement):
             )
 
     def write_teal(self, writer: "TealWriter") -> None:
-        if self.object_type == ObjectType.struct:
+        if self.object_type == ObjectType.scratch:
             writer.write(self, f"// {self.line} [slot {self.name.slot}]")
             writer.write(self, f"load {self.name.slot} // {self.name.value}")
             writer.write(self, self.expression)
-            if self.data_type == AVMType.int:
+            if stack_type(self.data_type) == AVMType.int:
                 writer.write(self, "itob")
             writer.write(
                 self, f"replace {self.offset} // {self.name.value}.{self.field_name}"
@@ -1682,7 +1690,7 @@ class StructOrBoxAssignment(LineStatement):
             writer.write(self, f"load {self.name.slot} // box key {self.name.value}")
             writer.write(self, f"pushint {self.offset} // offset")
             writer.write(self, self.expression)
-            if self.data_type == AVMType.int:
+            if stack_type(self.data_type) == AVMType.int:
                 writer.write(self, "itob")
             writer.write(self, f"box_replace // {self.name.value}.{self.field_name}")
 
@@ -1717,7 +1725,7 @@ class BoxDeclaration(LineStatement):
             self.name.value, (ObjectType.box, self.struct_name)
         )
         self.key.process()
-        if self.key.type not in (AVMType.bytes, AVMType.any):
+        if stack_type(self.key.type) not in (AVMType.bytes, AVMType.any):
             raise CompileError(
                 f"Incorrect type for box key. Expected bytes, got {self.key.type}",
                 node=self,

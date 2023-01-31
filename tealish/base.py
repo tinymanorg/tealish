@@ -1,6 +1,13 @@
 from typing import cast, Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 from tealish.errors import CompileError
-from .tealish_builtins import AVMType, ConstValue, ScratchRecord, VarType
+from .tealish_builtins import (
+    AVMType,
+    ConstValue,
+    ScratchRecord,
+    VarType,
+    TealishType,
+    stack_type,
+)
 from .langspec import get_active_langspec, Op
 from .scope import Scope
 
@@ -15,17 +22,19 @@ lang_spec = get_active_langspec()
 def check_arg_types(name: str, incoming_args: List["Node"]) -> None:
     op = lang_spec.lookup_op(name)
     expected_args = op.arg_types
-    # TODO:
     for i, incoming_arg in enumerate(incoming_args):
-        if incoming_arg.type == AVMType.any:  # type: ignore
+        tealish_type = incoming_arg.tealish_type()
+        avm_type = stack_type(tealish_type)
+
+        if avm_type == AVMType.any:
             continue
         if expected_args[i] == AVMType.any:
             continue
-        if incoming_arg.type == expected_args[i]:  # type: ignore
+        if tealish_type == expected_args[i]:
             continue
 
         raise Exception(
-            f"Incorrect type {incoming_arg.type} "  # type: ignore
+            f"Incorrect type {tealish_type} "  # type: ignore
             + f"for arg {i} of {name}. Expected {expected_args[i]}"
         )
 
@@ -142,7 +151,7 @@ class BaseNode:
         except Exception as e:
             raise CompileError(str(e), node=self)  # type: ignore
 
-    def get_field_type(self, namespace: str, name: str) -> AVMType:
+    def get_field_type(self, namespace: str, name: str) -> TealishType:
         return lang_spec.get_field_type(namespace, name)
 
     def lookup_op(self, name: str) -> Op:
@@ -154,11 +163,19 @@ class BaseNode:
     def lookup_var(self, name: str) -> Any:
         return self.get_scope().lookup_var(name)
 
-    def lookup_const(self, name: str) -> Tuple["AVMType", ConstValue]:
+    def lookup_const(self, name: str) -> Tuple["TealishType", ConstValue]:
         return self.get_scope().lookup_const(name)
 
-    def lookup_avm_constant(self, name: str) -> Tuple["AVMType", Any]:
+    def lookup_avm_constant(self, name: str) -> Tuple["TealishType", Any]:
         return lang_spec.lookup_avm_constant(name)
+
+    def tealish_type(self) -> TealishType:
+        if hasattr(self, "type"):
+            return cast(TealishType, getattr(self, "type"))
+        return TealishType.none
+
+    def stack_type(self) -> AVMType:
+        return stack_type(self.tealish_type())
 
     # TODO: these attributes are only available on Node and other children types
     # we should either define them here or something else?

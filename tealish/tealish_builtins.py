@@ -12,17 +12,38 @@ class AVMType(str, Enum):
     none = ""
 
 
-# TODO: add frame ptr or stack? rename to something like `storage type?`
-# I think `struct` here should probably just be `scratch`?
 class ObjectType(str, Enum):
     """ObjectType determines where to get the bytes for a struct field.
 
-    `struct` - the field is in a byte array in a scratch var, use extract to get bytes
+    `scratch` - the field is in a byte array in a scratch var, use extract to get bytes
     `box` - the field is in a box, use box_extract to get the bytes
     """
 
-    struct = "struct"
+    scratch = "scratch"
     box = "box"
+
+
+class TealishType(str, Enum):
+    # Mirrors AVM Types
+    any = "any"
+    bytes = "bytes"
+    int = "int"
+    none = ""
+
+    # New types for tealish
+    bigint = "bigint"
+    addr = "addr"
+
+
+def stack_type(tt: TealishType) -> AVMType:
+    if tt == TealishType.int.value:
+        return AVMType.int
+    elif tt == TealishType.none:
+        return AVMType.none
+    elif tt == TealishType.any:
+        return AVMType.any
+    else:
+        return AVMType.bytes
 
 
 # TODO: for CustomType and ScratchRecord we should consider
@@ -36,7 +57,7 @@ CustomType = Tuple[ObjectType, str]
 
 @dataclass
 class StructField:
-    data_type: AVMType
+    data_type: TealishType
     data_length: int
     offset: int
     size: int
@@ -54,7 +75,7 @@ class Struct:
 
 
 # either AVM native type or a CustomType (only struct atm) definition
-VarType = Union[AVMType, CustomType]
+VarType = Union[TealishType, CustomType]
 
 # a constant value introduced in source
 ConstValue = Union[str, bytes, int]
@@ -74,16 +95,16 @@ def get_struct(struct_name: str) -> Struct:
     return _structs[struct_name]
 
 
-constants: Dict[str, Tuple[AVMType, ConstValue]] = {
-    "NoOp": (AVMType.int, 0),
-    "OptIn": (AVMType.int, 1),
-    "CloseOut": (AVMType.int, 2),
-    "ClearState": (AVMType.int, 3),
-    "UpdateApplication": (AVMType.int, 4),
-    "DeleteApplication": (AVMType.int, 5),
-    "Pay": (AVMType.int, 1),
-    "Acfg": (AVMType.int, 3),
-    "Axfer": (AVMType.int, 4),
-    "Afrz": (AVMType.int, 5),
-    "Appl": (AVMType.int, 6),
+constants: Dict[str, Tuple[TealishType, ConstValue]] = {
+    "NoOp": (TealishType.int, 0),
+    "OptIn": (TealishType.int, 1),
+    "CloseOut": (TealishType.int, 2),
+    "ClearState": (TealishType.int, 3),
+    "UpdateApplication": (TealishType.int, 4),
+    "DeleteApplication": (TealishType.int, 5),
+    "Pay": (TealishType.int, 1),
+    "Acfg": (TealishType.int, 3),
+    "Axfer": (TealishType.int, 4),
+    "Afrz": (TealishType.int, 5),
+    "Appl": (TealishType.int, 6),
 }
