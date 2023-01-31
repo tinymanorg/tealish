@@ -136,25 +136,9 @@ class BinaryOp(BaseNode):
     def process(self) -> None:
         self.a.process()
         self.b.process()
-
-        # TODO: Make sure they're the same type we're trying to binop
-        # assert self.a.tealish_type() == self.b.tealish_type()
-
-        if self.a.tealish_type() == TealishType.bigint.value:
-            # TODO: remap op based on TealishType
-            # for bigint, / => b/, * => b*, ...
-            # for string, + => concat
-            # lazy punt is prepend b for bigints
-            self.op = "b" + self.op
-
         self.check_arg_types(self.op, [self.a, self.b])
         op = self.lookup_op(self.op)
         self.type = type_lookup(op.returns)
-        if (
-            self.a.tealish_type() == TealishType.bigint.value
-            and self.type == TealishType.bytes
-        ):
-            self.type = TealishType.bigint
 
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, self.a)
