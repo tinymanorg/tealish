@@ -22,16 +22,15 @@ lang_spec = get_active_langspec()
 def check_arg_types(name: str, incoming_args: List["Node"]) -> None:
     op = lang_spec.lookup_op(name)
     expected_args = op.arg_types
-    # TODO:
     for i, incoming_arg in enumerate(incoming_args):
         tealish_type = incoming_arg.tealish_type()
         avm_type = stack_type(tealish_type)
 
-        if avm_type == AVMType.any:  # type: ignore
+        if avm_type == AVMType.any:
             continue
         if expected_args[i] == AVMType.any:
             continue
-        if avm_type == expected_args[i]:  # type: ignore
+        if tealish_type == expected_args[i]:
             continue
 
         raise Exception(
@@ -172,8 +171,11 @@ class BaseNode:
 
     def tealish_type(self) -> TealishType:
         if hasattr(self, "type"):
-            return getattr(self, "type")
-        return TealishType.any
+            return cast(TealishType, getattr(self, "type"))
+        return TealishType.none
+
+    def stack_type(self) -> AVMType:
+        return stack_type(self.tealish_type())
 
     # TODO: these attributes are only available on Node and other children types
     # we should either define them here or something else?
