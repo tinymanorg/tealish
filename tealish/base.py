@@ -1,8 +1,8 @@
-from typing import cast, Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
+from typing import cast, Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 from tealish.errors import CompileError
-from .tealish_builtins import AVMType
+from .tealish_builtins import AVMType, ConstValue, ScratchRecord, VarType
 from .langspec import get_active_langspec, Op
-from .scope import Scope, VarType, ConstValue
+from .scope import Scope
 
 
 if TYPE_CHECKING:
@@ -72,14 +72,14 @@ class BaseNode:
             slots.update(s.slots)
         return slots
 
-    def get_var(self, name: str) -> Optional[Tuple[int, VarType]]:
+    def get_var(self, name: str) -> Optional[ScratchRecord]:
         slots = self.get_slots()
         if name in slots:
             return slots[name]
         else:
             return None
 
-    def declare_var(self, name: str, type: Union[AVMType, Tuple[str, str]]) -> int:
+    def declare_var(self, name: str, type: VarType) -> int:
         scope = self.get_current_scope()
         # TODO: this fixed the issue of slot assignment in the `main`
         # but i'm not sure why...
@@ -142,7 +142,7 @@ class BaseNode:
         except Exception as e:
             raise CompileError(str(e), node=self)  # type: ignore
 
-    def get_field_type(self, namespace: str, name: str) -> str:
+    def get_field_type(self, namespace: str, name: str) -> AVMType:
         return lang_spec.get_field_type(namespace, name)
 
     def lookup_op(self, name: str) -> Op:

@@ -126,8 +126,8 @@ class LangSpec:
             "Txn": self.ops["txn"].arg_enum_dict,
         }
 
-        self.global_fields = self.fields["Global"]
-        self.txn_fields = self.fields["Txn"]
+        self.global_fields: Dict[str, AVMType] = self.fields["Global"]
+        self.txn_fields: Dict[str, AVMType] = self.fields["Txn"]
 
     def as_dict(self) -> Dict[str, Any]:
         return self.spec
@@ -146,7 +146,7 @@ class LangSpec:
             raise KeyError(f'Constant "{name}" does not exist!')
         return constants[name]
 
-    def get_field_type(self, namespace: str, name: str) -> str:
+    def get_field_type(self, namespace: str, name: str) -> AVMType:
         if "txn" in namespace:
             return self.txn_fields[name]
         elif namespace == "global":
@@ -195,7 +195,10 @@ def fetch_langspec(url: str) -> LangSpec:
     if "http" not in url:
         # assume branch name for go-algorand
         branch = url
-        url = f"https://github.com/algorand/go-algorand/raw/{branch}/data/transactions/logic/langspec.json"
+        url = (
+            f"https://github.com/algorand/go-algorand/raw/{branch}"
+            "/data/transactions/logic/langspec.json"
+        )
     if "github.com" in url and "blob" in url:
         url = url.replace("blob", "raw")
     r = requests.get(url)
