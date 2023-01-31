@@ -86,8 +86,8 @@ class Constant(BaseNode):
                 raise CompileError(
                     f'Constant "{self.name}" not declared in scope', node=self
                 )
-        # if type not in (AVMType.int, AVMType.bytes):
-        #    raise CompileError(f"Unexpected const type {type}", node=self)
+        if stack_type(type) not in (AVMType.int, AVMType.bytes):
+            raise CompileError(f"Unexpected const type {type}", node=self)
 
         self.type = type
         self.value = value
