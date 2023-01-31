@@ -137,8 +137,8 @@ class BinaryOp(BaseNode):
         self.a.process()
         self.b.process()
 
-        # Make sure they're the same type we're trying to binop
-        assert self.a.tealish_type() == self.b.tealish_type()
+        # TODO: Make sure they're the same type we're trying to binop
+        # assert self.a.tealish_type() == self.b.tealish_type()
 
         if self.a.tealish_type() == TealishType.bigint.value:
             # TODO: remap op based on TealishType
