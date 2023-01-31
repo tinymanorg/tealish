@@ -160,9 +160,6 @@ class LiteralInt(Literal):
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"pushint {self.value}")
 
-    def type(self) -> TealishType:
-        return TealishType.int
-
     def _tealish(self) -> str:
         return f"{self.value}"
 
@@ -173,9 +170,6 @@ class LiteralBytes(Literal):
 
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"pushbytes {self.value}")
-
-    def type(self) -> TealishType:
-        return TealishType.bytes
 
     def _tealish(self) -> str:
         return f"{self.value}"
@@ -192,9 +186,6 @@ class Name(Expression):
 
     def _tealish(self) -> str:
         return f"{self.value}"
-
-    def type(self) -> Optional[VarType]:
-        return self._type
 
 
 class GenericExpression(Expression):
