@@ -464,8 +464,7 @@ class Assert(LineStatement):
 
     def process(self) -> None:
         self.arg.process()
-        print(self.arg.type)
-        print(stack_type(self.arg.type))
+
         if stack_type(self.arg.type) not in (AVMType.int, AVMType.any):
             raise CompileError(
                 "Incorrect type for assert. "
