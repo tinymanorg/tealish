@@ -1,6 +1,6 @@
 from typing import cast, Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 from tealish.errors import CompileError
-from .tealish_builtins import AVMType, ConstValue, ScratchRecord, VarType
+from .tealish_builtins import AVMType, ConstValue, ScratchVar
 from .langspec import get_active_langspec, Op
 from .scope import Scope
 
@@ -72,14 +72,14 @@ class BaseNode:
             slots.update(s.slots)
         return slots
 
-    def get_var(self, name: str) -> Optional[ScratchRecord]:
+    def get_var(self, name: str) -> Optional[ScratchVar]:
         slots = self.get_slots()
         if name in slots:
             return slots[name]
         else:
             return None
 
-    def declare_var(self, name: str, type: VarType) -> int:
+    def declare_var(self, var: ScratchVar) -> int:
         scope = self.get_current_scope()
         # TODO: this fixed the issue of slot assignment in the `main`
         # but i'm not sure why...
@@ -92,12 +92,12 @@ class BaseNode:
             # This is to prevent functions using overlapping slots
             max_slot = self.parent.compiler.max_slot + 1  # type: ignore
 
-        slot = scope.declare_var(name, type, max_slot=max_slot)
+        var = scope.declare_var(var, max_slot=max_slot)
 
         # Update max_slot on compiler
-        self.compiler.max_slot = max(self.compiler.max_slot, slot)  # type: ignore
+        self.compiler.max_slot = max(self.compiler.max_slot, var.slot)  # type: ignore
 
-        return slot
+        return var
 
     def del_var(self, name: str) -> None:
         self.get_current_scope().delete_var(name)

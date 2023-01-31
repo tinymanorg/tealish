@@ -1,5 +1,6 @@
 from enum import Enum
 from dataclasses import dataclass
+import re
 from typing import Dict, Tuple, Union
 
 
@@ -59,8 +60,57 @@ VarType = Union[AVMType, CustomType]
 # a constant value introduced in source
 ConstValue = Union[str, bytes, int]
 
-# The data structure representing a value stored in a scratch slot
-ScratchRecord = Tuple[int, VarType]
+
+class ScratchVar:
+    avm_type: AVMType
+
+    def __init__(self, name) -> None:
+        self.name = name
+
+
+class IntVar(ScratchVar):
+    avm_type = AVMType.int
+
+
+class BytesVar(ScratchVar):
+    avm_type = AVMType.bytes
+
+
+class StructVar(ScratchVar):
+    avm_type = AVMType.bytes
+
+    def __init__(self, name, struct_name=None) -> None:
+        self.name = name
+        if struct_name:
+            self.struct_name = struct_name
+
+    @property
+    def struct(self) -> Struct:
+        return get_struct(self.struct_name)
+
+
+class BoxVar(StructVar):
+    pass
+
+
+def get_class_for_type(type_name):
+    if type_name == "int":
+        return IntVar
+    elif type_name == "bytes":
+        return BytesVar
+    elif m := re.match(r"box<([A-Z][a-zA-Z0-9_]+)>", type_name):
+        struct_name = m.groups()[0]
+        cls = type(f"BoxVar<{struct_name}>", (BoxVar,), {"struct_name": struct_name})
+        return cls
+    elif m := re.match(r"([A-Z][a-zA-Z0-9_]+)", type_name):
+        struct_name = m.groups()[0]
+        cls = type(
+            f"StructVar<{struct_name}>", (StructVar,), {"struct_name": struct_name}
+        )
+        return cls
+    else:
+        raise Exception(f"Unknown type {type_name}")
+
 
 # Set of custom defined types
 _structs: Dict[str, Struct] = {}

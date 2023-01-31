@@ -2,7 +2,7 @@ from typing import List, Optional, Union, TYPE_CHECKING
 
 from .base import BaseNode
 from .errors import CompileError
-from .tealish_builtins import AVMType, get_struct, ObjectType
+from .tealish_builtins import AVMType, BoxVar, ObjectType
 from .langspec import Op, type_lookup
 
 
@@ -44,18 +44,14 @@ class Variable(BaseNode):
 
     def process(self) -> None:
         try:
-            self.slot, self.type = self.lookup_var(self.name)
+            self.var = self.lookup_var(self.name)
         except KeyError as e:
             raise CompileError(e.args[0], node=self)
-        # is it a struct or box?
-        if type(self.type) == tuple:
-            if self.type[0] == ObjectType.struct:
-                self.type = AVMType.bytes
-            elif self.type[0] == ObjectType.box:
-                raise CompileError("Invalid use of a Box reference", node=self)
+
+        self.type = self.var.avm_type
 
     def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"load {self.slot} // {self.name}")
+        writer.write(self, f"load {self.var.slot} // {self.name}")
 
     def _tealish(self) -> str:
         return f"{self.name}"
@@ -470,9 +466,12 @@ class StructOrBoxField(BaseNode):
         self.parent = parent
 
     def process(self) -> None:
-        self.slot, self.type = self.lookup_var(self.name)
-        self.object_type, struct_name = self.type
-        struct = get_struct(struct_name)
+        self.var = self.lookup_var(self.name)
+        if isinstance(self.var, BoxVar):
+            self.object_type = ObjectType.box
+        else:
+            self.object_type = ObjectType.struct
+        struct = self.var.struct
         struct_field = struct.fields[self.field]
         self.offset = struct_field.offset
         self.size = struct_field.size
@@ -480,14 +479,14 @@ class StructOrBoxField(BaseNode):
 
     def write_teal(self, writer: "TealWriter") -> None:
         if self.object_type == ObjectType.struct:
-            writer.write(self, f"load {self.slot} // {self.name}")
+            writer.write(self, f"load {self.var.slot} // {self.name}")
             if self.type == AVMType.int:
                 writer.write(self, f"pushint {self.offset}")
                 writer.write(self, f"extract_uint64 // {self.field}")
             else:
                 writer.write(self, f"extract {self.offset} {self.size} // {self.field}")
         elif self.object_type == ObjectType.box:
-            writer.write(self, f"load {self.slot} // box key {self.name}")
+            writer.write(self, f"load {self.var.slot} // box key {self.name}")
             writer.write(self, f"pushint {self.offset} // offset")
             writer.write(self, f"pushint {self.size} // size")
             writer.write(self, f"box_extract // {self.name}.{self.field}")

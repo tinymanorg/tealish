@@ -2,7 +2,11 @@ from typing import Dict, Optional, Tuple, TYPE_CHECKING
 
 
 if TYPE_CHECKING:
-    from .tealish_builtins import AVMType, VarType, ConstValue, ScratchRecord
+    from .tealish_builtins import (
+        AVMType,
+        ConstValue,
+        ScratchVar,
+    )
     from .nodes import Func, Block
 
 
@@ -16,7 +20,7 @@ class Scope:
         self.name = name
         self.parent = parent_scope
 
-        self.slots: Dict[str, "ScratchRecord"] = {}
+        self.slots: Dict[str, "ScratchVar"] = {}
         self.slot_range: Tuple[int, int] = (
             slot_range if slot_range is not None else (0, 200)
         )
@@ -38,18 +42,17 @@ class Scope:
 
     def declare_var(
         self,
-        name: str,
-        type_info: "VarType",
+        var: "ScratchVar",
         max_slot: Optional[int] = None,
     ) -> int:
-        if name in self.slots:
-            raise Exception(f'Redefinition of variable "{name}"')
+        if var.name in self.slots:
+            raise Exception(f'Redefinition of variable "{var.name}"')
 
-        slot = max_slot if max_slot is not None else self.find_slot()
-        self.slots[name] = (slot, type_info)
-        return slot
+        var.slot = max_slot if max_slot is not None else self.find_slot()
+        self.slots[var.name] = var
+        return var
 
-    def lookup_var(self, name: str) -> "ScratchRecord":
+    def lookup_var(self, name: str) -> "ScratchVar":
         if name not in self.slots:
             raise KeyError(f'Var "{name}" not declared in current scope')
         return self.slots[name]
@@ -73,8 +76,8 @@ class Scope:
 
     def find_slot(self) -> int:
         used_slots = [False] * 255
-        for slot, _ in self.slots.values():
-            used_slots[slot] = True
+        for var in self.slots.values():
+            used_slots[var.slot] = True
 
         min, max = self.slot_range
         for i, occupied in enumerate(used_slots):
