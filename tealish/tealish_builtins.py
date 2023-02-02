@@ -13,6 +13,14 @@ class AVMType(str, Enum):
     none = ""
 
 
+class TealishType(str, Enum):
+    """ """
+
+    bytes = "bytes"
+    int = "int"
+    bigint = "bigint"
+
+
 # TODO: add frame ptr or stack? rename to something like `storage type?`
 # I think `struct` here should probably just be `scratch`?
 class ObjectType(str, Enum):
@@ -61,28 +69,48 @@ VarType = Union[AVMType, CustomType]
 ConstValue = Union[str, bytes, int]
 
 
-class ScratchVar:
+class SlotType(str, Enum):
+    scratch = "scratch"
+    frame = "frame"
+
+
+class Var:
     avm_type: AVMType
+    name: str
+    scratch_slot: int
+    frame_slot: int
+    slot_type: SlotType
 
     def __init__(self, name) -> None:
         self.name = name
 
 
-class IntVar(ScratchVar):
+class IntVar(Var):
     avm_type = AVMType.int
 
 
-class BytesVar(ScratchVar):
+class BytesVar(Var):
     avm_type = AVMType.bytes
 
 
-class StructVar(ScratchVar):
+class BigIntVar(Var):
+    avm_type = AVMType.bytes
+
+
+class AddrVar(Var):
+    avm_type = AVMType.bytes
+
+
+class StructVar(Var):
     avm_type = AVMType.bytes
 
     def __init__(self, name, struct_name=None) -> None:
         self.name = name
         if struct_name:
             self.struct_name = struct_name
+        # if self.struct_name:
+        #     if self.struct_name not in _structs:
+        #         raise Exception(f"Unknown struct {self.struct_name}")
 
     @property
     def struct(self) -> Struct:
@@ -98,18 +126,23 @@ def get_class_for_type(type_name):
         return IntVar
     elif type_name == "bytes":
         return BytesVar
+    elif type_name == "bigint":
+        return BigIntVar
+    elif type_name == "addr":
+        return AddrVar
     elif m := re.match(r"box<([A-Z][a-zA-Z0-9_]+)>", type_name):
         struct_name = m.groups()[0]
         cls = type(f"BoxVar<{struct_name}>", (BoxVar,), {"struct_name": struct_name})
         return cls
     elif m := re.match(r"([A-Z][a-zA-Z0-9_]+)", type_name):
         struct_name = m.groups()[0]
+        get_struct(struct_name)
         cls = type(
             f"StructVar<{struct_name}>", (StructVar,), {"struct_name": struct_name}
         )
         return cls
     else:
-        raise Exception(f"Unknown type {type_name}")
+        raise KeyError(f"Unknown type {type_name}")
 
 
 # Set of custom defined types

@@ -17,14 +17,13 @@ from .tx_expressions import parse_expression
 from .tealish_builtins import (
     AVMType,
     ObjectType,
-    ScratchVar,
+    Var,
     define_struct,
     get_struct,
     VarType,
     Struct,
     StructField,
     IntVar,
-    BytesVar,
     StructVar,
     BoxVar,
     get_class_for_type,
@@ -317,24 +316,20 @@ class LineStatement(InlineStatement):
             return Blank(line, parent, compiler=compiler)
         elif line.startswith("const "):
             return Const(line, parent, compiler=compiler)
-        elif line.startswith("int "):
-            return IntDeclaration(line, parent, compiler=compiler)
-        elif line.startswith("bytes "):
-            return BytesDeclaration(line, parent, compiler=compiler)
-        elif line.startswith("box<"):
-            return BoxDeclaration(line, parent, compiler=compiler)
-        elif re.match(r"[A-Z][a-zA-Z_0-9]+ [a-zA-Z_0-9]+ = .*", line):
-            return StructDeclaration(line, parent, compiler=compiler)
-        elif re.match(r"[a-z][a-zA-Z_0-9]+\.[a-z][a-zA-Z_0-9]* = .*", line):
-            return StructOrBoxAssignment(line, parent, compiler=compiler)
         elif line.startswith("jump "):
             return Jump(line, parent, compiler=compiler)
         elif line.startswith("return"):
             return Return(line, parent, compiler=compiler)
-        elif " = " in line:
-            return Assignment(line, parent, compiler=compiler)
         elif line.startswith("break"):
             return Break(line, parent, compiler=compiler)
+        elif re.match(r"[A-Za-z][a-zA-Z_0-9]+ [a-zA-Z_0-9]+( = .*)?", line):
+            return VarDeclaration(line, parent, compiler=compiler)
+        elif line.startswith("box<"):
+            return BoxDeclaration(line, parent, compiler=compiler)
+        elif re.match(r"[a-z][a-zA-Z_0-9]+\.[a-z][a-zA-Z_0-9]* = .*", line):
+            return StructOrBoxAssignment(line, parent, compiler=compiler)
+        elif " = " in line:
+            return Assignment(line, parent, compiler=compiler)
         # Statement functions
         elif line.startswith("exit("):
             return Exit(line, parent, compiler=compiler)
@@ -380,7 +375,7 @@ class Blank(LineStatement):
 
 class Const(LineStatement):
     pattern = (
-        r"const (?P<type>\bint\b|\bbytes\b) "
+        r"const (?P<type>\bint\b|\bbytes\b|\bbigint|addr\b) "
         + r"(?P<name>[A-Z][a-zA-Z0-9_]*) = (?P<expression>.*)$"
     )
     type: AVMType
@@ -389,7 +384,11 @@ class Const(LineStatement):
 
     def process(self) -> None:
         scope = self.get_current_scope()
-        scope.declare_const(self.name, (self.type, self.expression.value))
+        try:
+            avm_type = get_class_for_type(self.type).avm_type
+        except KeyError:
+            raise CompileError(f'Unknown type "{self.type}"', node=self)
+        scope.declare_const(self.name, (avm_type, self.expression.value))
 
     def write_teal(self, writer: "TealWriter") -> None:
         pass
@@ -486,19 +485,28 @@ class Assert(LineStatement):
         return f"assert({self.arg.tealish()}{m})\n"
 
 
-class BytesDeclaration(LineStatement):
-    pattern = r"bytes (?P<name>[a-z][a-zA-Z0-9_]*)( = (?P<expression>.*))?$"
+class VarDeclaration(LineStatement):
+    pattern = r"(?P<type_name>[A-Za-z][A-Za-z0-9_]*) (?P<name>[a-z][a-zA-Z0-9_]*)( = (?P<expression>.*))?$"
+    type_name: str
     name: Name
     expression: GenericExpression
 
     def process(self) -> None:
-        self.var = self.declare_var(BytesVar(self.name.value))
+        try:
+            var_cls = get_class_for_type(self.type_name)
+        except KeyError:
+            raise CompileError(f'Unknown type "{self.type_name}"', node=self)
+        self.var = self.declare_scratch_var(var_cls(self.name.value))
         if self.expression:
             self.expression.process()
-            if self.expression.type not in (AVMType.bytes, AVMType.any):
+            if self.expression.type not in (
+                self.var.avm_type,
+                AVMType.any,
+                self.type_name,
+            ):
                 raise CompileError(
-                    "Incorrect type for bytes assignment. "
-                    + f"Expected bytes, got {self.expression.type}",
+                    f"Incorrect type for {self.type_name} assignment. "
+                    + f"Expected {self.type_name}, got {self.expression.type}",
                     node=self,
                 )
 
@@ -509,36 +517,7 @@ class BytesDeclaration(LineStatement):
             writer.write(self, f"store {self.var.slot} // {self.name.value}")
 
     def _tealish(self) -> str:
-        s = f"bytes {self.name.tealish()}"
-        if self.expression:
-            s += f" = {self.expression.tealish()}"
-        return s + "\n"
-
-
-class IntDeclaration(LineStatement):
-    pattern = r"int (?P<name>[a-z][a-zA-Z0-9_]*)( = (?P<expression>.*))?$"
-    name: Name
-    expression: GenericExpression
-
-    def process(self) -> None:
-        self.var = self.declare_var(IntVar(self.name.value))
-        if self.expression:
-            self.expression.process()
-            if self.expression.type not in (AVMType.int, AVMType.any):
-                raise CompileError(
-                    "Incorrect type for int assignment. "
-                    + f"Expected int, got {self.expression.type.avm_type}",
-                    node=self,
-                )
-
-    def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"// {self.line} [slot {self.var.slot}]")
-        if self.expression:
-            writer.write(self, self.expression)
-            writer.write(self, f"store {self.var.slot} // {self.name.value}")
-
-    def _tealish(self) -> str:
-        s = f"int {self.name.tealish()}"
+        s = f"{self.type_name} {self.name.tealish()}"
         if self.expression:
             s += f" = {self.expression.tealish()}"
         return s + "\n"
@@ -1284,7 +1263,7 @@ class ForStatement(InlineStatement):
         return node
 
     def process(self) -> None:
-        self.var = self.declare_var(IntVar(self.var_name))
+        self.var = self.declare_scratch_var(IntVar(self.var_name))
         for n in self.nodes:
             n.process()
         self.del_var(self.var_name)
@@ -1419,7 +1398,7 @@ class Func(InlineStatement):
                 None, [cast(AVMType, s.strip()) for s in self.return_type.split(",")]
             )
         )
-        self.vars: Dict[str, ScratchVar] = {}
+        self.vars: Dict[str, Var] = {}
 
     @classmethod
     def consume(cls, compiler: "TealishCompiler", parent: Optional[Node]) -> "Func":
@@ -1439,8 +1418,11 @@ class Func(InlineStatement):
 
     def process(self) -> None:
         for (name, type) in self.args.args[::-1]:
-            var_cls = get_class_for_type(type)
-            self.vars[name] = self.declare_var(var_cls(name))
+            try:
+                var_cls = get_class_for_type(type)
+            except KeyError:
+                raise CompileError(f'Unknown type "{type}"', node=self)
+            self.vars[name] = self.declare_scratch_var(var_cls(name))
         for node in self.nodes:
             node.process()
 
@@ -1608,43 +1590,6 @@ class StructDefinition(InlineStatement):
         return output
 
 
-class StructDeclaration(LineStatement):
-    pattern = (
-        r"(?P<struct_name>[A-Z][a-zA-Z0-9_]*) "
-        + r"(?P<name>[a-z][a-zA-Z0-9_]*)( = (?P<expression>.*))?$"
-    )
-    struct_name: str
-    name: Name
-    expression: GenericExpression
-
-    def process(self) -> None:
-        self.var = self.declare_var(StructVar(self.name.value, self.struct_name))
-        if self.expression:
-            self.expression.process()
-            if self.expression.type not in (
-                AVMType.bytes,
-                AVMType.any,
-                self.struct_name,
-            ):
-                raise CompileError(
-                    "Incorrect type for struct assignment. "
-                    + f"Expected bytes, got {self.expression.type}",
-                    node=self,
-                )
-
-    def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"// {self.line} [slot {self.var.slot}]")
-        if self.expression:
-            writer.write(self, self.expression)
-            writer.write(self, f"store {self.var.slot} // {self.name.value}")
-
-    def _tealish(self) -> str:
-        s = f"{self.struct_name} {self.name.tealish()}"
-        if self.expression:
-            s += f" = {self.expression.tealish()}"
-        return s + "\n"
-
-
 class StructOrBoxAssignment(LineStatement):
     pattern = (
         r"(?P<name>[a-z][a-zA-Z0-9_]*).(?P<field_name>[a-z][a-zA-Z0-9_]*)"
@@ -1728,7 +1673,7 @@ class BoxDeclaration(LineStatement):
     def process(self):
         self.struct = get_struct(self.struct_name)
         self.box_size = self.struct.size
-        self.var = self.declare_var(BoxVar(self.name.value, self.struct_name))
+        self.var = self.declare_scratch_var(BoxVar(self.name.value, self.struct_name))
         self.key.process()
         if self.key.type not in (AVMType.bytes, AVMType.any):
             raise CompileError(

@@ -123,7 +123,7 @@ class TestFields(unittest.TestCase):
 
     def test_group_index_var(self):
         scope = Scope()
-        scope.declare_var(IntVar("index"))
+        scope.declare_scratch_var(IntVar("index"))
         teal = compile_expression_min("Gtxn[index].TypeEnum", scope=scope)
         self.assertListEqual(teal, ["load 0", "gtxns TypeEnum"])
 
@@ -700,7 +700,7 @@ class TestOperators(unittest.TestCase):
 
     def test_unary_variable(self):
         scope = Scope()
-        scope.declare_var(IntVar("x"))
+        scope.declare_scratch_var(IntVar("x"))
         teal = compile_expression_min("!x", scope=scope)
         self.assertEqual(
             teal,

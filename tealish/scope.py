@@ -5,7 +5,7 @@ if TYPE_CHECKING:
     from .tealish_builtins import (
         AVMType,
         ConstValue,
-        ScratchVar,
+        Var,
     )
     from .nodes import Func, Block
 
@@ -20,7 +20,7 @@ class Scope:
         self.name = name
         self.parent = parent_scope
 
-        self.slots: Dict[str, "ScratchVar"] = {}
+        self.slots: Dict[str, "Var"] = {}
         self.slot_range: Tuple[int, int] = (
             slot_range if slot_range is not None else (0, 200)
         )
@@ -40,9 +40,9 @@ class Scope:
             raise KeyError(f'Func "{name}" not declared in current scope')
         return self.functions[name]
 
-    def declare_var(
+    def declare_scratch_var(
         self,
-        var: "ScratchVar",
+        var: "Var",
         max_slot: Optional[int] = None,
     ) -> int:
         if var.name in self.slots:
@@ -52,7 +52,7 @@ class Scope:
         self.slots[var.name] = var
         return var
 
-    def lookup_var(self, name: str) -> "ScratchVar":
+    def lookup_var(self, name: str) -> "Var":
         if name not in self.slots:
             raise KeyError(f'Var "{name}" not declared in current scope')
         return self.slots[name]
