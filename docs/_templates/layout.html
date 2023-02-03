@@ -43,13 +43,6 @@
 
 {# Nav should appear before content, not after #}
 {%- block content %}
-<figure class="homepage-tealish-cannister">
-  <img
-    src="{{ pathto('_static/image/tealish-cannister.png', 1) }}"
-    alt="Tealish cannister"
-  />
-</figure>
-
 {%- if theme_fixed_sidebar|lower == 'true' %}
   <div class="document">
 
@@ -111,6 +104,13 @@
               </div>
             {%- endif %}
           {% endblock %}
+
+          <figure class="homepage-tealish-cannister">
+            <img
+              src="{{ pathto('_static/image/tealish-cannister.png', 1) }}"
+              alt="Tealish cannister"
+            />
+          </figure>
 
           <div class="body" role="main">
             {% block body %} {% endblock %}

@@ -56,6 +56,9 @@ a.headerlink:focus {
 }
 
 .rolling-text {
+  position: absolute;
+  top: 0;
+  z-index: 1;
   white-space: nowrap;
 }
 
@@ -79,6 +82,8 @@ a.headerlink:focus {
 }
 
 .bodywrapper .body {
+  position: relative;
+
   margin: 68px auto 0;
 }
 
@@ -87,7 +92,8 @@ a.headerlink:focus {
 }
 
 .homepage-tealish-cannister {
-  position: fixed;
+  position: absolute;
+  top: 0;
   left: 50%;
   z-index: 0;
   transform: translateX(-50%);
