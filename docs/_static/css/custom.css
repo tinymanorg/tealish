@@ -53,13 +53,8 @@ a.headerlink:focus {
 .document {
   position: relative;
   z-index: 1;
-}
 
-.rolling-text {
-  position: absolute;
-  top: 0;
-  z-index: 1;
-  white-space: nowrap;
+  overflow: hidden;
 }
 
 .sticky {

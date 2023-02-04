@@ -45,16 +45,12 @@
 {%- block content %}
 {%- if theme_fixed_sidebar|lower == 'true' %}
   <div class="document">
-
-
-    <div class="rolling-text">
-      ////// powered by tinyman ////// readable and auditable ////// a readable
-      language for algorand ////// powered by tinyman ////// readable and
-      auditable ////// a readable language for algorand ////// powered by tinyman
-      ////// readable and auditable ////// a readable language for algorand //////
-      powered by tinyman ////// readable and auditable ////// a readable language
-      for algorand ////// powered by tinyman ////// readable and auditable //////
-      a readable language for algorand
+    <div id="rolling-content">
+      <ul class="rolling-content__list">
+        <li>powered by tinyman</li>
+        <li>readable and auditable</li>
+        <li>a readable language for algorand</li>
+      </ul>
     </div>
 
     <div class="documentwrapper">

@@ -39,11 +39,13 @@ html_css_files = [
   'css/right-column.css',
   'css/searchbox.css',
   'css/search-results.css',
-  'css/responsive.css'
+  'css/rolling-content.css',
+  'css/responsive.css',
 ]
 
 html_js_files = [
     'js/custom.js',
+    'js/rolling-text.js',
 ]
 
 # html_sidebars = {'**': ['localtoc.html', 'relations.html', 'sourcelink.html', 'searchbox.html']}
