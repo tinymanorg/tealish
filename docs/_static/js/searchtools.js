@@ -579,7 +579,8 @@ const Search = {
     const tail = startWithContext + 240 < text.length ? "..." : "";
 
     let summary = document.createElement("p");
-    summary.classList.add("search-results__item__description context");
+    summary.classList.add("search-results__item__description");
+    summary.classList.add("context");
     summary.textContent =
       top + text.substr(startWithContext, 240).trim() + tail;
 
