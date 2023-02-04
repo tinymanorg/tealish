@@ -130,3 +130,41 @@ a.headerlink:focus {
 
   font-size: 24px;
 }
+
+.index-page-content-links {
+  margin: 36px 0;
+}
+
+.index-page-content-links li {
+  border-bottom: 1px solid #000000;
+}
+
+.index-page-content-links li:first-of-type {
+  border-top: 1px solid #000000;
+}
+
+.index-page-content-links li p {
+  margin: 0;
+}
+
+.index-page-content-links a {
+  display: block;
+
+  width: 100%;
+
+  padding: 24px 0;
+
+  font-family: "tiny", monospace;
+  font-size: 36px;
+  font-weight: 400;
+  line-height: 80%;
+  letter-spacing: -0.03em;
+}
+
+.index-page-content-links a::before {
+  content: "→";
+
+  display: inline-block;
+
+  margin-right: 8px;
+}

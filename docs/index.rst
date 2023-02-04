@@ -21,17 +21,19 @@ A simple example demonstrating assertions, state, if statements and inner transa
 
 .. literalinclude:: ../examples/counter_prize/counter_prize.tl
 
-.. rst-class:: barlow-18
 
 Tealish transpiles to Teal rather than compiling directly to AVM bytecode. The produced Teal is as close to handwritten idiomatic Teal as possible. The original source Tealish (including comments) is included as comments in the generated Teal. The generated Teal is intended to be readable and auditable. The generated Teal should not be surprising - the Tealish writer should be able to easily imagine the generated Teal.
 
-.. rst-class:: barlow-18
 
 Tealish is not a general purpose programming language. It is designed specifically for writing contracts for the AVM, optimizing for common patterns.
 
+.. rst-class:: index-page__content-links
+
 * :ref:`quick_start`
 * `Presentation <https://youtu.be/R9oKjwSYuXM>`_
+* `Community <https://discord.com/channels/491256308461207573/1067861991982649404>`_
 
+Tealish language is built and maintained by the Tinyman core team for the entire Algorand ecosystem.
 
 .. toctree::
    :maxdepth: 2
