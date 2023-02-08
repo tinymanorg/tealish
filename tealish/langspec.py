@@ -4,16 +4,16 @@ import requests
 import tealish
 import json
 from .tealish_builtins import constants, AVMType
-from typing import List, Dict, Any, Tuple, Optional
+from typing import List, Dict, Any, Tuple, Optional, cast
 
 abc = "ABCDEFGHIJK"
 
 
 _opcode_type_map = {
-    ".": AVMType.any,
-    "B": AVMType.bytes,
-    "U": AVMType.int,
-    "": AVMType.none,
+    "any": AVMType.any,
+    "[]byte": AVMType.bytes,
+    "uint64": AVMType.int,
+    "none": AVMType.none,
 }
 
 
@@ -21,8 +21,90 @@ def type_lookup(a: str) -> AVMType:
     return _opcode_type_map[a]
 
 
-def convert_args_to_types(args: str) -> List[AVMType]:
-    return [type_lookup(args[idx]) for idx in range(len(args))]
+def convert_args_to_types(
+    args: List[str], stack_types: Dict[str, "StackType"]
+) -> List[AVMType]:
+    arg_types: List[AVMType] = []
+    for arg in args:
+        if arg in _opcode_type_map:
+            arg_types.append(_opcode_type_map[arg])
+        elif arg in stack_types:
+            arg_types.append(stack_types[arg].type)
+    return arg_types
+
+
+class StackType:
+    """
+    StackType represents a named and possibly value or length bound datatype
+    """
+
+    #: the avm base type ([]byte, uint64, any, none)
+    type: AVMType
+    #: if set, defines the min/max length of this type
+    length_bound: Optional[Tuple[int, int]]
+    #: if set, defines the min/max value of this type
+    value_bound: Optional[Tuple[int, int]]
+
+    def __init__(self, details: Dict[str, Any]):
+        self.type = type_lookup(details["Type"])
+        self.length_bound = details.get("LengthBound", None)
+        self.value_bound = details.get("ValueBound", None)
+
+
+class FieldGroupValue:
+    """
+    FieldGroupValue represents a single element of a FieldGroup which describes
+    the possible values for immediate arguments
+    """
+
+    #: the human readable name for this field group value
+    name: str
+    #: the stack type returned by this field group value
+    type: str
+    #: a documentation string describing this field group value
+    note: str
+    #: the integer value to use when encoding this field group value
+    value: int
+
+    def __init__(self, v: Dict[str, Any]):
+        self.name = v["Name"]
+        self.type = v["Type"]
+        self.note = v.get("Note", "")
+        self.value = v["Value"]
+
+
+class FieldGroup:
+    """
+    FieldGroup represents the full set of FieldEnumValues for a given Field
+    """
+
+    #: set of values this FieldGroup contains
+    values: List[FieldGroupValue]
+
+    def __init__(self, vals: List[Dict[str, Any]]):
+        self.values = [FieldGroupValue(val) for val in vals]
+
+
+class ImmediateDetails:
+    """
+    ImmediateDetails represents the details for the immediate arguments to
+    a given Op
+    """
+
+    #: Some extra text descriptive information
+    comment: str
+    #: The encoding to use in bytecode for this argument type
+    encoding: str
+    #: The name of the argument given by the op spec
+    name: str
+    #: If set, refers to the FieldGroup this immediate belongs to
+    reference: str
+
+    def __init__(self, details: Dict[str, Any]):
+        self.comment = details["Comment"]
+        self.encoding = details["Encoding"]
+        self.name = details["Name"]
+        self.reference: str = details.get("Reference", "")
 
 
 class Op:
@@ -33,23 +115,17 @@ class Op:
     #: identifier used when writing into the TEAL source program
     name: str
     #: list of arg types this op takes off the stack, encoded as a string
-    args: str
+    args: List[str]
     #: decoded list of incoming args
     arg_types: List[AVMType]
     #: list of arg types this op puts on the stack, encoded as a string
-    returns: str
+    returns: List[str] 
     #: decoded list of outgoing args
     returns_types: List[AVMType]
     #: how many bytes this opcode takes up when assembled
     size: int
     #: describes the args to be passed as immediate arguments to this op
-    immediate_note: str
-    #: describes the list of names that can be used as immediate arguments
-    arg_enum: List[str]
-    #: describes the types returned when each arg enum is used
-    arg_enum_types: List[AVMType]
-    #: dictionary mapping the names in arg_enum to types in arg_enum_types
-    arg_enum_dict: Dict[str, AVMType]
+    immediate_args: List[ImmediateDetails]
 
     #: informational string about the op
     doc: str
@@ -61,73 +137,72 @@ class Op:
     #: inferred method signature
     sig: str
 
-    def __init__(self, op_def: Dict[str, Any]):
-        self.opcode = op_def["Opcode"]
+    def __init__(self, op_def: Dict[str, Any], stack_types: Dict[str, StackType]):
+        self.opcode = op_def.get("Opcode", 0)
         self.name = op_def["Name"]
         self.size = op_def["Size"]
-        self.immediate_args_num = self.size - 1
 
+        self.immediate_args = []
+        if "ImmediateDetails" in op_def:
+            self.immediate_args = [
+                ImmediateDetails(id) for id in op_def["ImmediateDetails"]
+            ]
+
+        self.args = []
+        self.arg_types = []
         if "Args" in op_def:
-            self.args = op_def["Args"]
-            self.arg_types = convert_args_to_types(self.args)
-        else:
-            self.args = ""
-            self.arg_types = []
+            self.args: List[str] = op_def["Args"]
+            self.arg_types: List[AVMType] = convert_args_to_types(
+                self.args, stack_types
+            )
 
+        self.returns = []
+        self.returns_types = []
         if "Returns" in op_def:
             self.returns = op_def["Returns"]
-            self.returns_types = convert_args_to_types(self.returns)
-        else:
-            self.returns = ""
-            self.returns_types = []
-
-        if "ImmediateNote" in op_def:
-            self.immediate_note = op_def["ImmediateNote"]
-        else:
-            self.immediate_note = ""
-
-        if "ArgEnum" in op_def:
-            self.arg_enum = op_def["ArgEnum"]
-            if "ArgEnumTypes" in op_def:
-                self.arg_enum_types = convert_args_to_types(op_def["ArgEnumTypes"])
-            else:
-                self.arg_enum_types = [AVMType.int] * len(self.arg_enum)
-            self.arg_enum_dict = dict(zip(self.arg_enum, self.arg_enum_types))
-        else:
-            self.arg_enum = []
-            self.arg_enum_types = []
-            self.arg_enum_dict = {}
+            self.returns_types = convert_args_to_types(self.returns, stack_types)
 
         self.doc = op_def.get("Doc", "")
         self.doc_extra = op_def.get("DocExtra", "")
-        self.groups = op_def.get("groups", [])
+        self.groups = op_def.get("Groups", [])
 
         arg_list = [f"{abc[i]}: {t}" for i, t in enumerate(self.arg_types)]
-        if len(self.arg_enum) > 0:
-            arg_list = ["F: field"] + arg_list
-        elif self.immediate_args_num > 0:
-            arg_list = (["i: int"] * self.immediate_args_num) + arg_list
+        if len(self.immediate_args) > 0:
+            arg_list = [
+                f"{imm.name}: {imm.encoding}" for imm in self.immediate_args
+            ] + arg_list
 
         arg_string = ", ".join(arg_list)
 
         self.sig = f"{self.name}({arg_string})"
         if len(self.returns_types) > 0:
-            self.sig += ", ".join(self.returns_types)
+            self.sig += " " + ", ".join(self.returns_types)
 
 
 class LangSpec:
     def __init__(self, spec: Dict[str, Any]) -> None:
         self.is_packaged = False
         self.spec = spec
-        self.ops: Dict[str, Op] = {op["Name"]: Op(op) for op in spec["Ops"]}
+        self.stack_types: Dict[str, StackType] = {
+            name: StackType(st)
+            for name, st in cast(Dict[str, Any], spec["StackTypes"]).items()
+        }
+        # TODO: add pseudo ops to all ops
+        #self.pseudo_ops: Dict[str, Op] = {
+        #    op["Name"]: Op(op) for op in spec["PseudoOps"]
+        #}
 
-        self.fields: Dict[str, Any] = {
-            "Global": self.ops["global"].arg_enum_dict,
-            "Txn": self.ops["txn"].arg_enum_dict,
+        self.ops: Dict[str, Op] = {
+            op["Name"]: Op(op, self.stack_types) for op in spec["Ops"]
+        } 
+
+        self.fields: Dict[str, FieldGroup] = {
+            name: FieldGroup(value)
+            for name, value in cast(Dict[str, Any], spec["Fields"]).items()
         }
 
-        self.global_fields = self.fields["Global"]
-        self.txn_fields = self.fields["Txn"]
+        self.global_fields = self.fields["global"]
+        self.txn_fields = self.fields["txn"]
 
     def as_dict(self) -> Dict[str, Any]:
         return self.spec
@@ -140,6 +215,9 @@ class LangSpec:
         if name not in self.ops:
             raise KeyError(f'Op "{name}" does not exist!')
         return self.ops[name]
+
+    def lookup_type(self, type: str) -> AVMType:
+        return self.stack_types[type].type
 
     def lookup_avm_constant(self, name: str) -> Tuple[AVMType, Any]:
         if name not in constants:

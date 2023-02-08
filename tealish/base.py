@@ -148,6 +148,9 @@ class BaseNode:
     def lookup_op(self, name: str) -> Op:
         return lang_spec.lookup_op(name)
 
+    def lookup_type(self, type: str) -> AVMType:
+        return lang_spec.lookup_type(type)
+
     def lookup_func(self, name: str) -> "Func":
         return self.get_scope().lookup_func(name)
 

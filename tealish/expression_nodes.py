@@ -3,7 +3,7 @@ from typing import List, Optional, Union, TYPE_CHECKING
 from .base import BaseNode
 from .errors import CompileError
 from .tealish_builtins import AVMType, get_struct
-from .langspec import Op, type_lookup
+from .langspec import Op
 
 
 if TYPE_CHECKING:
@@ -107,7 +107,7 @@ class UnaryOp(BaseNode):
         self.a.process()
         self.check_arg_types(self.op, [self.a])
         op = self.lookup_op(self.op)
-        self.type = type_lookup(op.returns)
+        self.type = self.lookup_type(op.returns)
 
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, self.a)
@@ -132,7 +132,7 @@ class BinaryOp(BaseNode):
         self.b.process()
         self.check_arg_types(self.op, [self.a, self.b])
         op = self.lookup_op(self.op)
-        self.type = type_lookup(op.returns)
+        self.type = self.lookup_type(op.returns)
 
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, self.a)
