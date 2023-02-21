@@ -39,7 +39,6 @@ class Node(BaseNode):
         parent: Optional["Node"] = None,
         compiler: Optional["TealishCompiler"] = None,
     ) -> None:
-
         self.parent = parent
 
         if self.parent is not None:
@@ -69,7 +68,6 @@ class Node(BaseNode):
         for name, expr_class in type_hints.items():
             if name in self.raw_tokens:
                 try:
-
                     if self.raw_tokens[name] is not None and hasattr(
                         expr_class, "parse"
                     ):
@@ -192,7 +190,6 @@ class Name(Expression):
 
 
 class GenericExpression(Expression):
-
     # TODO: never set?
     type: str
 
@@ -818,7 +815,6 @@ class InnerTxn(InlineStatement):
                 if n == index:
                     self.array_fields[node.field_name].append(node)
                 else:
-
                     # TODO: this is required since the Node base class
                     # accepts an Optional compiler.
                     # I think this is wrong but will circle back
@@ -1424,7 +1420,7 @@ class Func(InlineStatement):
         return func
 
     def process(self) -> None:
-        for (name, type) in self.args.args[::-1]:
+        for name, type in self.args.args[::-1]:
             self.slots[name] = self.declare_var(name, type)
         for node in self.nodes:
             node.process()

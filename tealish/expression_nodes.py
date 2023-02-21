@@ -175,7 +175,6 @@ class FunctionCall(BaseNode):
         self.immediate_args = ""
 
     def process(self) -> None:
-
         if self.name in ("error", "push", "pop"):
             return self.process_special_call()
 
