@@ -29,7 +29,7 @@ item1.name = "xyz"
 assert(item1.id > 0)
 log(item1.name)
 
-# Delcaration without assignment
+# Declaration without assignment
 int balance
 int exists
 # Multiple assignment

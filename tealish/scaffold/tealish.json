@@ -1,0 +1,8 @@
+{
+    "directories": {
+        "build": "build",
+        "contracts": "contracts",
+        "tests": "tests",
+        "util": "util"
+    }
+}

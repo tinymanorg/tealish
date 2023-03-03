@@ -1,5 +1,7 @@
 import json
+from os import getcwd
 import pathlib
+from shutil import copytree
 import click
 from typing import List, Optional, Tuple, IO
 from tealish import compile_program, reformat_program
@@ -26,8 +28,15 @@ def _build(
     else:
         paths = [path]
 
+    config_file = pathlib.Path(getcwd()) / "tealish.json"
+    if config_file.exists():
+        with open(config_file) as f:
+            build_path: str = json.load(f)["directories"]["build"]
+            output_path = pathlib.Path(getcwd()) / build_path
+    else:
+        output_path = pathlib.Path(paths[0]).parent / "build"
+
     for path in paths:
-        output_path = pathlib.Path(path).parent / "build"
         output_path.mkdir(exist_ok=True)
         filename = pathlib.Path(path).name
         base_filename = filename.replace(".tl", "")
@@ -81,6 +90,25 @@ def _build(
                 f.write(json.dumps(tealish_map.as_dict()).replace("],", "],\n"))
 
 
+def _create_project(
+    project_name: str,
+    quiet: bool = False,
+) -> None:
+    project_path = pathlib.Path(getcwd()) / project_name
+
+    if not quiet:
+        click.echo(
+            f"Starting a new Tealish project named \"{project_name}\" with example app, test, util functions, and config..."
+        )
+    
+    copytree(pathlib.Path(__file__).parent / "scaffold", project_path, ignore=lambda x,y: ["__pycache__"])
+
+    if not quiet:
+        click.echo(
+            f"Done - project \"{project_name}\" is ready for take off!"
+        )
+
+
 def _compile_program(source: str) -> Tuple[List[str], TealishMap]:
     try:
         teal, map = compile_program(source)
@@ -98,6 +126,14 @@ def cli(ctx: click.Context, quiet: bool) -> None:
     "Tealish Compiler & Tools"
     ctx.ensure_object(dict)
     ctx.obj["quiet"] = quiet
+
+
+@click.command()
+@click.argument("project_name", type=str)
+@click.pass_context
+def start(ctx: click.Context, project_name: str):
+    """Start a new Tealish project"""
+    _create_project(project_name, quiet=ctx.obj["quiet"])
 
 
 @click.command()
@@ -218,6 +254,7 @@ langspec.add_command(langspec_update, "update")
 langspec.add_command(langspec_fetch, "fetch")
 langspec.add_command(langspec_diff, "diff")
 
+cli.add_command(start)
 cli.add_command(compile)
 cli.add_command(build)
 cli.add_command(format)
