@@ -16,6 +16,9 @@ from tealish.build import assemble_with_goal, assemble_with_algod
 from tealish.utils import TealishMap
 
 
+CONFIG_FILE_NAME = "tealish.json"
+
+
 def _build(
     path: pathlib.Path,
     assembler: Optional[str] = None,
@@ -28,12 +31,11 @@ def _build(
     else:
         paths = [path]
 
-    config_file = pathlib.Path(getcwd()) / "tealish.json"
-    if config_file.exists():
-        with open(config_file) as f:
+    try:
+        with open(pathlib.Path(getcwd()) / CONFIG_FILE_NAME) as f:
             build_path: str = json.load(f)["directories"]["build"]
             output_path = pathlib.Path(getcwd()) / build_path
-    else:
+    except (OSError, KeyError):
         output_path = pathlib.Path(paths[0]).parent / "build"
 
     for path in paths:
