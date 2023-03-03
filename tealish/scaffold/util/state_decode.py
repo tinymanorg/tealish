@@ -1,5 +1,5 @@
-# From the Beaker framework
-# https://github.com/algorand-devrel/beaker
+# From the Beaker framework (https://github.com/algorand-devrel/beaker)
+# Very useful for decoding key/value pairs like global and local storage
 
 from base64 import b64decode
 from typing import Any
