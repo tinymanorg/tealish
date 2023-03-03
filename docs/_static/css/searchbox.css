@@ -34,6 +34,9 @@
   background: transparent;
   border: none;
   outline: none;
+
+  font-family: "Barlow", sans-serif;
+  font-size: 15px;
 }
 
 .search-input__submit-button {
