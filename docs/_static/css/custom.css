@@ -64,13 +64,14 @@ a.headerlink:focus {
   display: grid;
   justify-content: space-between;
   grid-template-columns: 220px 1fr 220px;
-  gap: 64px;
+  gap: 24px;
 
   padding: 45px 48px 0;
 }
 
 .bodywrapper {
-  max-width: 556px;
+  width: 100%;
+  max-width: 720px;
   margin: 0 auto;
 }
 
