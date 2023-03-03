@@ -34,7 +34,9 @@
 }
 
 ul .toctree-l2 {
-  line-height: 23px;
+  margin-bottom: 8px;
+
+  line-height: 24px;
 }
 
 .social-links {

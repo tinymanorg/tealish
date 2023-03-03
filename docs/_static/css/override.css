@@ -78,7 +78,7 @@ ul {
 }
 
 ul ul {
-  margin: 4px 0 10px;
+  margin: 8px 0 12px;
 
   padding-inline-start: 11px;
 }
@@ -90,7 +90,11 @@ li {
 
 ul li {
   font-size: 18px;
-  line-height: 1.5;
+  line-height: 1.7;
+}
+
+ul li:last-of-type {
+  margin-bottom: 0px;
 }
 
 dl {
