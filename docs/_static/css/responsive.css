@@ -9,12 +9,6 @@
   gap: 8px;
 }
 
-.mobile-header__buttons {
-  display: grid;
-  grid-template-columns: auto auto;
-  gap: 16px;
-}
-
 #sidebar__overlay {
   position: fixed;
   top: 0;
@@ -152,10 +146,6 @@
 }
 
 @media screen and (max-width: 620px) {
-  .mobile-header__buttons {
-    display: block;
-  }
-
   .mobile-header .github-button {
     display: none;
   }
