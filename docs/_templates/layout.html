@@ -54,43 +54,36 @@
     </div>
 
     <div class="documentwrapper">
-      <div class="mobile-header">
-        <a href="{{ pathto(root_doc)|e }}" class="logo-link">
-          <img
-            src="{{ pathto('_static/image/tealish-logo.png', 1) }}"
-            alt="Tealish logo"
-            class="logo logo-green"
-          />
-      
-          <img
-            src="{{ pathto('_static/image/tealish-logo-white.png', 1) }}"
-            alt="Tealish logo"
-            class="logo logo-white"
-          />
-        </a>
-
-        <div class="mobile-header__buttons">
-          <button id="contents-menu-button">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path fill-rule="evenodd" clip-rule="evenodd" d="M1 2H15V4H1V2ZM1 7H15V9H1V7ZM15 12H1V14H15V12Z" fill="currentColor"/>
-            </svg>
-            Contents
-          </button>
-
-          <a
-            href="https://github.com/tinymanorg/tealish"
-            target="_blank"
-            class="github-button">
-            Go to Tealish GitHub
-          </a>
-        </div>
-      </div>
-
       {{ sidebar() }}
 
       {%- block document %}
         <div class="bodywrapper">
           {%- include "searchbox.html" %}
+
+          <div class="mobile-header">
+            <a href="{{ pathto(root_doc)|e }}" class="logo-link">
+              <img
+                src="{{ pathto('_static/image/tealish-logo.png', 1) }}"
+                alt="Tealish logo"
+                class="logo logo-green"
+              />
+          
+              <img
+                src="{{ pathto('_static/image/tealish-logo-white.png', 1) }}"
+                alt="Tealish logo"
+                class="logo logo-white"
+              />
+            </a>
+    
+            <div class="mobile-header__buttons">
+              <button id="contents-menu-button">
+                Contents
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path fill-rule="evenodd" clip-rule="evenodd" d="M1 2H15V4H1V2ZM1 7H15V9H1V7ZM15 12H1V14H15V12Z" fill="currentColor"/>
+                </svg>
+              </button>
+            </div>
+          </div>
 
           {%- block relbar_top %}
             {%- if theme_show_relbar_top|tobool %}

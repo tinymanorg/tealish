@@ -44,8 +44,15 @@ search box. :copyright: Copyright 2007-2023 by the Sphinx team, see AUTHORS.
       />
     </form>
   </div>
+
+
+  <button id="contents-menu-button">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M1 2H15V4H1V2ZM1 7H15V9H1V7ZM15 12H1V14H15V12Z" fill="currentColor"/>
+    </svg>
+  </button>
 </div>
 <script>
-  document.getElementById("searchbox").style.display = "block";
+  document.getElementById("searchbox").style.display = "flex";
 </script>
 {%- endif %}

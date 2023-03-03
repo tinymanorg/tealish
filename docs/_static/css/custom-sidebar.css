@@ -1,3 +1,8 @@
+.sphinxsidebar {
+  position: relative;
+  z-index: 1;
+}
+
 .sphinxsidebarwrapper,
 .sidebar-container {
   height: 100%;

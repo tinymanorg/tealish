@@ -1,13 +1,31 @@
 .search-input-container {
   z-index: 2;
 
+  display: flex;
+  align-items: center;
+  gap: 16px;
+
   width: calc(100% + 30px);
 
   transform: translateX(-15px);
 }
 
-.search-input-container form {
+.searchformwrapper {
   width: 100%;
+}
+
+.search-input-container #contents-menu-button {
+  width: 50px;
+  height: 50px;
+  flex: 0 0 50px;
+
+  display: none;
+  justify-content: center;
+  gap: 0;
+
+  background: rgba(111, 111, 111, 0.5);
+  backdrop-filter: blur(8px);
+  border-radius: 8px;
 }
 
 .search-input-label {
