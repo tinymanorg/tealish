@@ -8,11 +8,9 @@ from typing import Any
 def decode_state(
     state: list[dict[str, Any]], raw=False
 ) -> dict[str | bytes, bytes | str | int | None]:
-
     decoded_state: dict[str | bytes, bytes | str | int | None] = {}
 
     for sv in state:
-
         raw_key = b64decode(sv["key"])
 
         key: str | bytes = raw_key if raw else _str_or_hex(raw_key)

@@ -16,7 +16,7 @@ def create_new_funded_account() -> tuple[str, AccountTransactionSigner]:
     private, address = generate_account()
     transaction_signer = AccountTransactionSigner(private)
     _fund_account(address)
-    
+
     return address, transaction_signer
 
 

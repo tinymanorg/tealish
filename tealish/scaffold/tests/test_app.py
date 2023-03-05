@@ -1,5 +1,5 @@
 from base64 import b64decode
-from  unittest import TestCase
+from unittest import TestCase
 
 from algosdk.atomic_transaction_composer import (
     AtomicTransactionComposer,

@@ -26,8 +26,8 @@ def deploy_app(
     global_schema: StateSchema,
     local_schema: StateSchema,
 ) -> tuple[int, str]:
-    with open(build_path / approval_name, "r") as approval:
-        with open(build_path / clear_name, "r") as clear:
+    with open(build_path / approval_name) as approval:
+        with open(build_path / clear_name) as clear:
             address = address_from_private_key(txn_signer.private_key)
 
             atc = AtomicTransactionComposer()

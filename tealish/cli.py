@@ -32,6 +32,8 @@ def _build(
         paths = [path]
 
     try:
+        # Assumes that build is being called from root directory.
+        # TODO: change to walk up the dir tree until config file is found.
         with open(pathlib.Path(getcwd()) / CONFIG_FILE_NAME) as f:
             build_path: str = json.load(f)["directories"]["build"]
             output_path = pathlib.Path(getcwd()) / build_path
@@ -94,21 +96,31 @@ def _build(
 
 def _create_project(
     project_name: str,
+    template: str,
     quiet: bool = False,
 ) -> None:
     project_path = pathlib.Path(getcwd()) / project_name
 
     if not quiet:
         click.echo(
-            f"Starting a new Tealish project named \"{project_name}\" with example app, test, util functions, and config..."
+            f'Starting a new Tealish project named "{project_name}" with {template} template...'
         )
-    
-    copytree(pathlib.Path(__file__).parent / "scaffold", project_path, ignore=lambda x,y: ["__pycache__"])
+
+    # Only pure algosdk implementation for now.
+    # Can have other templates in the future like Algojig, Beaker, etc.
+    if template == "algosdk":
+        # Relies on the template project being in Tealish package.
+        # Not ideal as they would all be downloaded when Tealish is downloaded.
+        # Templates should rather be in their own repositories and separately maintained.
+        # TODO: change to pulling from GitHub.
+        copytree(
+            pathlib.Path(__file__).parent / "scaffold",
+            project_path,
+            ignore=lambda x, y: ["__pycache__"],
+        )
 
     if not quiet:
-        click.echo(
-            f"Done - project \"{project_name}\" is ready for take off!"
-        )
+        click.echo(f'Done - project "{project_name}" is ready for take off!')
 
 
 def _compile_program(source: str) -> Tuple[List[str], TealishMap]:
@@ -132,10 +144,13 @@ def cli(ctx: click.Context, quiet: bool) -> None:
 
 @click.command()
 @click.argument("project_name", type=str)
+@click.option(
+    "--template", type=click.Choice(["algosdk"], case_sensitive=False), required=True
+)
 @click.pass_context
-def start(ctx: click.Context, project_name: str):
+def start(ctx: click.Context, project_name: str, template: str):
     """Start a new Tealish project"""
-    _create_project(project_name, quiet=ctx.obj["quiet"])
+    _create_project(project_name, template, quiet=ctx.obj["quiet"])
 
 
 @click.command()
