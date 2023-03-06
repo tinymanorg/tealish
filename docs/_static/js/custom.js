@@ -1,17 +1,6 @@
 "use strict";
 
 (function () {
-  const documentElement = document.documentElement;
-  const currentPath = window.location.pathname;
-  const indexHtmlFileName = "index.html";
-
-  if (
-    currentPath.slice(currentPath.length - indexHtmlFileName.length) ===
-    indexHtmlFileName
-  ) {
-    documentElement.classList.add("index-page");
-  }
-
   // as the script is added to the head, we need to wait until the dom is loaded
   window.addEventListener("DOMContentLoaded", () => {
     // sidebar toggle for smaller screens

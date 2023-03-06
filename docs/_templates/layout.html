@@ -10,6 +10,14 @@
     <link rel="canonical" href="{{ theme_canonical_url }}{{ pagename }}.html"/>
   {% endif %}
   <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  {% if pagename == "index" %}
+  <script type="text/javascript">
+    // We override a bunch of stuff in CSS for the index page
+    document.documentElement.classList.add("index-page");
+  </script>
+  {% endif %}
+
 {% endblock %}
 
 {# top+bottom related navs; we also have our own in sidebar #}
