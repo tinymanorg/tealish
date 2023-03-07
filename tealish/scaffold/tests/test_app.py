@@ -25,8 +25,8 @@ class TestApp(TestCase):
 
         self.app_id, self.app_address = deploy_app(
             self.manager_txn_signer,
-            "app.teal",
-            "clear.teal",
+            "example/approval.teal",
+            "example/clear.teal",
             algod_client.suggested_params(),
             StateSchema(num_uints=0, num_byte_slices=0),
             StateSchema(num_uints=0, num_byte_slices=0),

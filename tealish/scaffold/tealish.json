@@ -1,5 +1,6 @@
 {
     "directories": {
-        "build": "build"
+        "build": "build",
+        "contracts": "contracts"
     }
 }
