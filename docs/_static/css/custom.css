@@ -6,7 +6,8 @@
   display: block;
 }
 
-.menu-open body {
+.menu-open body,
+.menu-open .bodywrapper .body {
   overflow: hidden;
 }
 
