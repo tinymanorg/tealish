@@ -6,6 +6,10 @@
   display: block;
 }
 
+.menu-open body {
+  overflow: hidden;
+}
+
 a.headerlink {
   position: absolute;
   bottom: -1px;

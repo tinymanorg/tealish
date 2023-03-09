@@ -20,9 +20,11 @@
     });
 
     function openSidebar() {
+      document.documentElement.classList.add("menu-open");
       sidebarContainer.classList.add("visible");
     }
     function closeSidebar() {
+      document.documentElement.classList.remove("menu-open");
       sidebarContainer.classList.remove("visible");
     }
 
