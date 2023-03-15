@@ -27,7 +27,7 @@ A Tealish program has the following structure::
 
 Comments
 --------
-All comments begin on a new line and start with `#`::
+All comments begin on a new line and start with ``#``::
 
     # A comment
 
@@ -51,7 +51,7 @@ Constants must use UPPERCASE names::
 
 Declaration & Assignment
 ------------------------
-Variable names must begin with a lowercase letter: `[a-z][a-zA-Z0-9_]*`.
+Variable names must begin with a lowercase letter: ``[a-z][a-zA-Z0-9_]*``.
 
 Variables can be declared separately from assignment::
 
@@ -66,7 +66,7 @@ Or declared and assigned together::
     bytes b = "abc"
 
 Assignments must be of the form: ``{name} = {expression}``.
-The spacing around the `=` operator is mandatory.
+The spacing around the ``=`` operator is mandatory.
 
 Some opcodes return multiple values. In this case the variables must be declared first::
 
@@ -129,6 +129,8 @@ In Tealish this is written as ``app_local_get(account, key)``.
 
 Some opcodes expect "immediate args". For example ``substring`` takes two immediate arguments ``s`` (start), ``e`` (end). In Tealish this is written as ``substring(0, 5)``. 
 Some opcodes expect both immediate and stack arguments: e.g ``asset_params_get(AssetUnitName, asset_id)``. It is important to note that immediate arguments cannot be expressions and therefore must be literals.
+
+See the Algorand docs for the full list of available opcodes: https://developer.algorand.org/docs/get-details/dapps/avm/teal/specification/#operations
 
 Some opcodes are defined for use as mathematical or logical operators. These are used in the form discussed below.
 
@@ -210,6 +212,9 @@ Examples::
     Gtxn[payment_txn_index].Receiver
     Gtxn[+1].ApplicationArgs[0]
     Gtxn[-2].Sender
+
+
+See the Algorand docs for the full list of available fields: https://developer.algorand.org/docs/get-details/dapps/avm/teal/specification/#transaction-fields
 
 
 If/Elif/Else
@@ -399,6 +404,8 @@ Functions can be defined in Tealish in the following forms::
         return
     end
 
+Notes:
+
 - Function names must be lowercase.
 - Argument names must be lowercase.
 - Types must be ``int`` or ``bytes``.
@@ -420,12 +427,58 @@ Blocks can be defined in Tealish in the following forms::
     {Statements}
     end
 
+Notes:
+
 - Variables are scoped by blocks and functions.
 - Blocks should end with an exit statement.
 
 Examples:
 
 .. literalinclude:: ./source/language/blocks.tl
+
+
+.. _switch:
+
+Switch
+------
+
+A switch statement is used to conditionally branch to blocks of a program.
+Structure::
+
+    switch {condition_Expression}:
+        {Value}: {Block_Name}
+        {Value}: {Block_Name}
+        {Value}: {Block_Name}
+        ...
+        else: {Block_Name}
+    end
+
+Notes:
+
+- If none if the values match the expression then the optional ``else`` target is used if specified, otherwise an error is raised.
+- Any code after a ``switch`` is unreachable.
+
+Example:
+
+.. literalinclude:: ./source/language/switch.tl
+
+
+.. _jump:
+
+Jump
+----
+
+A jump statement is used to unconditionally branch to a block of a program.
+
+Structure::
+
+    jump({Block_Name})
+
+Notes:
+
+- The block name is a literal, not an expression.
+- Any code after a ``jump`` is unreachable.
+
 
 
 Structs
@@ -439,6 +492,8 @@ Structs can be defined in Tealish in the following form::
         {field_name}: {type}
     end
 
+Notes:
+
 - Structs must be defined at the top of the file.
 - Struct names must begin with a capital letter.
 - Field names must be lowercase.
@@ -447,6 +502,9 @@ Structs can be defined in Tealish in the following form::
 Examples:
 
 .. literalinclude:: ./source/language/structs.tl
+
+
+.. warning:: There are no implicit runtime checks when assigning to a struct or struct field. Care must be taken to ensure field values are correctly sized.
 
 
 Boxes
@@ -471,3 +529,5 @@ A box field can be set or accessed just like a struct field::
 Examples:
 
 .. literalinclude:: ./source/language/boxes.tl
+
+.. warning:: There are no implicit runtime checks when assigning to a box field. Care must be taken to ensure field values are correctly sized.

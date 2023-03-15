@@ -23,4 +23,5 @@ The Zen of Tealish
 | But the bug is also often the code that doesn't exist.
 | Embrace the uniqueness of the AVM.
 
+
 Inspired by `PEP-20 - The Zen of Python <https://peps.python.org/pep-0020/>`_.

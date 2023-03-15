@@ -8,6 +8,6 @@ box<Item> item1 = CreateBox("a")
 
 item1.id = 1
 item1.foo = 111
-item1.name = "xyz"
+item1.name = "Tealish   "
 
 log(item1.name)

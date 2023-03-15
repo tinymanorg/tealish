@@ -7,11 +7,11 @@
 
 .. rst-class:: barlow-24
 
-Tealish is a readable language for the Algorand Virtual Machine. It enables developers to write TEAL in a procedural style optimized for readability.
+Tealish is a readable language for the `Algorand Virtual Machine (AVM) <https://developer.algorand.org/docs/get-details/dapps/avm/teal/specification/>`_. It enables developers to write `Teal <https://developer.algorand.org/docs/get-details/dapps/avm/teal/>`_ in a procedural style optimized for readability.
 
 .. rst-class:: barlow-16
 
-Install Tealish and start building with a brand new language for Algorand Virtual Machine.
+Install Tealish and start building with a brand new language for the AVM.
 
 .. rst-class:: block
 
@@ -22,9 +22,15 @@ Install Tealish and start building with a brand new language for Algorand Virtua
 A simple example demonstrating assertions, state, if statements and inner transactions:
 
 .. literalinclude:: ../examples/counter_prize/counter_prize.tl
+   :language: tealish
 
 
 Tealish transpiles to Teal rather than compiling directly to AVM bytecode. The produced Teal is as close to handwritten idiomatic Teal as possible. The original source Tealish (including comments) is included as comments in the generated Teal. The generated Teal is intended to be readable and auditable. The generated Teal should not be surprising - the Tealish writer should be able to easily imagine the generated Teal.
+
+The example below shows the generated Teal for the Tealish program above.
+
+.. literalinclude:: ../examples/counter_prize/build/counter_prize.teal
+   :language: teal
 
 
 Tealish is not a general purpose programming language. It is designed specifically for writing contracts for the AVM, optimizing for common patterns.
@@ -35,7 +41,7 @@ Tealish is not a general purpose programming language. It is designed specifical
 * `Presentation <https://youtu.be/R9oKjwSYuXM>`_
 * `Community <https://discord.com/channels/491256308461207573/1067861991982649404>`_
 
-Tealish language is built and maintained by the Tinyman core team for the entire Algorand ecosystem.
+The Tealish language is built and maintained by the `Tinyman <https://tinyman.org>`_ core team for the entire Algorand ecosystem.
 
 .. toctree::
    :maxdepth: 2
