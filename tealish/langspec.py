@@ -16,6 +16,59 @@ _opcode_type_map = {
     "": AVMType.none,
 }
 
+operators = [
+    "+",
+    "-",
+    "*",
+    "/",
+    "%",
+    "==",
+    ">=",
+    "<=",
+    ">",
+    "<",
+    "!=",
+    "&&",
+    "||",
+    "|",
+    "%",
+    "^",
+    "!",
+    "&",
+    "~",
+    "b+",
+    "b-",
+    "b/",
+    "b*",
+    "b%",
+    "b==",
+    "b!=",
+    "b>=",
+    "b<=",
+    "b>",
+    "b<",
+    "b|",
+    "b&",
+    "b^",
+    "b~",
+]
+
+ignores = [
+    "intc*",
+    "bytec*",
+    "txn*",
+    "gtxn*",
+    "itxn_*",
+    "return",
+    "err",
+    "b",
+    "bz",
+    "bnz",
+    "arg_*",
+    "callsub",
+    "retsub",
+]
+
 
 def type_lookup(a: str) -> AVMType:
     return _opcode_type_map[a]
@@ -61,11 +114,14 @@ class Op:
     #: inferred method signature
     sig: str
 
+    is_operator: bool
+
     def __init__(self, op_def: Dict[str, Any]):
         self.opcode = op_def["Opcode"]
         self.name = op_def["Name"]
         self.size = op_def["Size"]
         self.immediate_args_num = self.size - 1
+        self.is_operator = self.name in operators
 
         if "Args" in op_def:
             self.args = op_def["Args"]
@@ -110,9 +166,21 @@ class Op:
 
         arg_string = ", ".join(arg_list)
 
-        self.sig = f"{self.name}({arg_string})"
-        if len(self.returns_types) > 0:
-            self.sig += ", ".join(self.returns_types)
+        if self.is_operator:
+            if len(self.args) == 2:
+                self.sig = f"A {self.name} B"
+            elif len(self.args) == 1:
+                self.sig = f"{self.name}A"
+        else:
+            self.sig = f"{self.name}({arg_string})"
+            if len(self.returns_types) > 0:
+                self.sig += " -> " + ", ".join(self.returns_types)
+
+        self.ignore = False
+        for x in ignores:
+            if x == self.name or x.endswith("*") and self.name.startswith(x[:-1]):
+                self.ignore = True
+                break
 
 
 class LangSpec:

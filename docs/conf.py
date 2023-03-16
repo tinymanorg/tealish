@@ -3,9 +3,117 @@
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
+import os
+import sys
+from pygments.lexer import RegexLexer, bygroups
+from pygments.token import (
+    Comment,
+    Name,
+    Text,
+    Keyword,
+    Operator,
+    Whitespace,
+    Punctuation,
+)
+from sphinx.highlighting import lexers
+from datetime import datetime
+
+sys.path.append(os.path.dirname(__file__))
+
+import avm_doc  # noqa
+
+avm_doc.generate_avm_rst()
+
+
+# This is a very crude lexer but it does the job for now
+class TealishLexer(RegexLexer):
+    name = "tealish"
+    aliases = []
+    filenames = ["*.tl"]
+
+    tokens = {
+        "root": [
+            (r"\s+$", Text),
+            (r"\s*#.*$", Comment.Single),
+            (
+                r"(\s*)(if)(\s*)(.*)(:)$",
+                bygroups(Whitespace, Keyword, Whitespace, Text, Keyword),
+            ),
+            (r"(\s*)(elif)(\s*)(.*)(:)$", bygroups(Text, Keyword, Text, Text, Keyword)),
+            (r"(\s*)(else:)$", bygroups(Text, Keyword)),
+            (r"(\s*)(end)$", bygroups(Text, Keyword)),
+            (
+                r"(\s*)(switch)(\s*)(.*)(:)$",
+                bygroups(Whitespace, Keyword, Whitespace, Text, Keyword),
+            ),
+            (
+                r"(\s*)(block)(\s*)(.*)(:)$",
+                bygroups(Whitespace, Keyword, Whitespace, Name.Class, Keyword),
+            ),
+            (
+                r"(\s*)(struct)(\s*)(.*)(:)$",
+                bygroups(Whitespace, Keyword, Whitespace, Name.Class, Keyword),
+            ),
+            (r"(\s*)(inner_txn:)$", bygroups(Whitespace, Keyword)),
+            (r"(\s*)(teal:)$", bygroups(Whitespace, Keyword)),
+            (
+                r"(\s*)(func)(\s)([^\s]*?)(\()(.*)(\))(.*)(:)$",
+                bygroups(
+                    Whitespace,
+                    Keyword,
+                    Whitespace,
+                    Name.Function,
+                    Punctuation,
+                    Text,
+                    Punctuation,
+                    Text,
+                    Keyword,
+                ),
+            ),
+            (
+                r"(\s*)(return)(\s*)(.*)$",
+                bygroups(Whitespace, Keyword, Whitespace, Text),
+            ),
+            (r"(\s*)(.+?:)(\s)(.+?)$", bygroups(Whitespace, Keyword, Whitespace, Text)),
+            (
+                r"(\s*)(.+?)(\s)(\=)(\s)(.+?)$",
+                bygroups(
+                    Whitespace, Name.Variable, Whitespace, Operator, Whitespace, Text
+                ),
+            ),
+            (
+                r"(\s*)([^\s]*?)(\s)([^\s]*?)$",
+                bygroups(Whitespace, Keyword.Type, Whitespace, Name.Variable),
+            ),
+            (
+                r"(\s*)([^\s]*?)(\s)([^\s]*?)(\s)(\=)(\s)(.+?)$",
+                bygroups(
+                    Whitespace,
+                    Keyword.Type,
+                    Whitespace,
+                    Name.Variable,
+                    Whitespace,
+                    Operator,
+                    Whitespace,
+                    Text,
+                ),
+            ),
+            (
+                r"(\s*)([^\s]*?)(\()(.*?)(\))$",
+                bygroups(Text, Name.Function, Punctuation, Text, Punctuation),
+            ),
+        ]
+    }
+
+
+lexers["tealish"] = TealishLexer()
+
+pygments_style = "solarized-dark"
+
+# highlight_language = 'tealish'
+
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
-from datetime import datetime
 
 project = "Tealish"
 copyright = f"{datetime.now().year}, Tinyman"

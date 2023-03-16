@@ -12,6 +12,7 @@ If you passed an integer and want to use it as integer in the contract, you have
 `btoi <https://developer.algorand.org/docs/get-details/dapps/avm/teal/opcodes/#btoi>`_ opcode.
 
 .. literalinclude:: ../examples/recipes/btoi.tl
+   :language: tealish
    :emphasize-lines: 2
    :linenos:
 
@@ -19,6 +20,7 @@ Opting in the application to an asset
 -------------------------------------
 
 .. literalinclude:: ../examples/recipes/application_asset_optin.tl
+   :language: tealish
    :emphasize-lines: 7-14
    :linenos:
 
@@ -34,6 +36,7 @@ allows handling integer overflows.
     Bytes are also have a limit.
 
 .. literalinclude:: ../examples/recipes/overflow.tl
+   :language: tealish
    :emphasize-lines: 7-9
    :linenos:
 
@@ -47,10 +50,12 @@ Reformatting the Tealish code may result a `small` gain. Reducing the variable u
 Variable assignment generates `store,` and usages generates `load` opcodes. So, you can remove the variables used one time.
 
 .. literalinclude:: ../examples/recipes/optimization_a.tl
+   :language: tealish
    :emphasize-lines: 1-5
    :linenos:
 
 .. literalinclude:: ../examples/recipes/optimization_b.tl
+   :language: tealish
    :emphasize-lines: 1
    :linenos:
 
@@ -72,6 +77,7 @@ you can increase the cost budget by adding another app call using inner transact
     This operation increases the minimum balance `temporarily`.
 
 .. literalinclude:: ../examples/recipes/increase_cost_budget.tl
+   :language: tealish
    :emphasize-lines: 2-8
    :linenos:
 

@@ -108,7 +108,7 @@ a.headerlink:focus {
   margin: 39px 0 96px;
 }
 
-.admonition.note {
+.admonition {
   margin-bottom: 40px;
 
   padding: 24px;
@@ -121,11 +121,11 @@ a.headerlink:focus {
   line-height: 140%;
 }
 
-.admonition.note p {
+.admonition p {
   margin-bottom: 16px;
 }
 
-.admonition.note p:last-of-type {
+.admonition p:last-of-type {
   margin-bottom: 0;
 }
 
@@ -171,4 +171,8 @@ a.headerlink:focus {
   display: inline-block;
 
   margin-right: 8px;
+}
+
+.sig {
+  font-family: "JetBrains Mono", monospace;
 }

@@ -49,6 +49,7 @@ The Tealish language is built and maintained by the `Tinyman <https://tinyman.or
 
    quick_start
    language
+   avm
    examples
    cli
    recipes

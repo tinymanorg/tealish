@@ -69,50 +69,56 @@ p {
   margin-bottom: 1em;
 }
 
+li p {
+  margin-bottom: 0em;
+}
+
+ul {
+  margin-bottom: 1em;
+}
+
 img {
   width: 100%;
 }
 
-ul {
+div.sphinxsidebar ul {
   padding-inline-start: 0;
 }
 
-ul ul {
+div.sphinxsidebar ul ul {
   margin: 8px 0 12px;
-
   padding-inline-start: 11px;
 }
 
-ul,
-li {
+div.sphinxsidebar li {
   list-style: none;
 }
 
-ul li {
+div.sphinxsidebar ul li {
   margin-bottom: 4px;
 
   font-size: 18px;
   line-height: 1.7;
 }
 
-ul li:last-of-type {
+div.sphinxsidebar  ul li:last-of-type {
   margin-bottom: 0px;
 }
 
-dl {
+div.sphinxsidebar dl {
   margin-bottom: 40px;
 }
 
-dl ul,
+div.sphinxsidebar dl ul,
 dl ul li {
   list-style-type: disc;
 }
 
-dl ul {
+div.sphinxsidebar dl ul {
   padding-inline-start: 40px;
 }
 
-dl ul p {
+div.sphinxsidebar dl ul p {
   margin: 0;
 }
 
@@ -129,4 +135,9 @@ a:active {
   color: #000000;
 
   font-weight: 600;
+}
+
+div.body a.reference {
+  text-decoration: none;
+  border-bottom: 1px dotted #004B6B;
 }
