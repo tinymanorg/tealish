@@ -158,7 +158,7 @@ class Op:
         self.doc_extra = op_def.get("DocExtra", "")
         self.groups = op_def.get("groups", [])
 
-        arg_list = [f"{abc[i]}: {t}" for i, t in enumerate(self.arg_types)]
+        arg_list = [f"{abc[i]}: {t.name}" for i, t in enumerate(self.arg_types)]
         if len(self.arg_enum) > 0:
             arg_list = ["F: field"] + arg_list
         elif self.immediate_args_num > 0:

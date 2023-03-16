@@ -137,6 +137,7 @@ a.headerlink:focus {
 
 .index-page-content-links {
   margin: 36px 0;
+  list-style: none;
 }
 
 .index-page-content-links li {
