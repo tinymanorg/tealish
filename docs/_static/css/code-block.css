@@ -41,3 +41,7 @@
 .index-page .highlight {
   background-color: #000000;
 }
+
+.highlight .linenos {
+  background: none;
+}

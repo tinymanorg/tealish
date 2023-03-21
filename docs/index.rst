@@ -27,11 +27,13 @@ A simple example demonstrating assertions, state, if statements and inner transa
 
 Tealish transpiles to Teal rather than compiling directly to AVM bytecode. The produced Teal is as close to handwritten idiomatic Teal as possible. The original source Tealish (including comments) is included as comments in the generated Teal. The generated Teal is intended to be readable and auditable. The generated Teal should not be surprising - the Tealish writer should be able to easily imagine the generated Teal.
 
-The example below shows the generated Teal for the Tealish program above.
+.. The example below shows the generated Teal for the Tealish program above.
 
-.. literalinclude:: ../examples/counter_prize/build/counter_prize.teal
-   :language: teal
+.. .. literalinclude:: ../examples/counter_prize/build/counter_prize.teal
+..    :language: teal
 
+
+The generated Teal for the above example code can be `seen here <https://github.com/tinymanorg/tealish/blob/main/examples/counter_prize/build/counter_prize.teal>`_.
 
 Tealish is not a general purpose programming language. It is designed specifically for writing contracts for the AVM, optimizing for common patterns.
 
@@ -54,4 +56,5 @@ The Tealish language is built and maintained by the `Tinyman <https://tinyman.or
    cli
    recipes
    questions
+   usage
    zen

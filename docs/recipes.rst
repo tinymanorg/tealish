@@ -25,15 +25,21 @@ Opting in the application to an asset
    :linenos:
 
 
+Calling another application with an inner transaction
+-----------------------------------------------------
+
+.. literalinclude:: ../examples/recipes/inner_app_call.tl
+   :language: tealish
+   :linenos:
+
+
 Handling Integer Overflow
 -------------------------
 
 Converting `integers` to `big-endian unsigned integers` and using
 `byte arithmetics <https://developer.algorand.org/docs/get-details/dapps/avm/teal/specification/#byte-array-manipulation>`_
-allows handling integer overflows.
+allows handling integers up to 512 bits without overflow. Note that these ``b*`` and others have a higher `opcode cost <https://developer.algorand.org/docs/get-details/dapps/avm/teal/opcodes/#b>`_ than the normal integer operators.
 
-.. note::
-    Bytes are also have a limit.
 
 .. literalinclude:: ../examples/recipes/overflow.tl
    :language: tealish
@@ -63,18 +69,16 @@ Variable assignment generates `store,` and usages generates `load` opcodes. So, 
 Increasing the budget
 ---------------------
 
-All TEAL Opcodes has a computational cost and total opcode budget of an application call is 700 arithmetics.
+The opcode budget of an application call is 700. Most TEAL Opcodes have a cost of ``1`` but some are much higher. \
+For example  `b+ <https://developer.algorand.org/docs/get-details/dapps/avm/teal/opcodes/#b>`_ is 20 times more costly than ``b``
 If the transaction group has multiple application calls, the budget is pooled. The details are explained in the
 `Algorand Developer Documentation
 <https://developer.algorand.org/docs/get-details/dapps/avm/teal/#dynamic-operational-cost-of-teal-opcodes>`_.
 
 Similar to `OpUp utility of PyTeal <https://pyteal.readthedocs.io/en/latest/opup.html>`_,
-you can increase the cost budget by adding another app call using inner transactions.
+you can increase the cost budget by adding another app call using inner transactions. Each app call adds an extra 700 to the budget.
 
-`increase_cost_budget` creates and deletes an app with single transactions.
-
-.. note::
-    This operation increases the minimum balance `temporarily`.
+`increase_cost_budget` creates and deletes an app with single transactions. This is the most portable and efficient way to achieve the goal.
 
 .. literalinclude:: ../examples/recipes/increase_cost_budget.tl
    :language: tealish

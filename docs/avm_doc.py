@@ -5,8 +5,8 @@ def generate_avm_rst():
     spec = tealish.langspec.get_active_langspec()
     avm_rst = """.. _AVM:
 
-AVM
-===
+AVM Reference
+=============
 
 This page provides a guide to the fields and functions (opcodes) of the Algorand Virtual Machine.
 Please refer to the `official AVM docs <https://developer.algorand.org/docs/get-details/dapps/avm/teal/specification/>`_ for further details.

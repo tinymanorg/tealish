@@ -108,7 +108,7 @@ class TealishLexer(RegexLexer):
 
 lexers["tealish"] = TealishLexer()
 
-pygments_style = "solarized-dark"
+pygments_style = "solarized-light"
 
 # highlight_language = 'tealish'
 
