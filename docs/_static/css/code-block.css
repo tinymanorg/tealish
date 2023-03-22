@@ -45,3 +45,7 @@
 .highlight .linenos {
   background: none;
 }
+
+.highlight .err {
+  background: none;
+}

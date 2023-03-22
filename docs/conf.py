@@ -39,9 +39,12 @@ class TealishLexer(RegexLexer):
                 r"(\s*)(if)(\s*)(.*)(:)$",
                 bygroups(Whitespace, Keyword, Whitespace, Text, Keyword),
             ),
-            (r"(\s*)(elif)(\s*)(.*)(:)$", bygroups(Text, Keyword, Text, Text, Keyword)),
-            (r"(\s*)(else:)$", bygroups(Text, Keyword)),
-            (r"(\s*)(end)$", bygroups(Text, Keyword)),
+            (
+                r"(\s*)(elif)(\s*)(.*)(:)$",
+                bygroups(Whitespace, Keyword, Whitespace, Text, Keyword),
+            ),
+            (r"(\s*)(else:)$", bygroups(Whitespace, Keyword)),
+            (r"(\s*)(end)$", bygroups(Whitespace, Keyword)),
             (
                 r"(\s*)(switch)(\s*)(.*)(:)$",
                 bygroups(Whitespace, Keyword, Whitespace, Text, Keyword),
@@ -76,17 +79,35 @@ class TealishLexer(RegexLexer):
             ),
             (r"(\s*)(.+?:)(\s)(.+?)$", bygroups(Whitespace, Keyword, Whitespace, Text)),
             (
-                r"(\s*)(.+?)(\s)(\=)(\s)(.+?)$",
+                # {name}, {name} = {expression}
+                r"(\s*)([a-zA-Z_0-9]+?,\s)+([a-zA-Z_0-9]+?)(\s)(\=)(\s)(.+?)$",
+                bygroups(
+                    Whitespace,
+                    Name.Variable,
+                    Name.Variable,
+                    Whitespace,
+                    Operator,
+                    Whitespace,
+                    Text,
+                ),
+            ),
+            (
+                # {name} = {expression}
+                r"(\s*)([a-zA-Z_0-9]+?)(\s)(\=)(\s)(.+?)$",
                 bygroups(
                     Whitespace, Name.Variable, Whitespace, Operator, Whitespace, Text
                 ),
             ),
             (
-                r"(\s*)([^\s]*?)(\s)([^\s]*?)$",
-                bygroups(Whitespace, Keyword.Type, Whitespace, Name.Variable),
+                # {type} {name}
+                r"(\s*)([a-zA-Z_0-9]*?)(\s)([a-zA-Z_0-9]*?)(\s*)$",
+                bygroups(
+                    Whitespace, Keyword.Type, Whitespace, Name.Variable, Whitespace
+                ),
             ),
             (
-                r"(\s*)([^\s]*?)(\s)([^\s]*?)(\s)(\=)(\s)(.+?)$",
+                # {type} {name} = {expression}
+                r"(\s*)([a-zA-Z_0-9]*?)(\s)([a-zA-Z_0-9]*?)(\s)(\=)(\s)(.+?)$",
                 bygroups(
                     Whitespace,
                     Keyword.Type,
@@ -99,8 +120,32 @@ class TealishLexer(RegexLexer):
                 ),
             ),
             (
-                r"(\s*)([^\s]*?)(\()(.*?)(\))$",
-                bygroups(Text, Name.Function, Punctuation, Text, Punctuation),
+                # const {type} {name} = {expression}
+                r"(\s*)(const)(\s)([a-zA-Z_0-9]*?)(\s)([a-zA-Z_0-9]*?)(\s)(\=)(\s)(.+?)$",
+                bygroups(
+                    Whitespace,
+                    Keyword,
+                    Whitespace,
+                    Keyword.Type,
+                    Whitespace,
+                    Name.Constant,
+                    Whitespace,
+                    Operator,
+                    Whitespace,
+                    Text,
+                ),
+            ),
+            (
+                # {function_name}({expression})
+                r"(\s*)([a-zA-Z_0-9]*?)(\()(.*?)(\))(\s*)$",
+                bygroups(
+                    Whitespace,
+                    Name.Function,
+                    Punctuation,
+                    Text,
+                    Punctuation,
+                    Whitespace,
+                ),
             ),
         ]
     }

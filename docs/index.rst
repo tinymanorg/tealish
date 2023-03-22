@@ -5,6 +5,7 @@
 
 .. title:: Tealish by Tinyman
 
+
 .. rst-class:: barlow-24
 
 Tealish is a readable language for the `Algorand Virtual Machine (AVM) <https://developer.algorand.org/docs/get-details/dapps/avm/teal/specification/>`_. It enables developers to write `Teal <https://developer.algorand.org/docs/get-details/dapps/avm/teal/>`_ in a procedural style optimized for readability.
