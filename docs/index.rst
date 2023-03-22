@@ -12,7 +12,7 @@ Tealish is a readable language for the `Algorand Virtual Machine (AVM) <https://
 
 .. rst-class:: barlow-16
 
-Install Tealish and start building with a brand new language for the AVM.
+Install Tealish and start building with a brand new language designed for the AVM.
 
 .. rst-class:: block
 
@@ -20,13 +20,13 @@ Install Tealish and start building with a brand new language for the AVM.
 
 .. rst-class:: barlow-16
 
-A simple example demonstrating assertions, state, if statements and inner transactions:
+A simple example demonstrating the use of assertions, state, if statements, and inner transactions:
 
 .. literalinclude:: ../examples/counter_prize/counter_prize.tl
    :language: tealish
 
 
-Tealish transpiles to Teal rather than compiling directly to AVM bytecode. The produced Teal is as close to handwritten idiomatic Teal as possible. The original source Tealish (including comments) is included as comments in the generated Teal. The generated Teal is intended to be readable and auditable. The generated Teal should not be surprising - the Tealish writer should be able to easily imagine the generated Teal.
+Tealish transpiles code to Teal, rather than directly compiling to AVM bytecode. The produced Teal is as close to handwritten idiomatic Teal as possible. The original Tealish source code, including comments, is included as comments in the generated Teal code. The generated Teal code is designed to be easily readable and auditable, and should not contain any surprises - Tealish writers should be able to easily understand the generated Teal code.
 
 .. The example below shows the generated Teal for the Tealish program above.
 
@@ -34,9 +34,9 @@ Tealish transpiles to Teal rather than compiling directly to AVM bytecode. The p
 ..    :language: teal
 
 
-The generated Teal for the above example code can be `seen here <https://github.com/tinymanorg/tealish/blob/main/examples/counter_prize/build/counter_prize.teal>`_.
+You can view the generated Teal code for the example above `here <https://github.com/tinymanorg/tealish/blob/main/examples/counter_prize/build/counter_prize.teal>`_.
 
-Tealish is not a general purpose programming language. It is designed specifically for writing contracts for the AVM, optimizing for common patterns.
+Tealish is not intended to be a general-purpose programming language. Instead, it is specifically designed for writing contracts for the AVM, with a focus on optimizing common patterns.
 
 .. rst-class:: index-page__content-links
 
@@ -44,7 +44,7 @@ Tealish is not a general purpose programming language. It is designed specifical
 * `Presentation <https://youtu.be/R9oKjwSYuXM>`_
 * `Community <https://discord.com/channels/491256308461207573/1067861991982649404>`_
 
-The Tealish language is built and maintained by the `Tinyman <https://tinyman.org>`_ core team for the entire Algorand ecosystem.
+The Tealish language is built and maintained by the `Tinyman <https://tinyman.org>`_ core team for the benefit of the entire Algorand ecosystem.
 
 .. toctree::
    :maxdepth: 2
