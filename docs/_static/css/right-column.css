@@ -51,4 +51,5 @@ a.github-button {
 
 .presentation-link-container__watch-link {
   font-weight: 600;
+  white-space: nowrap;
 }
