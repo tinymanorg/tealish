@@ -9,11 +9,20 @@
   {% if theme_canonical_url %}
     <link rel="canonical" href="{{ theme_canonical_url }}{{ pagename }}.html"/>
   {% endif %}
+
   <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Tealish by Tinyman" />
   <meta property="og:image" content="https://tinyman.org/static/tealish-ba98658fba0db9ffd0277dcefcac732f.png" />
   <meta property="og:description" content="A readable language for Algorand." />
+
+  <!-- Twitter Meta Tags -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta property="twitter:domain" content="tealish.readthedocs.io">
+  <meta property="twitter:url" content="https://tealish.readthedocs.io/en/styling">
+  <meta name="twitter:title" content="Tealish by Tinyman">
+  <meta name="twitter:description" content="A readable language for Algorand.">
+  <meta name="twitter:image" content="https://tinyman.org/static/tealish-ba98658fba0db9ffd0277dcefcac732f.png">
 
   {% if pagename == "index" %}
   <script type="text/javascript">
