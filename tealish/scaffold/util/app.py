@@ -13,9 +13,9 @@ from algosdk.transaction import (
     StateSchema,
     SuggestedParams,
 )
+from tealish import config
 
 from util.client import algod_client
-from util.config import build_path
 
 
 def deploy_app(
@@ -26,8 +26,9 @@ def deploy_app(
     global_schema: StateSchema,
     local_schema: StateSchema,
 ) -> tuple[int, str]:
-    with open(build_path / approval_name) as approval:
-        with open(build_path / clear_name) as clear:
+    # Assumes config exists at project root
+    with open(config.build_path / approval_name) as approval:
+        with open(config.build_path / clear_name) as clear:
             address = address_from_private_key(txn_signer.private_key)
 
             atc = AtomicTransactionComposer()

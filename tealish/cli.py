@@ -1,22 +1,24 @@
 import json
-from os import getcwd
 import pathlib
+from os import getcwd
 from shutil import copytree
+from typing import IO, List, Optional, Tuple
+
 import click
-from typing import List, Optional, Tuple, IO
-from tealish import compile_program, reformat_program
+
+from tealish import compile_program, config, reformat_program
+from tealish.build import assemble_with_algod, assemble_with_goal
 from tealish.errors import CompileError, ParseError
 from tealish.langspec import (
     fetch_langspec,
     get_active_langspec,
-    packaged_lang_spec,
     local_lang_spec,
+    packaged_lang_spec,
 )
-from tealish.build import assemble_with_goal, assemble_with_algod
 from tealish.utils import TealishMap
 
-
-CONFIG_FILE_NAME = "tealish.json"
+# TODO: consider using config to modify project structure
+# TODO: make recursive building a flag?
 
 
 def _build(
@@ -25,30 +27,6 @@ def _build(
     algod_url: Optional[str] = None,
     quiet: bool = False,
 ) -> None:
-    is_using_config = False
-
-    project_root_path = pathlib.Path(getcwd())
-
-    # Confirm that we are within a Tealish project by looking for the config file.
-    # If found, assumes that config file is at the root level of the project.
-    while True:
-        if (project_root_path / CONFIG_FILE_NAME).is_file():
-            is_using_config = True
-            break
-        if len(project_root_path.parts) > 1:
-            project_root_path = project_root_path.parent
-        else:
-            # If the structure of the project is enforced, we would raise an exception.
-            # For now, just ignore missing config and use default location for build path.
-            # raise click.ClickException(
-            #     f"{CONFIG_FILE_NAME} not found. Are you calling build/compile from within your project?"
-            # )
-            if path.is_file():
-                project_root_path = path.parent
-            else:
-                project_root_path = path
-            break
-
     paths: List[pathlib.Path]
 
     if path.is_dir():
@@ -61,28 +39,17 @@ def _build(
         if not path.name.endswith(".tl"):
             raise click.ClickException(f"{path.name} is not a Tealish file - aborting.")
         paths = [path.resolve().as_posix()]
+        path = path.parent
 
-    # This stuff is really ugly for now
-    # TODO: clean up handling between config and no config
-    if is_using_config:
-        with open(project_root_path / CONFIG_FILE_NAME) as f:
-            config = json.load(f)
-            try:
-                build_dir_name: str = config["directories"]["build"]
-                build_path = project_root_path / build_dir_name
-            except KeyError:
-                build_path = project_root_path / "build"  # default
-            try:
-                contracts_dir_name: str = config["directories"]["contracts"]
-                contracts_path = project_root_path / contracts_dir_name
-            except KeyError:
-                contracts_path = project_root_path / "contracts"  # default
+    if not config.is_using_config:
+        _build_path = path / "build"
+        _contracts_path = path
     else:
-        build_path = project_root_path / "build"
-        contracts_path = project_root_path
+        _build_path = config.build_path
+        _contracts_path = config.contracts_path
 
     for p in paths:
-        filename = str(p).replace(f"{str(contracts_path)}", f"{str(build_path)}")
+        filename = str(p).replace(f"{str(_contracts_path)}", f"{str(_build_path)}")
         base_filename = filename.replace(".tl", "")
 
         # Teal
