@@ -22,7 +22,9 @@ from .tealish_builtins import (
 from .scope import Scope, VarType
 
 LITERAL_INT = r"[0-9]+"
-LITERAL_BYTES = r'"(.+)"'
+LITERAL_BYTE_STRING = r'"(.+)"'
+LITERAL_BYTE_HEX = r"0x([a-fA-F0-9]+)"
+LITERAL_BYTE_ADDR = r"([A-Z2-7]+)"
 VARIABLE_NAME = r"[a-z_][a-zA-Z0-9_]*"
 
 if TYPE_CHECKING:
@@ -138,7 +140,12 @@ class Literal(Expression):
 
     @classmethod
     def parse(cls, line: str, parent: Node, compiler: "TealishCompiler") -> Node:
-        matchable: List[Type[Expression]] = [LiteralInt, LiteralBytes]
+        matchable: List[Type[Expression]] = [
+            LiteralAddr,
+            LiteralHex,
+            LiteralInt,
+            LiteralBytes,
+        ]
         for expr in matchable:
             if expr.match(line):
                 return expr(line, parent, compiler)
@@ -160,7 +167,35 @@ class LiteralInt(Literal):
 
 
 class LiteralBytes(Literal):
-    pattern = rf"(?P<value>{LITERAL_BYTES})$"
+    pattern = rf"(?P<value>{LITERAL_BYTE_STRING})$"
+    value: str
+
+    def write_teal(self, writer: "TealWriter") -> None:
+        writer.write(self, f"pushbytes {self.value}")
+
+    def type(self) -> AVMType:
+        return AVMType.bytes
+
+    def _tealish(self) -> str:
+        return f"{self.value}"
+
+
+class LiteralAddr(Literal):
+    pattern = rf"addr\((?P<value>{LITERAL_BYTE_ADDR})\)$"
+    value: str
+
+    def write_teal(self, writer: "TealWriter") -> None:
+        writer.write(self, f"addr {self.value}")
+
+    def type(self) -> AVMType:
+        return AVMType.bytes
+
+    def _tealish(self) -> str:
+        return f"addr({self.value})"
+
+
+class LiteralHex(Literal):
+    pattern = rf"(?P<value>{LITERAL_BYTE_HEX})$"
     value: str
 
     def write_teal(self, writer: "TealWriter") -> None:
@@ -376,7 +411,7 @@ class Const(LineStatement):
 
     def process(self) -> None:
         scope = self.get_current_scope()
-        scope.declare_const(self.name, (self.type, self.expression.value))
+        scope.declare_const(self.name, (self.type, self.expression))
 
     def write_teal(self, writer: "TealWriter") -> None:
         pass

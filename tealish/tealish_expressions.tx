@@ -35,4 +35,6 @@ GroupIndex: NegativeGroupIndex | PositiveGroupIndex | Expression;
 NegativeGroupIndex: '-' index=INT;
 PositiveGroupIndex: '+' index=INT;
 Integer: value=/[0-9_]+/;
-Bytes: value=STRING;
+HexBytes: value=/0x([a-fA-F0-9]+)/;
+AddrBytes:  value='addr('/([A-Z2-7]+)/ ')';
+Bytes: value=STRING | HexBytes | AddrBytes;

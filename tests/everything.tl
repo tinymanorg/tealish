@@ -16,11 +16,14 @@ end
 # Consts
 const int FOO = 100
 const bytes BAR = "bar"
+const bytes BAZ = 0xDEADBEEF
+const bytes ADDR = addr(RIKLQ5HEVXAOAWYSW2LGQFYGWVO4J6LIAQQ72ZRULHZ4KS5NRPCCKYPCUU)
 
 # Assignments
 int a = FOO
 bytes b = BAR
-
+bytes c = BAZ
+bytes d = ADDR
 
 # Structs
 Item item1 = bzero(46)
