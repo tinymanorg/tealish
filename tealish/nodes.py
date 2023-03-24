@@ -22,7 +22,8 @@ from .tealish_builtins import (
 from .scope import Scope, VarType
 
 LITERAL_INT = r"[0-9]+"
-LITERAL_BYTES = r'"(.+)"'
+LITERAL_BYTE_STRING = r'"(.+)"'
+LITERAL_BYTE_HEX = r"0x([a-fA-F0-9]+)"
 VARIABLE_NAME = r"[a-z_][a-zA-Z0-9_]*"
 
 if TYPE_CHECKING:
@@ -138,7 +139,7 @@ class Literal(Expression):
 
     @classmethod
     def parse(cls, line: str, parent: Node, compiler: "TealishCompiler") -> Node:
-        matchable: List[Type[Expression]] = [LiteralInt, LiteralBytes]
+        matchable: List[Type[Expression]] = [LiteralInt, LiteralBytes, LiteralHex]
         for expr in matchable:
             if expr.match(line):
                 return expr(line, parent, compiler)
@@ -160,7 +161,21 @@ class LiteralInt(Literal):
 
 
 class LiteralBytes(Literal):
-    pattern = rf"(?P<value>{LITERAL_BYTES})$"
+    pattern = rf"(?P<value>{LITERAL_BYTE_STRING})$"
+    value: str
+
+    def write_teal(self, writer: "TealWriter") -> None:
+        writer.write(self, f"pushbytes {self.value}")
+
+    def type(self) -> AVMType:
+        return AVMType.bytes
+
+    def _tealish(self) -> str:
+        return f"{self.value}"
+
+
+class LiteralHex(Literal):
+    pattern = rf"(?P<value>{LITERAL_BYTE_HEX})$"
     value: str
 
     def write_teal(self, writer: "TealWriter") -> None:
