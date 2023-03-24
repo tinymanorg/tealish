@@ -8,6 +8,19 @@ from typing import List, Dict, Any, Tuple, Optional
 
 abc = "ABCDEFGHIJK"
 
+# Hopefully these will eventually be added to langspec.json. Including here until then.
+# Note: Other pseudo ops like addr and base32 are not included here because their syntax isn't parseable by Tealish currently.
+# e.g addr(RIKLQ5HEVXAOAWYSW2LGQFYGWVO4J6LIAQQ72ZRULHZ4KS5NRPCCKYPCUU) is not parseable because the address isn't quoted.
+pseudo_ops = [
+    {
+        "Name": "method",
+        "Opcode": "method",
+        "Size": 2,
+        "Args": [],
+        "Returns": ["B"],
+    },
+]
+
 
 _opcode_type_map = {
     ".": AVMType.any,
@@ -187,7 +200,9 @@ class LangSpec:
     def __init__(self, spec: Dict[str, Any]) -> None:
         self.is_packaged = False
         self.spec = spec
-        self.ops: Dict[str, Op] = {op["Name"]: Op(op) for op in spec["Ops"]}
+        self.ops: Dict[str, Op] = {
+            op["Name"]: Op(op) for op in (spec["Ops"] + pseudo_ops)
+        }
 
         self.fields: Dict[str, Any] = {
             "Global": self.ops["global"].arg_enum_dict,

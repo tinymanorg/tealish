@@ -227,6 +227,8 @@ class FunctionCall(BaseNode):
                 immediates[i] = x.name
             elif isinstance(x, Integer):
                 immediates[i] = x.value
+            elif isinstance(x, Bytes):
+                immediates[i] = f'"{x.value}"'
         self.immediate_args = " ".join(map(str, immediates))
         returns = op.returns_types[::-1]
         self.type = returns[0] if len(returns) == 1 else returns

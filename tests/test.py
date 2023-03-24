@@ -1243,6 +1243,26 @@ class TestBoxes(unittest.TestCase):
         )
 
 
+class TestPseudoOp(unittest.TestCase):
+    def test_pass_method_void(self):
+        teal = compile_expression_min('method("name(uint64,uint64)")')
+        self.assertListEqual(teal, ['method "name(uint64,uint64)"'])
+
+    def test_pass_method_return(self):
+        teal = compile_expression_min('method("name(uint64,uint64)uint64")')
+        self.assertListEqual(teal, ['method "name(uint64,uint64)uint64"'])
+
+    @expectedFailure
+    def test_pass_method_const(self):
+        teal = compile_min(
+            [
+                'const bytes SIG = "name(uint64,uint64)"',
+                "log(method(SIG))",
+            ]
+        )
+        self.assertListEqual(teal, ['method "name(uint64,uint64)"', "log"])
+
+
 class TestEverythingProgram(unittest.TestCase):
     maxDiff = None
 
