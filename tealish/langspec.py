@@ -119,7 +119,7 @@ class Op:
     #: decoded list of incoming args
     arg_types: List[AVMType]
     #: list of arg types this op puts on the stack, encoded as a string
-    returns: List[str] 
+    returns: List[str]
     #: decoded list of outgoing args
     returns_types: List[AVMType]
     #: how many bytes this opcode takes up when assembled
@@ -188,13 +188,13 @@ class LangSpec:
             for name, st in cast(Dict[str, Any], spec["StackTypes"]).items()
         }
         # TODO: add pseudo ops to all ops
-        #self.pseudo_ops: Dict[str, Op] = {
+        # self.pseudo_ops: Dict[str, Op] = {
         #    op["Name"]: Op(op) for op in spec["PseudoOps"]
-        #}
+        # }
 
         self.ops: Dict[str, Op] = {
             op["Name"]: Op(op, self.stack_types) for op in spec["Ops"]
-        } 
+        }
 
         self.fields: Dict[str, FieldGroup] = {
             name: FieldGroup(value)

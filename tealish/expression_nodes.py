@@ -214,10 +214,10 @@ class FunctionCall(BaseNode):
     def process_op_call(self, op: Op) -> None:
         self.func_call_type = "op"
         self.op = op
-        immediates = self.args[: op.immediate_args_num]
+        immediates = self.args[: len(op.immediate_args)]
         num_args = len(op.args)
 
-        self.args = self.args[op.immediate_args_num :]
+        self.args = self.args[len(op.immediate_args):]
         if len(self.args) != num_args:
             raise CompileError(f"Expected {num_args} args for {op.name}!", node=self)
         for i, arg in enumerate(self.args):
