@@ -121,6 +121,12 @@ class TestFields(unittest.TestCase):
             teal, ["txn GroupIndex", "pushint 1", "+", "gtxns TypeEnum"]
         )
 
+    def test_group_index_negative_array_field(self):
+        teal = compile_expression_min("Gtxn[-1].Accounts[0]")
+        self.assertListEqual(
+            teal, ["txn GroupIndex", "pushint 1", "-", "gtxnsa Accounts 0"]
+        )
+
     def test_group_index_var(self):
         scope = Scope()
         scope.declare_var("index", AVMType.int)

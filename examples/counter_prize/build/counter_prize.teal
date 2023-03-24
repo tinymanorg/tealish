@@ -1,12 +1,13 @@
-#pragma version 6
+#pragma version 8
 
+// ApplicationID will be 0 when the app is being created
 // if Txn.ApplicationID == 0:
   txn ApplicationID
   pushint 0
   ==
   bz l0_end
   // then:
-    // Create app
+    // Initialise the counter state to 0
     // app_global_put("counter", 0)
     pushbytes "counter"
     pushint 0
@@ -22,6 +23,7 @@
   ==
   bz l1_end
   // then:
+    // Only allow the Creator to update the app
     // assert(Txn.Sender == Global.CreatorAddress)
     txn Sender
     global CreatorAddress
@@ -32,12 +34,14 @@
     return
   l1_end: // end
 
+// Ensure that this is a NoOp application call. Don't allow optin, delete, etc
 // assert(Txn.OnCompletion == NoOp)
 txn OnCompletion
 pushint 0 // NoOp
 ==
 assert
 
+// Read the counter value from state and increment it
 // int counter = app_global_get("counter") [slot 0]
 pushbytes "counter"
 app_global_get
@@ -58,6 +62,7 @@ app_global_put
   ==
   bz l2_elif_0
   // then:
+    // If the counter is 10 make a Payment transaction
     // inner_txn:
     itxn_begin
       // TypeEnum: Pay
@@ -78,11 +83,13 @@ app_global_put
   pushint 10
   >
   bz l2_end
+    // If the counter is past 10 fail the program
     // exit(0)
     pushint 0
     return
   l2_end: // end
 
+// Exit the program with approval
 // exit(1)
 pushint 1
 return
