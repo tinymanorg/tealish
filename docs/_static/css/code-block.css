@@ -1,0 +1,51 @@
+.notranslate {
+  margin: 24px 0;
+
+  color: #000000;
+
+  font-family: "JetBrains Mono", monospace;
+  font-size: 14px;
+  line-height: 18px;
+}
+
+.block .literal.notranslate {
+  display: block;
+
+  width: 100%;
+
+  padding: 20px 24px;
+
+  border-radius: 8px;
+}
+
+.literal.notranslate {
+  padding: 2px 4px;
+
+  background: rgba(0, 0, 0, 0.09);
+  border-radius: 2px;
+}
+
+.highlight-default.notranslate {
+  margin-bottom: 40px;
+}
+
+.highlight {
+  overflow: auto;
+
+  padding: 24px;
+
+  background-color: #f5f5f5;
+  border-radius: 8px;
+}
+
+.index-page .highlight {
+  background-color: #000000;
+}
+
+.highlight .linenos {
+  background: none;
+}
+
+.highlight .err {
+  background: none;
+}

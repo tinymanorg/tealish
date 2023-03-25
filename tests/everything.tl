@@ -16,11 +16,12 @@ end
 # Consts
 const int FOO = 100
 const bytes BAR = "bar"
+const bytes BAZ = 0xDEADBEEF
 
 # Assignments
 int a = FOO
 bytes b = BAR
-
+bytes c = BAZ
 
 # Structs
 Item item1 = bzero(46)

@@ -31,7 +31,6 @@ def check_arg_types(name: str, incoming_args: List["Node"]) -> None:
 
 
 class BaseNode:
-
     _teal: List[str]
 
     def process(self) -> None:

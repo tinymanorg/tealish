@@ -1,0 +1,154 @@
+.mobile-header {
+  display: none;
+}
+
+#contents-menu-button {
+  display: grid;
+  align-items: center;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+
+  color: #000000;
+}
+
+#sidebar__overlay {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 0;
+
+  visibility: hidden;
+  background-color: rgba(31, 31, 31, 0.5);
+}
+
+@media screen and (max-width: 1121px) {
+  .documentwrapper {
+    gap: 24px;
+
+    padding: 45px 24px 0;
+  }
+}
+
+@media screen and (max-width: 995px) {
+  .documentwrapper {
+    display: block;
+
+    padding-top: 24px;
+  }
+
+  .mobile-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    margin-top: 48px;
+    margin-bottom: 48px;
+  }
+
+  .scrolled .search-input-container #contents-menu-button {
+    display: flex;
+  }
+
+  .search-input-container {
+    width: calc(100% + 14px);
+
+    transform: translateX(-7px);
+  }
+
+  .search-input-container .search-input-container {
+    width: 100%;
+    transform: unset;
+  }
+
+  .logo-link {
+    margin: 0;
+  }
+
+  .homepage-tealish-cannister img,
+  .right-column {
+    display: none;
+  }
+
+  .index-page .bodywrapper .body {
+    margin-top: 24px;
+  }
+
+  .sphinxsidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: -9999px;
+    z-index: 3;
+
+    width: 260px;
+  }
+
+  .sphinxsidebar.visible {
+    left: 0;
+  }
+
+  .sphinxsidebar.visible #sidebar__overlay {
+    visibility: visible;
+  }
+
+  .sphinxsidebar .logo-link {
+    display: none;
+  }
+
+  .sphinxsidebarwrapper {
+    height: auto;
+  }
+
+  .sidebar-container {
+    position: relative;
+    top: 100vh;
+    z-index: 1;
+    transform: translateY(-100%);
+
+    width: 100vw;
+    height: auto;
+    max-height: 80vh;
+
+    padding: 48px 24px 53px;
+
+    overflow: auto;
+    background-color: white;
+    box-shadow: 0px 0px 20px rgb(0 0 0 / 16%);
+    border-top-left-radius: 24px;
+    border-top-right-radius: 24px;
+  }
+
+  .sidebar-container::before {
+    content: "";
+
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+
+    width: 53px;
+    height: 4px;
+
+    background-color: rgba(128, 128, 128, 0.35);
+    border-radius: 3px;
+  }
+
+  .index-page .sidebar-sticky-content {
+    margin-top: 0;
+  }
+
+  .social-links {
+    margin-top: 20px;
+    padding-top: 20px;
+
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+  }
+}
+
+@media screen and (max-width: 620px) {
+  .mobile-header .github-button {
+    display: none;
+  }
+}

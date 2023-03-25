@@ -8,6 +8,19 @@ from typing import List, Dict, Any, Tuple, Optional, cast
 
 abc = "ABCDEFGHIJK"
 
+# Hopefully these will eventually be added to langspec.json. Including here until then.
+# Note: Other pseudo ops like addr and base32 are not included here because their syntax isn't parseable by Tealish currently.
+# e.g addr(RIKLQ5HEVXAOAWYSW2LGQFYGWVO4J6LIAQQ72ZRULHZ4KS5NRPCCKYPCUU) is not parseable because the address isn't quoted.
+pseudo_ops = [
+    {
+        "Name": "method",
+        "Opcode": "method",
+        "Size": 2,
+        "Args": [],
+        "Returns": ["B"],
+    },
+]
+
 
 _opcode_type_map = {
     "any": AVMType.any,
@@ -15,6 +28,59 @@ _opcode_type_map = {
     "uint64": AVMType.int,
     "none": AVMType.none,
 }
+
+operators = [
+    "+",
+    "-",
+    "*",
+    "/",
+    "%",
+    "==",
+    ">=",
+    "<=",
+    ">",
+    "<",
+    "!=",
+    "&&",
+    "||",
+    "|",
+    "%",
+    "^",
+    "!",
+    "&",
+    "~",
+    "b+",
+    "b-",
+    "b/",
+    "b*",
+    "b%",
+    "b==",
+    "b!=",
+    "b>=",
+    "b<=",
+    "b>",
+    "b<",
+    "b|",
+    "b&",
+    "b^",
+    "b~",
+]
+
+ignores = [
+    "intc*",
+    "bytec*",
+    "txn*",
+    "gtxn*",
+    "itxn_*",
+    "return",
+    "err",
+    "b",
+    "bz",
+    "bnz",
+    "arg_*",
+    "callsub",
+    "retsub",
+]
 
 
 def type_lookup(a: str) -> AVMType:
@@ -137,10 +203,14 @@ class Op:
     #: inferred method signature
     sig: str
 
+    is_operator: bool
+
     def __init__(self, op_def: Dict[str, Any], stack_types: Dict[str, StackType]):
-        self.opcode = op_def.get("Opcode", 0)
+        self.opcode = op_def["Opcode"]
         self.name = op_def["Name"]
         self.size = op_def["Size"]
+        self.immediate_args_num = self.size - 1
+        self.is_operator = self.name in operators
 
         self.immediate_args = []
         if "ImmediateDetails" in op_def:
@@ -177,6 +247,22 @@ class Op:
         self.sig = f"{self.name}({arg_string})"
         if len(self.returns_types) > 0:
             self.sig += " " + ", ".join(self.returns_types)
+
+        if self.is_operator:
+            if len(self.args) == 2:
+                self.sig = f"A {self.name} B"
+            elif len(self.args) == 1:
+                self.sig = f"{self.name}A"
+        else:
+            self.sig = f"{self.name}({arg_string})"
+            if len(self.returns_types) > 0:
+                self.sig += " -> " + ", ".join(self.returns_types)
+
+        self.ignore = False
+        for x in ignores:
+            if x == self.name or x.endswith("*") and self.name.startswith(x[:-1]):
+                self.ignore = True
+                break
 
 
 class LangSpec:

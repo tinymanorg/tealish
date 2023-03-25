@@ -1,4 +1,4 @@
-#pragma version 7
+#pragma version 8
 
 if Txn.ApplicationID == 0:
     # Handle Create App
@@ -35,24 +35,22 @@ end
 
 block update_app:
     # Handle Update App
-    # Example: Only allow the Creator to update the app
-    # exit(Txn.Sender == Global.CreatorAddress)
-    # exit(1)
+    # Example: Only allow the Creator to update the app (useful during development)
+    exit(Txn.Sender == Global.CreatorAddress)
 
     # OR
     # Disallow Update App
-    exit(0)
+    # exit(0)
 end
 
 block delete_app:
     # Handle Delete App
-    # Example: Only allow the Creator to update the app
-    # exit(Txn.Sender == Global.CreatorAddress)
-    # exit(1)
+    # Example: Only allow the Creator to update the app (useful during development)
+    exit(Txn.Sender == Global.CreatorAddress)
 
     # OR
     # Disallow Delete App
-    exit(0)
+    # exit(0)
 end
 
 block main:
@@ -80,5 +78,4 @@ block main:
         exit(1)
     end
 
-    exit(1)
 end
