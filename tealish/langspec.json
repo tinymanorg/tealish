@@ -1294,6 +1294,13 @@
   "PseudoOps": [
     {
       "Name": "method",
+      "ImmediateDetails":[
+        {
+          "Comment": "Method Signature",
+          "Encoding": "bytes",
+          "Name": "methodsig"
+        }
+      ],
       "Returns": [
         "method"
       ],

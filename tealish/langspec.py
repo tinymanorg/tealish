@@ -27,6 +27,9 @@ _opcode_type_map = {
     "[]byte": AVMType.bytes,
     "uint64": AVMType.int,
     "none": AVMType.none,
+    "addr": AVMType.bytes,
+    "hash": AVMType.bytes,
+    "bool": AVMType.int,
 }
 
 operators = [
@@ -144,11 +147,12 @@ class FieldGroup:
     FieldGroup represents the full set of FieldEnumValues for a given Field
     """
 
-    #: set of values this FieldGroup contains
-    values: List[FieldGroupValue]
+    #: dict of name to type this FieldGroup contains
+    values: Dict[str, AVMType]
 
     def __init__(self, vals: List[Dict[str, Any]]):
-        self.values = [FieldGroupValue(val) for val in vals]
+        initialized_vals = [FieldGroupValue(val) for val in vals]
+        self.values = {v.name: type_lookup(v.type) for v in initialized_vals}
 
 
 class ImmediateDetails:
@@ -206,7 +210,7 @@ class Op:
     is_operator: bool
 
     def __init__(self, op_def: Dict[str, Any], stack_types: Dict[str, StackType]):
-        self.opcode = op_def["Opcode"]
+        self.opcode = op_def.get("Opcode", 0)
         self.name = op_def["Name"]
         self.size = op_def["Size"]
         self.immediate_args_num = self.size - 1
@@ -273,22 +277,25 @@ class LangSpec:
             name: StackType(st)
             for name, st in cast(Dict[str, Any], spec["StackTypes"]).items()
         }
-        # TODO: add pseudo ops to all ops
-        # self.pseudo_ops: Dict[str, Op] = {
-        #    op["Name"]: Op(op) for op in spec["PseudoOps"]
-        # }
+
+        self.pseudo_ops: Dict[str, Op] = {
+            op["Name"]: Op(op, self.stack_types) for op in spec["PseudoOps"]
+        }
 
         self.ops: Dict[str, Op] = {
             op["Name"]: Op(op, self.stack_types) for op in spec["Ops"]
         }
+        self.ops.update(self.pseudo_ops)
 
         self.fields: Dict[str, FieldGroup] = {
             name: FieldGroup(value)
             for name, value in cast(Dict[str, Any], spec["Fields"]).items()
         }
 
-        self.global_fields = self.fields["global"]
-        self.txn_fields = self.fields["txn"]
+        self.global_fields = self.fields["global"].values
+
+        self.txn_fields = self.fields["txn"].values
+        self.txn_fields.update(self.fields["txna"].values)
 
     def as_dict(self) -> Dict[str, Any]:
         return self.spec
