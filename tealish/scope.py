@@ -1,12 +1,8 @@
 from typing import Dict, Optional, Tuple, TYPE_CHECKING
-
+from .tealish_builtins import Var, ConstValue
+from .types import TealishType
 
 if TYPE_CHECKING:
-    from .tealish_builtins import (
-        AVMType,
-        ConstValue,
-        Var,
-    )
     from .nodes import Func, Block
 
 
@@ -25,7 +21,7 @@ class Scope:
             slot_range if slot_range is not None else (0, 200)
         )
 
-        self.consts: Dict[str, Tuple["AVMType", "ConstValue"]] = {}
+        self.consts: Dict[str, Tuple["TealishType", "ConstValue"]] = {}
         self.blocks: Dict[str, "Block"] = {}
         self.functions: Dict[str, "Func"] = {}
 
@@ -42,13 +38,16 @@ class Scope:
 
     def declare_scratch_var(
         self,
-        var: "Var",
+        name: str,
+        type: "TealishType",
         max_slot: Optional[int] = None,
-    ) -> int:
-        if var.name in self.slots:
-            raise Exception(f'Redefinition of variable "{var.name}"')
+    ) -> Var:
+        if name in self.slots:
+            raise Exception(f'Redefinition of variable "{name}"')
 
-        var.slot = max_slot if max_slot is not None else self.find_slot()
+        var = Var(name, type)
+        var.slot_type = "scratch"
+        var.scratch_slot = max_slot if max_slot is not None else self.find_slot()
         self.slots[var.name] = var
         return var
 
@@ -62,11 +61,11 @@ class Scope:
             del self.slots[name]
 
     def declare_const(
-        self, name: str, const_data: Tuple["AVMType", "ConstValue"]
+        self, name: str, const_data: Tuple["TealishType", "ConstValue"]
     ) -> None:
         self.consts[name] = const_data
 
-    def lookup_const(self, name: str) -> Tuple["AVMType", "ConstValue"]:
+    def lookup_const(self, name: str) -> Tuple["TealishType", "ConstValue"]:
         if name not in self.consts:
             raise KeyError(f'Const "{name}" not declared in current scope')
         return self.consts[name]
@@ -77,7 +76,7 @@ class Scope:
     def find_slot(self) -> int:
         used_slots = [False] * 255
         for var in self.slots.values():
-            used_slots[var.slot] = True
+            used_slots[var.scratch_slot] = True
 
         min, max = self.slot_range
         for i, occupied in enumerate(used_slots):

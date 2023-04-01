@@ -20,7 +20,6 @@ def _build(
     algod_url: Optional[str] = None,
     quiet: bool = False,
 ) -> None:
-
     paths: List[pathlib.Path]
     if path.is_dir():
         paths = list(path.glob("*.tl"))

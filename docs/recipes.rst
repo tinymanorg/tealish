@@ -22,6 +22,12 @@ Opting in the application to an asset
    :emphasize-lines: 7-14
    :linenos:
 
+Inner app call
+--------------
+
+.. literalinclude:: ../examples/recipes/inner_app_call.tl
+   :linenos:
+
 
 Handling Integer Overflow
 -------------------------

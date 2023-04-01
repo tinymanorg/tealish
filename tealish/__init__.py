@@ -22,9 +22,14 @@ class TealWriter:
 
         elif isinstance(node_or_teal, str):
             teal = node_or_teal
+            if " //" in teal:
+                teal, comment = teal.split("//", 1)
+                teal = teal.ljust(20) + "//" + comment
             parent._teal.append(teal)
             prefix: str = "  " * self.level
-            self.output.append(prefix + teal)
+            line = prefix + teal
+            # print(line)
+            self.output.append(line)
             if hasattr(parent, "line_no"):
                 self.current_input_line = parent.line_no
             self.source_map[self.current_output_line] = self.current_input_line

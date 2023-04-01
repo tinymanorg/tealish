@@ -30,9 +30,9 @@ pushint 123
 itob
 replace 0 // item1.id
 store 2 // item1
-// item1.name = "xyz" [slot 2]
+// item1.name = "xyz       " [slot 2]
 load 2 // item1
-pushbytes "xyz"
+pushbytes "xyz       "
 replace 16 // item1.name
 store 2 // item1
 // assert(item1.id > 0)
@@ -123,10 +123,10 @@ pushint 26
 box_create
 assert // assert created
 store 5 // box1
-// box1.name = "xyz" [box]
+// box1.name = "xyz       " [box]
 load 5 // box key box1
 pushint 16 // offset
-pushbytes "xyz"
+pushbytes "xyz       "
 box_replace // box1.name
 // assert(box1.id)
 load 5 // box key box1

@@ -2,7 +2,16 @@ from typing import List, Optional, Union, TYPE_CHECKING
 
 from .base import BaseNode
 from .errors import CompileError
-from .tealish_builtins import AVMType, BoxVar, ObjectType
+from .types import (
+    AVMType,
+    AddrType,
+    BigIntType,
+    BoxType,
+    StructType,
+    IntType,
+    BytesType,
+    UIntType,
+)
 from .langspec import Op, type_lookup
 
 
@@ -14,11 +23,12 @@ if TYPE_CHECKING:
 class Integer(BaseNode):
     def __init__(self, value: str, parent: Optional[BaseNode] = None) -> None:
         self.value = int(value)
-        self.type = AVMType.int
+        size = (((self.value).bit_length() - 1) // 8) + 1
+        self.type = UIntType(size)
         self.parent = parent
 
     def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"pushint {self.value}")
+        writer.write(self, f"pushint {self.value} // {self.type}")
 
     def _tealish(self) -> str:
         return f"{self.value}"
@@ -27,7 +37,7 @@ class Integer(BaseNode):
 class Bytes(BaseNode):
     def __init__(self, value: str, parent: Optional[BaseNode] = None) -> None:
         self.value = value
-        self.type = AVMType.bytes
+        self.type = BytesType(size=len(value))
         self.parent = parent
 
     def write_teal(self, writer: "TealWriter") -> None:
@@ -48,10 +58,10 @@ class Variable(BaseNode):
         except KeyError as e:
             raise CompileError(e.args[0], node=self)
 
-        self.type = self.var.avm_type
+        self.type = self.var.tealish_type
 
     def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"load {self.var.slot} // {self.name}")
+        writer.write(self, f"load {self.var.scratch_slot} // {self.name}")
 
     def _tealish(self) -> str:
         return f"{self.name}"
@@ -69,24 +79,51 @@ class Constant(BaseNode):
             # user defined const
             type, value = self.lookup_const(self.name)
         except KeyError:
-            try:
-                # builtin TEAL constants
-                type, value = self.lookup_avm_constant(self.name)
-            except KeyError:
-                raise CompileError(
-                    f'Constant "{self.name}" not declared in scope', node=self
-                )
-        if type not in (AVMType.int, AVMType.bytes):
+            raise CompileError(
+                f'Constant "{self.name}" not declared in scope', node=self
+            )
+        if not isinstance(type, (IntType, BytesType, BigIntType, AddrType)):
             raise CompileError(f"Unexpected const type {type}", node=self)
 
         self.type = type
         self.value = value
 
     def write_teal(self, writer: "TealWriter") -> None:
-        if self.type == AVMType.int:
+        if isinstance(self.type, IntType):
             writer.write(self, f"pushint {self.value} // {self.name}")  # type: ignore
-        elif self.type == AVMType.bytes:
-            writer.write(self, f"pushbytes {self.value} // {self.name}")  # type: ignore
+        elif isinstance(self.type, BytesType):
+            writer.write(self, f'pushbytes "{self.value}" // {self.name}')  # type: ignore
+        else:
+            raise CompileError(f"Unexpected const type {self.type}", node=self)
+
+    def _tealish(self) -> str:
+        return f"{self.name}"
+
+
+class Enum(BaseNode):
+    def __init__(self, name: str, parent: Optional[BaseNode] = None) -> None:
+        self.name = name
+        self.type: AVMType = AVMType.none
+        self.parent = parent
+
+    def process(self) -> None:
+        type, value = None, None
+        try:
+            # builtin TEAL constants
+            type, value = self.lookup_avm_constant(self.name)
+        except KeyError:
+            raise CompileError(f'Unknown builtin enum "{self.name}"', node=self)
+        if not isinstance(type, (IntType, BytesType, BigIntType, AddrType)):
+            raise CompileError(f"Unexpected const type {type}", node=self)
+
+        self.type = type
+        self.value = value
+
+    def write_teal(self, writer: "TealWriter") -> None:
+        if isinstance(self.type, IntType):
+            writer.write(self, f"pushint {self.name}")
+        elif isinstance(self.type, BytesType):
+            writer.write(self, f"pushbytes {self.name}")
 
     def _tealish(self) -> str:
         return f"{self.name}"
@@ -162,50 +199,79 @@ class FunctionCall(BaseNode):
     def __init__(
         self, name: str, args: List["Node"], parent: Optional[BaseNode] = None
     ) -> None:
+        from . import stdlib
+
+        self.name = name
+        self.args = args
+        self.parent = parent
+        self.nodes = args
+        self.func_call = None
+        if name in stdlib.op_overrides:
+            self.func_call = stdlib.op_overrides[name](args, self)
+        else:
+            try:
+                if self.lookup_op(name):
+                    self.func_call = OpCall(name, args, self)
+            except KeyError:
+                self.func_call = UserDefinedFuncCall(name, args, self)
+
+    def process(self) -> None:
+        self.func_call.process()
+        self.type = self.func_call.type
+        self.value = getattr(self.func_call, "value", None)
+
+    def write_teal(self, writer: "TealWriter") -> None:
+        self.func_call.write_teal(writer)
+
+    def _tealish(self) -> str:
+        return self.func_call._tealish()
+
+
+class StdLibFunctionCall(BaseNode):
+    def __init__(
+        self, name: str, args: List["Node"], parent: Optional[BaseNode] = None
+    ) -> None:
+        from . import stdlib
+
+        self.name = name
+        self.args = args
+        self.parent = parent
+        self.nodes = args
+        self.func_call = None
+        if name in stdlib.functions:
+            self.func_call = stdlib.functions[name](args, self)
+        else:
+            raise CompileError(f'Unknown Tealish function "{self.name}"', node=self)
+
+    def process(self) -> None:
+        self.func_call.process()
+        self.type = self.func_call.type
+        self.value = getattr(self.func_call, "value", None)
+
+    def write_teal(self, writer: "TealWriter") -> None:
+        self.func_call.write_teal(writer)
+
+    def _tealish(self) -> str:
+        return self.func_call._tealish()
+
+
+class OpCall(BaseNode):
+    def __init__(
+        self, name: str, args: List["Node"], parent: Optional[BaseNode] = None
+    ) -> None:
         self.name = name
         self.args = args
         self.parent = parent
         self.type: Union[AVMType, List[AVMType]] = AVMType.none
-        self.func_call_type: str = ""
         self.nodes = args
         self.immediate_args = ""
 
     def process(self) -> None:
-
-        if self.name in ("error", "push", "pop"):
-            return self.process_special_call()
-
-        func: Optional[Func] = None
-        try:
-            func = self.lookup_func(self.name)
-        except KeyError:
-            pass
-
-        if func is not None:
-            return self.process_user_defined_func_call(func)
-
-        op: Optional[Op] = None
         try:
             op = self.lookup_op(self.name)
-        except KeyError:
-            pass
-
-        if op is not None:
             return self.process_op_call(op)
-        else:
+        except KeyError:
             raise CompileError(f'Unknown function or opcode "{self.name}"', node=self)
-
-    def process_user_defined_func_call(self, func: "Func") -> None:
-        self.func_call_type = "user_defined"
-        self.func = func
-        self.type = func.returns[0] if len(func.returns) == 1 else func.returns
-        for arg in self.args:
-            arg.process()
-
-    def write_teal_user_defined_func_call(self, writer: "TealWriter") -> None:
-        for arg in self.args:
-            writer.write(self, arg)
-        writer.write(self, f"callsub {self.func.label}")
 
     def process_op_call(self, op: Op) -> None:
         self.func_call_type = "op"
@@ -224,18 +290,13 @@ class FunctionCall(BaseNode):
                 immediates[i] = x.name
             elif isinstance(x, Integer):
                 immediates[i] = x.value
+            elif isinstance(x, Enum):
+                immediates[i] = x.name
         self.immediate_args = " ".join(map(str, immediates))
         returns = op.returns_types[::-1]
         self.type = returns[0] if len(returns) == 1 else returns
 
-    def process_special_call(self) -> None:
-        self.func_call_type = "special"
-        if self.name == "pop":
-            self.type = AVMType.any
-        for arg in self.args:
-            arg.process()
-
-    def write_teal_op_call(self, writer: "TealWriter") -> None:
+    def write_teal(self, writer: "TealWriter") -> None:
         for arg in self.args:
             writer.write(self, arg)
         if self.immediate_args:
@@ -243,28 +304,60 @@ class FunctionCall(BaseNode):
         else:
             writer.write(self, f"{self.name}")
 
-    def write_teal_special_call(self, writer: "TealWriter") -> None:
-        if self.name == "error":
-            writer.write(self, "err")
-        elif self.name == "push":
-            for arg in self.args:
-                writer.write(self, arg)
-            writer.write(self, "// push")
-        elif self.name == "pop":
-            writer.write(self, "// pop")
-
-    def write_teal(self, writer: "TealWriter") -> None:
-        if self.func_call_type == "user_defined":
-            self.write_teal_user_defined_func_call(writer)
-        elif self.func_call_type == "op":
-            self.write_teal_op_call(writer)
-        elif self.func_call_type == "special":
-            self.write_teal_special_call(writer)
-
     def _tealish(self) -> str:
         args = [a.tealish() for a in self.args]
         if self.immediate_args:
             args = self.immediate_args.split(", ") + args
+        return f"{self.name}({', '.join(args)})"
+
+
+class UserDefinedFuncCall(BaseNode):
+    def __init__(
+        self, name: str, args: List["Node"], parent: Optional[BaseNode] = None
+    ) -> None:
+        self.name = name
+        self.args = args
+        self.parent = parent
+        self.type: Union[AVMType, List[AVMType]] = AVMType.none
+        self.nodes = args
+
+    def process(self) -> None:
+        try:
+            func = self.lookup_func(self.name)
+            self.process_user_defined_func_call(func)
+        except KeyError:
+            raise CompileError(f'Unknown function or opcode "{self.name}"', node=self)
+
+    def process_user_defined_func_call(self, func: "Func") -> None:
+        self.func_call_type = "user_defined"
+        self.func = func
+        self.type = func.returns[0] if len(func.returns) == 1 else func.returns
+        num_args = len(func.args.args)
+        if len(self.args) != num_args:
+            raise CompileError(
+                f"Expected {num_args} args for {self.func.name}!", node=self
+            )
+        for arg in self.args:
+            arg.process()
+
+        expected_args = func.args.arg_types
+        for i, incoming_arg in enumerate(self.args):
+            if expected_args[i].can_hold(incoming_arg.type):  # type: ignore
+                continue
+
+            raise CompileError(
+                f"Incorrect type {incoming_arg.type} "  # type: ignore
+                + f"for arg {i} of {self.func.name}. Expected {expected_args[i]}",
+                node=self,
+            )
+
+    def write_teal(self, writer: "TealWriter") -> None:
+        for i, arg in enumerate(self.args):
+            writer.write(self, arg)
+        writer.write(self, f"callsub {self.func.label}")
+
+    def _tealish(self) -> str:
+        args = [a.tealish() for a in self.args]
         return f"{self.name}({', '.join(args)})"
 
 
@@ -467,48 +560,114 @@ class StructOrBoxField(BaseNode):
 
     def process(self) -> None:
         self.var = self.lookup_var(self.name)
-        if isinstance(self.var, BoxVar):
-            self.object_type = ObjectType.box
-        else:
-            self.object_type = ObjectType.struct
-        struct = self.var.struct
+        self.object_type = self.var.tealish_type
+        struct = self.var.tealish_type
         struct_field = struct.fields[self.field]
         self.offset = struct_field.offset
         self.size = struct_field.size
-        self.type = struct_field.data_type
+        self.type = struct_field.tealish_type
 
     def write_teal(self, writer: "TealWriter") -> None:
-        if self.object_type == ObjectType.struct:
-            writer.write(self, f"load {self.var.slot} // {self.name}")
-            if self.type == AVMType.int:
-                writer.write(self, f"pushint {self.offset}")
-                writer.write(self, f"extract_uint64 // {self.field}")
-            else:
-                writer.write(self, f"extract {self.offset} {self.size} // {self.field}")
-        elif self.object_type == ObjectType.box:
-            writer.write(self, f"load {self.var.slot} // box key {self.name}")
+        if isinstance(self.object_type, StructType):
+            writer.write(self, f"load {self.var.scratch_slot} // {self.name}")
+            writer.write(self, f"extract {self.offset} {self.size} // {self.field}")
+        elif isinstance(self.object_type, BoxType):
+            writer.write(self, f"load {self.var.scratch_slot} // box key {self.name}")
             writer.write(self, f"pushint {self.offset} // offset")
             writer.write(self, f"pushint {self.size} // size")
             writer.write(self, f"box_extract // {self.name}.{self.field}")
-            if self.type == AVMType.int:
-                writer.write(self, "btoi")
         else:
             raise Exception()
+        # If the field is a Int or Uint convert it from bytes to int
+        if isinstance(self.type, IntType):
+            writer.write(self, "btoi")
 
     def _tealish(self) -> str:
         return f"{self.name}.{self.field}"
+
+
+# class TypeAssertionWrapper(BaseNode):
+#     def __init__(self, expression, types) -> None:
+#         self.expression = expression
+#         self.types = types if type(types) == list else [types]
+#         self.type = types
+#         self.incoming_types = self.expression.type if type(self.expression.type) == list else [self.expression.type]
+#         self.parent = expression
+
+#         type_args = [Variable(f"{t}") for t in self.types]
+#         self.expression = EnsureType([self.expression] + type_args)
+#         self.expression.process()
+
+#     def write_teal(self, writer):
+#         writer.write(self, self.expression)
+#         for i, type in enumerate(self.types):
+#             if isinstance(type, BytesType) and type.size and type.size != self.incoming_types[i].size:
+#                 # Assert that the expression is bytes of size N
+#                 writer.write(self, "// Type Assertion")
+#                 writer.write(self, "dup")
+#                 writer.write(self, "len")
+#                 writer.write(self, f"pushint {type.size}")
+#                 writer.write(self, "==")
+#                 writer.write(self, "assert // Error: Incorrect size for assignment")
+#             elif isinstance(type, UIntType) and type.size != self.incoming_types[i].size:
+#                 # Assert that the expression is an int of N*8 bits
+#                 writer.write(self, "// uintN Type Assertion")
+#                 writer.write(self, "dup")
+#                 writer.write(self, "bitlen")
+#                 writer.write(self, f"pushint {type.size * 8}")
+#                 writer.write(self, "<=")
+#                 writer.write(self, "assert // Error: Incorrect size for assignment")
+
+
+# class ToBytesWrapper(BaseNode):
+#     def __init__(self, expression, size=None) -> None:
+#         if type(expression.type) == list:
+#             raise Exception("Expression must be a single value.")
+#         self.expression = expression
+#         self.parent = expression
+#         self.type = BytesType(self.expression.type.size if not size else size)
+
+#     def write_teal(self, writer):
+#         expression_type = self.expression.type
+#         writer.write(self, self.expression)
+#         if isinstance(expression_type, BytesType):
+#             pass
+#         elif isinstance(expression_type, IntType):
+#             writer.write(self, "itob")
+#             if isinstance(expression_type, UIntType):
+#                 writer.write(self, f"extract {8 - self.type.size} {self.type.size}")
+
+
+# class FromBytesWrapper(BaseNode):
+#     def __init__(self, expression, to_type) -> None:
+#         if type(expression.type) == list:
+#             raise Exception("Expression must be a single value.")
+#         self.expression = expression
+#         self.parent = expression
+#         if isinstance(to_type, IntType):
+#             to_type = IntType()
+#         self.type = to_type
+
+#     def write_teal(self, writer):
+#         writer.write(self, self.expression)
+#         if isinstance(self.type, BytesType):
+#             pass
+#         elif isinstance(self.type, IntType):
+#             writer.write(self, "btoi // convert to int")
 
 
 def class_provider(name: str) -> Optional[type]:
     classes = {
         "Variable": Variable,
         "Constant": Constant,
+        "Enum": Enum,
         "UnaryOp": UnaryOp,
         "BinaryOp": BinaryOp,
         "Group": Group,
         "Integer": Integer,
         "Bytes": Bytes,
         "FunctionCall": FunctionCall,
+        "StdLibFunctionCall": StdLibFunctionCall,
         "TxnField": TxnField,
         "TxnArrayField": TxnArrayField,
         "GroupTxnField": GroupTxnField,

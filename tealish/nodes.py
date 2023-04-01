@@ -11,27 +11,26 @@ from typing import (
     Union,
     cast,
 )
+
 from .base import BaseNode
 from .errors import CompileError, ParseError
 from .tx_expressions import parse_expression
-from .tealish_builtins import (
+from .tealish_builtins import Var
+from .types import (
     AVMType,
-    ObjectType,
-    Var,
+    AnyType,
+    BoxType,
+    BytesType,
+    IntType,
+    StructType,
+    TealishType,
+    UIntType,
     define_struct,
     get_struct,
-    VarType,
-    Struct,
-    StructField,
-    IntVar,
-    StructVar,
-    BoxVar,
-    get_class_for_type,
+    get_type_instance,
 )
 from .scope import Scope
 
-LITERAL_INT = r"[0-9]+"
-LITERAL_BYTES = r'"(.+)"'
 VARIABLE_NAME = r"[a-z_][a-zA-Z0-9_]*"
 
 if TYPE_CHECKING:
@@ -48,7 +47,6 @@ class Node(BaseNode):
         parent: Optional["Node"] = None,
         compiler: Optional["TealishCompiler"] = None,
     ) -> None:
-
         self.parent = parent
 
         if self.parent is not None:
@@ -78,7 +76,6 @@ class Node(BaseNode):
         for name, expr_class in type_hints.items():
             if name in self.raw_tokens:
                 try:
-
                     if self.raw_tokens[name] is not None and hasattr(
                         expr_class, "parse"
                     ):
@@ -157,7 +154,7 @@ class Literal(Expression):
 
 
 class LiteralInt(Literal):
-    pattern = rf"(?P<value>{LITERAL_INT})$"
+    pattern = r"(?P<value>[0-9]+)$"
     value: int
 
     def write_teal(self, writer: "TealWriter") -> None:
@@ -171,17 +168,17 @@ class LiteralInt(Literal):
 
 
 class LiteralBytes(Literal):
-    pattern = rf"(?P<value>{LITERAL_BYTES})$"
+    pattern = r'"(?P<value>.+)"$'
     value: str
 
     def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"pushbytes {self.value}")
+        writer.write(self, f'pushbytes "{self.value}"')
 
-    def type(self) -> AVMType:
-        return AVMType.bytes
+    def type(self) -> BytesType:
+        return BytesType(size=len(self.value))
 
     def _tealish(self) -> str:
-        return f"{self.value}"
+        return f'"{self.value}"'
 
 
 class Name(Expression):
@@ -190,18 +187,17 @@ class Name(Expression):
 
     def __init__(self, line: str) -> None:
         self.slot: Optional[int] = None
-        self._type: Optional[VarType] = None
+        self._type: Optional[TealishType] = None
         super().__init__(line)
 
     def _tealish(self) -> str:
         return f"{self.value}"
 
-    def type(self) -> Optional[VarType]:
+    def type(self) -> Optional[TealishType]:
         return self._type
 
 
 class GenericExpression(Expression):
-
     # TODO: never set?
     type: str
 
@@ -322,11 +318,13 @@ class LineStatement(InlineStatement):
             return Return(line, parent, compiler=compiler)
         elif line.startswith("break"):
             return Break(line, parent, compiler=compiler)
-        elif re.match(r"[A-Za-z][a-zA-Z_0-9]+ [a-zA-Z_0-9]+( = .*)?", line):
+        elif re.match(
+            r"[A-Za-z][a-zA-Z_0-9]*(\[[0-9]+\])? [a-zA-Z_0-9]+( = .*)?", line
+        ):
             return VarDeclaration(line, parent, compiler=compiler)
         elif line.startswith("box<"):
             return BoxDeclaration(line, parent, compiler=compiler)
-        elif re.match(r"[a-z][a-zA-Z_0-9]+\.[a-z][a-zA-Z_0-9]* = .*", line):
+        elif re.match(r"[a-z][a-zA-Z_0-9]*\.[a-z][a-zA-Z_0-9]* = .*", line):
             return StructOrBoxAssignment(line, parent, compiler=compiler)
         elif " = " in line:
             return Assignment(line, parent, compiler=compiler)
@@ -375,26 +373,28 @@ class Blank(LineStatement):
 
 class Const(LineStatement):
     pattern = (
-        r"const (?P<type>\bint\b|\bbytes\b|\bbigint|addr\b) "
+        r"const (?P<tealish_type>\bint\b|\bbytes\b|\bbigint|addr\b) "
         + r"(?P<name>[A-Z][a-zA-Z0-9_]*) = (?P<expression>.*)$"
     )
-    type: AVMType
+    tealish_type: TealishType
     name: str
     expression: Literal
 
     def process(self) -> None:
         scope = self.get_current_scope()
         try:
-            avm_type = get_class_for_type(self.type).avm_type
+            tealish_type = get_type_instance(self.tealish_type)
         except KeyError:
-            raise CompileError(f'Unknown type "{self.type}"', node=self)
-        scope.declare_const(self.name, (avm_type, self.expression.value))
+            raise CompileError(f'Unknown type "{self.tealish_type}"', node=self)
+        if type(tealish_type) == BytesType:
+            tealish_type.size = len(self.expression.value)
+        scope.declare_const(self.name, (tealish_type, self.expression.value))
 
     def write_teal(self, writer: "TealWriter") -> None:
         pass
 
     def _tealish(self) -> str:
-        s = f"const {self.type} {self.name}"
+        s = f"const {self.tealish_type} {self.name}"
         if self.expression:
             s += f" = {self.expression.tealish()}"
         return s + "\n"
@@ -460,7 +460,7 @@ class Assert(LineStatement):
 
     def process(self) -> None:
         self.arg.process()
-        if self.arg.type not in (AVMType.int, AVMType.any):
+        if not isinstance(self.arg.type, (IntType, AnyType)):
             raise CompileError(
                 "Incorrect type for assert. "
                 + f"Expected int, got {self.arg.type} at line {self.line_no}.",
@@ -486,35 +486,30 @@ class Assert(LineStatement):
 
 
 class VarDeclaration(LineStatement):
-    pattern = r"(?P<type_name>[A-Za-z][A-Za-z0-9_]*) (?P<name>[a-z][a-zA-Z0-9_]*)( = (?P<expression>.*))?$"
+    pattern = r"(?P<type_name>[A-Za-z][A-Za-z0-9_]*(\[[0-9]+\])?) (?P<name>[a-z][a-zA-Z0-9_]*)( = (?P<expression>.*))?$"
     type_name: str
     name: Name
     expression: GenericExpression
 
     def process(self) -> None:
-        try:
-            var_cls = get_class_for_type(self.type_name)
-        except KeyError:
-            raise CompileError(f'Unknown type "{self.type_name}"', node=self)
-        self.var = self.declare_scratch_var(var_cls(self.name.value))
+        self.var = self.declare_scratch_var(self.name.value, self.type_name)
         if self.expression:
             self.expression.process()
-            if self.expression.type not in (
-                self.var.avm_type,
-                AVMType.any,
-                self.type_name,
-            ):
-                raise CompileError(
-                    f"Incorrect type for {self.type_name} assignment. "
-                    + f"Expected {self.type_name}, got {self.expression.type}",
-                    node=self,
-                )
+            if not self.var.tealish_type.can_hold(self.expression.type):
+                message = f"Incorrect type for assignment. Expected {self.type_name}, got {self.expression.type} at line {self.line_no}."
+                if self.var.tealish_type.can_hold_with_cast(self.expression.type):
+                    message += "\nPerhaps Cast or padding is required? "
+                    message += f"\n- {self.line}"
+                    message += f"\n+ {self.type_name} {self.name.value} = Cast({self.expression.tealish()}, {self.type_name})"
+                    if not isinstance(self.var.tealish_type, (StructType, IntType)):
+                        message += f"\n+ {self.type_name} {self.name.value} = Rpad({self.expression.tealish()}, {self.var.tealish_type.size})"
+                raise CompileError(message)
 
     def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"// {self.line} [slot {self.var.slot}]")
+        writer.write(self, f"// {self.line} [slot {self.var.scratch_slot}]")
         if self.expression:
             writer.write(self, self.expression)
-            writer.write(self, f"store {self.var.slot} // {self.name.value}")
+            writer.write(self, f"store {self.var.scratch_slot} // {self.name.value}")
 
     def _tealish(self) -> str:
         s = f"{self.type_name} {self.name.tealish()}"
@@ -532,17 +527,17 @@ class Assignment(LineStatement):
     def process(self) -> None:
         self.expression.process()
         t = self.expression.type
-        incoming_types = t if type(t) == list else [t]
-
+        self.incoming_types = t if type(t) == list else [t]
         names = [Name(s.strip()) for s in self.names.split(",")]
         self.name_nodes = names
-        if len(incoming_types) != len(names):
+        if len(self.incoming_types) != len(names):
             raise CompileError(
                 f"Incorrect number of names ({len(names)}) for "
-                + f"values ({len(incoming_types)}) in assignment",
+                + f"values ({len(self.incoming_types)}) in assignment",
                 node=self,
             )
 
+        self.vars = []
         for i, name in enumerate(names):
             if name.value == "_":
                 continue
@@ -553,21 +548,20 @@ class Assignment(LineStatement):
                     f'Var "{name.value}" not declared in current scope', node=self
                 )
 
-            if not (
-                incoming_types[i] == AVMType.any or incoming_types[i] == var.avm_type
-            ):
+            if not var.tealish_type.can_hold(self.incoming_types[i]):
                 raise CompileError(
-                    f"Incorrect type for {var.avm_type} assignment. "
-                    + f"Expected {var.avm_type}, got {incoming_types[i]}",
+                    f"Incorrect type for {var.tealish_type} assignment. "
+                    + f"Expected {var.tealish_type}, got {self.incoming_types[i]}",
                     node=self,
                 )
-            name.slot = var.slot
+            name.slot = var.scratch_slot
             name._type = var.avm_type
+            self.vars.append(var)
 
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line}")
         writer.write(self, self.expression)
-        for name in self.name_nodes:
+        for i, name in enumerate(self.name_nodes):
             if name.value == "_":
                 writer.write(self, "pop // discarding value for _")
             else:
@@ -808,7 +802,6 @@ class InnerTxn(InlineStatement):
                 if n == index:
                     self.array_fields[node.field_name].append(node)
                 else:
-
                     # TODO: this is required since the Node base class
                     # accepts an Optional compiler.
                     # I think this is wrong but will circle back
@@ -1263,7 +1256,7 @@ class ForStatement(InlineStatement):
         return node
 
     def process(self) -> None:
-        self.var = self.declare_scratch_var(IntVar(self.var_name))
+        self.var = self.declare_scratch_var(self.var_name, "int")
         for n in self.nodes:
             n.process()
         self.del_var(self.var_name)
@@ -1272,18 +1265,18 @@ class ForStatement(InlineStatement):
         writer.write(self, f"// {self.line}")
         writer.level += 1
         writer.write(self, self.start)
-        writer.write(self, f"store {self.var.slot} // {self.var.name}")
+        writer.write(self, f"store {self.var.scratch_slot} // {self.var.name}")
         writer.write(self, f"{self.start_label}:")
-        writer.write(self, f"load {self.var.slot} // {self.var.name}")
+        writer.write(self, f"load {self.var.scratch_slot} // {self.var.name}")
         writer.write(self, self.end)
         writer.write(self, "==")
         writer.write(self, f"bnz {self.end_label}")
         for n in self.child_nodes:
             n.write_teal(writer)
-        writer.write(self, f"load {self.var.slot} // {self.var.name}")
+        writer.write(self, f"load {self.var.scratch_slot} // {self.var.name}")
         writer.write(self, "pushint 1")
         writer.write(self, "+")
-        writer.write(self, f"store {self.var.slot} // {self.var.name}")
+        writer.write(self, f"store {self.var.scratch_slot} // {self.var.name}")
         writer.write(self, f"b {self.start_label}")
         writer.write(self, f"{self.end_label}: // end")
         writer.level -= 1
@@ -1358,15 +1351,14 @@ class For_Statement(InlineStatement):
 
 
 class ArgsList(Expression):
-    arg_pattern = (
-        r"(?P<arg_name>[a-z][a-z_0-9]*): (?P<arg_type>[a-zA-Z][A-Za-z_0-9<>]*)"
-    )
+    arg_pattern = r"(?P<arg_name>[a-z][a-z_0-9]*): (?P<arg_type>[a-zA-Z][A-Za-z_0-9<>]*(?:\[\d+\])?)"
     pattern = rf"(?P<args>({arg_pattern}(, )?)*)"
-    args: List[Tuple[str, AVMType]]
+    args: List[Tuple[str, TealishType]]
 
     def __init__(self, line: str) -> None:
         super().__init__(line)
         self.args = re.findall(self.arg_pattern, line)
+        self.arg_types = [get_type_instance(type_name) for _, type_name in self.args]
 
     def _tealish(self) -> str:
         output = ", ".join([f"{a}: {t}" for (a, t) in self.args])
@@ -1380,7 +1372,7 @@ class Func(InlineStatement):
     args: ArgsList
 
     return_type: str
-    returns: List[AVMType]
+    returns: List[TealishType]
 
     def __init__(
         self,
@@ -1393,11 +1385,14 @@ class Func(InlineStatement):
         scope.declare_function(self.name, self)
         self.label = scope.name + "__func__" + self.name
         self.new_scope("func__" + self.name)
-        self.returns = list(
-            filter(
-                None, [cast(AVMType, s.strip()) for s in self.return_type.split(",")]
-            )
-        )
+        self.return_type = self.return_type.replace(" ", "")
+        try:
+            self.returns = [
+                get_type_instance(type_name)
+                for type_name in filter(None, self.return_type.split(","))
+            ]
+        except KeyError as e:
+            raise ParseError(str(e) + f" Line {self.line_no}")
         self.vars: Dict[str, Var] = {}
 
     @classmethod
@@ -1417,12 +1412,8 @@ class Func(InlineStatement):
         return func
 
     def process(self) -> None:
-        for (name, type) in self.args.args[::-1]:
-            try:
-                var_cls = get_class_for_type(type)
-            except KeyError:
-                raise CompileError(f'Unknown type "{type}"', node=self)
-            self.vars[name] = self.declare_scratch_var(var_cls(name))
+        for name, type in self.args.args[::-1]:
+            self.vars[name] = self.declare_scratch_var(name, type)
         for node in self.nodes:
             node.process()
 
@@ -1430,8 +1421,10 @@ class Func(InlineStatement):
         writer.write(self, f"// {self.line}")
         writer.write(self, f"{self.label}:")
         for name, _ in self.args.args[::-1]:
-            slot = self.vars[name].slot
-            writer.write(self, f"store {slot} // {name}")
+            var = self.vars[name]
+            writer.write(
+                self, f"store {var.scratch_slot} // {name} [{var.tealish_type}]"
+            )
         for node in self.child_nodes:
             node.write_teal(writer)
 
@@ -1447,6 +1440,7 @@ class Func(InlineStatement):
 class Return(LineStatement):
     pattern = r"return ?(?P<args>.*?)?$"
     args: str
+    func: Func
 
     def __init__(
         self,
@@ -1455,7 +1449,8 @@ class Return(LineStatement):
         compiler: "TealishCompiler",
     ) -> None:
         super().__init__(line, parent, compiler)
-        if not self.is_descendant_of(Func):
+        self.func = self.find_parent(Func)
+        if self.func is None:
             raise ParseError(
                 f'"return" should only be used in a function! Line {self.line_no}'
             )
@@ -1466,16 +1461,26 @@ class Return(LineStatement):
                 arg = a.strip()
                 node = GenericExpression.parse(arg, parent, compiler)
                 self.args_expressions.append(node)
+        if len(self.args_expressions) != len(self.func.returns):
+            raise ParseError(f"Incorrect number of returns. Line {self.line_no}")
         self.nodes = self.args_expressions
 
     def process(self) -> None:
         for n in self.nodes:
             n.process()
+        for i, r in enumerate(self.func.returns):
+            return_expression = self.args_expressions[i]
+            if not r.can_hold(return_expression.type):
+                raise CompileError(
+                    "Incorrect type for return value. "
+                    + f"Expected {r}, got {return_expression.type}",
+                    node=self,
+                )
 
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line}")
         if self.args:
-            for expression in self.args_expressions:
+            for i, expression in enumerate(self.args_expressions):
                 writer.write(self, expression)
         writer.write(self, "retsub")
 
@@ -1491,12 +1496,10 @@ class Return(LineStatement):
 class StructFieldDefinition(InlineStatement):
     pattern = (
         r"(?P<field_name>[a-z][A-Z-a-z0-9_]*): "
-        + r"(?P<data_type>[a-z][A-Z-a-z0-9_]+)(\[(?P<data_length>\d+)\])?"
+        + r"(?P<data_type>[a-zA-Z][A-Z-a-z0-9_]+(\[\d+\])?)"
     )
     field_name: str
-    data_type: AVMType
-    data_length: int
-    offset: int
+    data_type: str
 
     def process(self) -> None:
         pass
@@ -1506,8 +1509,6 @@ class StructFieldDefinition(InlineStatement):
 
     def _tealish(self) -> str:
         output = f"{self.field_name}: {self.data_type}"
-        if self.data_length:
-            output += f"[{self.data_length}]"
         return output
 
 
@@ -1526,7 +1527,7 @@ class StructDefinition(InlineStatement):
     possible_child_nodes = [StructFieldDefinition]
     pattern = r"struct (?P<name>[A-Z][a-zA-Z_0-9]*):$"
     name: str
-    struct: Struct
+    struct: StructType
 
     @classmethod
     def consume(
@@ -1552,32 +1553,19 @@ class StructDefinition(InlineStatement):
                     )
                 )
 
+        node.struct = StructType(node.name)
+        for field in node.child_nodes:
+            field_node = cast(StructFieldDefinition, field)
+            node.struct.add_field(
+                field_node.field_name, get_type_instance(field_node.data_type)
+            )
+        define_struct(node.struct)
+
         return node
 
     def process(self) -> None:
         for n in self.nodes:
             n.process()
-
-        offset = 0
-        fields: Dict[str, StructField] = {}
-        for field in self.child_nodes:
-            field_node = cast(StructFieldDefinition, field)
-            # Create StructField obj from processed StructFieldDefinition Node
-            sf = StructField(
-                data_type=field_node.data_type,
-                data_length=field_node.data_length,
-                offset=offset,
-                size=8
-                if field_node.data_type == AVMType.int
-                else int(field_node.data_length),
-            )
-            fields[field_node.field_name] = sf
-
-            offset += sf.size
-
-        self.struct = Struct(fields, offset)
-
-        define_struct(self.name, self.struct)
 
     def write_teal(self, writer: "TealWriter") -> None:
         pass
@@ -1604,46 +1592,61 @@ class StructOrBoxAssignment(LineStatement):
         if self.var is None:
             raise CompileError(f"Could not find struct with name: {self.name.value}")
 
-        if not isinstance(self.var, StructVar):
+        if not isinstance(self.var.tealish_type, (StructType, BoxType)):
             raise CompileError(
                 f"{self.name.value} is not a struct or Box reference", node=self
             )
-        if isinstance(self.var, BoxVar):
-            self.object_type = ObjectType.box
-        else:
-            self.object_type = ObjectType.struct
+        self.object_type = self.var.tealish_type
 
-        struct = self.var.struct
+        struct = self.var.tealish_type
         struct_field = struct.fields[self.field_name]
         self.offset = struct_field.offset
         self.size = struct_field.size
-        self.data_type = struct_field.data_type
+        self.data_type = struct_field.tealish_type
         self.expression.process()
-        if self.expression.type not in (self.data_type, AVMType.any):
-            raise CompileError(
-                "Incorrect type for struct field assignment. "
-                + f"Expected {self.data_type}, got {self.expression.type}",
-                node=self,
-            )
+        if not struct_field.tealish_type.can_hold(self.expression.type):
+            # raise CompileError(
+            #     "Incorrect type for struct field assignment. "
+            #     + f"Expected {struct_field.tealish_type}, got {self.expression.type}",
+            #     node=self,
+            # )
+            message = f"Incorrect type for struct field assignment. Expected {self.data_type}, got {self.expression.type} at line {self.line_no}."
+            if struct_field.tealish_type.can_hold_with_cast(self.expression.type):
+                message += "\nPerhaps Cast or padding is required? "
+                message += f"\n- {self.line}"
+                message += f"\n+ {self.name.value}.{self.field_name} = Cast({self.expression.tealish()}, {self.data_type})"
+                if not isinstance(struct_field.tealish_type, (StructType, IntType)):
+                    message += f"\n+ {self.name.value}.{self.field_name} = Rpad({self.expression.tealish()}, {self.data_type.size})"
+            raise CompileError(message)
 
     def write_teal(self, writer: "TealWriter") -> None:
-        if self.object_type == ObjectType.struct:
-            writer.write(self, f"// {self.line} [slot {self.var.slot}]")
-            writer.write(self, f"load {self.var.slot} // {self.name.value}")
+        if isinstance(self.object_type, StructType):
+            writer.write(self, f"// {self.line} [slot {self.var.scratch_slot}]")
+            writer.write(self, f"load {self.var.scratch_slot} // {self.name.value}")
             writer.write(self, self.expression)
-            if self.data_type == AVMType.int:
+            if isinstance(self.data_type, IntType):
                 writer.write(self, "itob")
+                if isinstance(self.data_type, UIntType):
+                    writer.write(
+                        self, f"extract {8 - self.data_type.size} {self.data_type.size}"
+                    )
             writer.write(
                 self, f"replace {self.offset} // {self.name.value}.{self.field_name}"
             )
-            writer.write(self, f"store {self.var.slot} // {self.name.value}")
-        elif self.object_type == ObjectType.box:
+            writer.write(self, f"store {self.var.scratch_slot} // {self.name.value}")
+        elif isinstance(self.object_type, BoxType):
             writer.write(self, f"// {self.line} [box]")
-            writer.write(self, f"load {self.var.slot} // box key {self.name.value}")
+            writer.write(
+                self, f"load {self.var.scratch_slot} // box key {self.name.value}"
+            )
             writer.write(self, f"pushint {self.offset} // offset")
             writer.write(self, self.expression)
-            if self.data_type == AVMType.int:
+            if isinstance(self.data_type, IntType):
                 writer.write(self, "itob")
+                if isinstance(self.data_type, UIntType):
+                    writer.write(
+                        self, f"extract {8 - self.data_type.size} {self.data_type.size}"
+                    )
             writer.write(self, f"box_replace // {self.name.value}.{self.field_name}")
 
     def _tealish(self) -> str:
@@ -1673,16 +1676,16 @@ class BoxDeclaration(LineStatement):
     def process(self):
         self.struct = get_struct(self.struct_name)
         self.box_size = self.struct.size
-        self.var = self.declare_scratch_var(BoxVar(self.name.value, self.struct_name))
+        self.var = self.declare_scratch_var(self.name.value, f"box<{self.struct_name}>")
         self.key.process()
-        if self.key.type not in (AVMType.bytes, AVMType.any):
+        if not BytesType().can_hold(self.key.type):
             raise CompileError(
                 f"Incorrect type for box key. Expected bytes, got {self.key.type}",
                 node=self,
             )
 
     def write_teal(self, writer):
-        writer.write(self, f"// {self.line} [slot {self.var.slot}]")
+        writer.write(self, f"// {self.line} [slot {self.var.scratch_slot}]")
         writer.write(self, self.key)
         if self.method == "Open":
             writer.write(self, "dup")
@@ -1698,7 +1701,7 @@ class BoxDeclaration(LineStatement):
             writer.write(self, "assert // assert created")
         else:
             writer.write(self, "// assume box exists")
-        writer.write(self, f"store {self.var.slot} // {self.name.value}")
+        writer.write(self, f"store {self.var.scratch_slot} // {self.name.value}")
 
     def _tealish(self):
         s = (

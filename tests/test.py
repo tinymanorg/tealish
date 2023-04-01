@@ -16,7 +16,7 @@ from tealish.nodes import Node
 from tealish.tx_expressions import parse_expression
 from tealish.utils import strip_comments
 from tealish.scope import Scope
-from tealish.tealish_builtins import IntVar
+from tealish.types import IntType
 
 
 def compile_lines(source_lines: List[str]) -> List[str]:
@@ -123,7 +123,7 @@ class TestFields(unittest.TestCase):
 
     def test_group_index_var(self):
         scope = Scope()
-        scope.declare_scratch_var(IntVar("index"))
+        scope.declare_scratch_var("index", IntType)
         teal = compile_expression_min("Gtxn[index].TypeEnum", scope=scope)
         self.assertListEqual(teal, ["load 0", "gtxns TypeEnum"])
 
@@ -700,7 +700,7 @@ class TestOperators(unittest.TestCase):
 
     def test_unary_variable(self):
         scope = Scope()
-        scope.declare_scratch_var(IntVar("x"))
+        scope.declare_scratch_var("x", IntType)
         teal = compile_expression_min("!x", scope=scope)
         self.assertEqual(
             teal,

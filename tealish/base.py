@@ -1,8 +1,9 @@
 from typing import cast, Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 from tealish.errors import CompileError
-from .tealish_builtins import AVMType, ConstValue, Var
+from .tealish_builtins import ConstValue, Var
 from .langspec import get_active_langspec, Op
 from .scope import Scope
+from .types import TealishType, get_type_instance
 
 
 if TYPE_CHECKING:
@@ -17,21 +18,14 @@ def check_arg_types(name: str, incoming_args: List["Node"]) -> None:
     expected_args = op.arg_types
     # TODO:
     for i, incoming_arg in enumerate(incoming_args):
-        if incoming_arg.type == AVMType.any:  # type: ignore
-            continue
-        if expected_args[i] == AVMType.any:
-            continue
-        if incoming_arg.type == expected_args[i]:  # type: ignore
-            continue
-
-        raise Exception(
-            f"Incorrect type {incoming_arg.type} "  # type: ignore
-            + f"for arg {i} of {name}. Expected {expected_args[i]}"
-        )
+        if not op.arg_types[i].can_hold(incoming_arg.type):
+            raise Exception(
+                f"Incorrect type {incoming_arg.type} "  # type: ignore
+                + f"for arg {i} of {name}. Expected {expected_args[i]}"
+            )
 
 
 class BaseNode:
-
     _teal: List[str]
 
     def process(self) -> None:
@@ -79,7 +73,7 @@ class BaseNode:
         else:
             return None
 
-    def declare_scratch_var(self, var: Var) -> int:
+    def declare_scratch_var(self, name: str, type_name: str) -> Var:
         scope = self.get_current_scope()
         # TODO: this fixed the issue of slot assignment in the `main`
         # but i'm not sure why...
@@ -92,10 +86,15 @@ class BaseNode:
             # This is to prevent functions using overlapping slots
             max_slot = self.parent.compiler.max_slot + 1  # type: ignore
 
-        var = scope.declare_scratch_var(var, max_slot=max_slot)
+        try:
+            type = get_type_instance(type_name)
+        except KeyError:
+            raise CompileError(f'Unknown type "{type_name}"', node=self)
+
+        var = scope.declare_scratch_var(name, type, max_slot=max_slot)
 
         # Update max_slot on compiler
-        self.compiler.max_slot = max(self.compiler.max_slot, var.slot)  # type: ignore
+        self.compiler.max_slot = max(self.compiler.max_slot, var.scratch_slot)  # type: ignore
 
         return var
 
@@ -142,7 +141,7 @@ class BaseNode:
         except Exception as e:
             raise CompileError(str(e), node=self)  # type: ignore
 
-    def get_field_type(self, namespace: str, name: str) -> AVMType:
+    def get_field_type(self, namespace: str, name: str) -> TealishType:
         return lang_spec.get_field_type(namespace, name)
 
     def lookup_op(self, name: str) -> Op:
@@ -151,13 +150,13 @@ class BaseNode:
     def lookup_func(self, name: str) -> "Func":
         return self.get_scope().lookup_func(name)
 
-    def lookup_var(self, name: str) -> Any:
+    def lookup_var(self, name: str) -> Var:
         return self.get_scope().lookup_var(name)
 
-    def lookup_const(self, name: str) -> Tuple["AVMType", ConstValue]:
+    def lookup_const(self, name: str) -> Tuple["TealishType", ConstValue]:
         return self.get_scope().lookup_const(name)
 
-    def lookup_avm_constant(self, name: str) -> Tuple["AVMType", Any]:
+    def lookup_avm_constant(self, name: str) -> Tuple["TealishType", Any]:
         return lang_spec.lookup_avm_constant(name)
 
     # TODO: these attributes are only available on Node and other children types

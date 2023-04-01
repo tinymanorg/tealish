@@ -25,7 +25,7 @@ bytes b = BAR
 # Structs
 Item item1 = bzero(46)
 item1.id = 123
-item1.name = "xyz"
+item1.name = "xyz       "
 assert(item1.id > 0)
 log(item1.name)
 
@@ -60,7 +60,7 @@ end
 
 # Boxes
 box<Item> box1 = CreateBox("a")
-box1.name = "xyz"
+box1.name = "xyz       "
 assert(box1.id)
 
 
