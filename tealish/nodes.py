@@ -644,6 +644,11 @@ class Block(Statement):
         while True:
             if compiler.peek() == "end":
                 compiler.consume_line()
+                if exit_statement is None:
+                    raise ParseError(
+                        f"Unexpected end of block at line {compiler.line_no}."
+                        + " Blocks must end with an exit statement (e.g. exit, switch, jump)"
+                    )
                 break
 
             n = Statement.consume(compiler, block)
@@ -657,7 +662,7 @@ class Block(Statement):
                 if isinstance(n, (Func, Block)):
                     raise ParseError(
                         f"Unexpected {n} definition at line {n.line_no}. "
-                        + "Block and Function definitions must occur after an exit statement (e.g Exit, switch, jump)."
+                        + "Block and Function definitions must occur after an exit statement (e.g. exit, switch, jump)."
                     )
             if is_exit_statement(n):
                 exit_statement = n
