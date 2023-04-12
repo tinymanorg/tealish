@@ -139,6 +139,7 @@ end
 
 block fail:
     oops()
+    exit(1)
 end
 
 # Function with no args or return value
