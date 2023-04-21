@@ -346,6 +346,9 @@ inner_stuff:
 fail:
   // oops()
   callsub __func__oops
+  // exit(1)
+  pushint 1
+  return
 
 // Function with no args or return value
 // func oops():
