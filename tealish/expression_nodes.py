@@ -230,7 +230,7 @@ class FunctionCall(BaseNode):
             elif isinstance(x, Bytes):
                 immediates[i] = f'"{x.value}"'
         self.immediate_args = " ".join(map(str, immediates))
-        returns = op.returns_types[::-1]
+        returns = op.returns_types
         self.type = returns[0] if len(returns) == 1 else returns
 
     def process_special_call(self) -> None:

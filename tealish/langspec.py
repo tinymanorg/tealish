@@ -145,7 +145,8 @@ class Op:
 
         if "Returns" in op_def:
             self.returns = op_def["Returns"]
-            self.returns_types = convert_args_to_types(self.returns)
+            # reverse the list from stack order to tealish order
+            self.returns_types = convert_args_to_types(self.returns)[::-1]
         else:
             self.returns = ""
             self.returns_types = []
