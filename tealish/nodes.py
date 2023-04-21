@@ -1555,7 +1555,7 @@ class Struct(InlineStatement):
     pattern = r"struct (?P<name>[A-Z][a-zA-Z_0-9]*):$"
     name: str
     size: int = 0
-    fields: Dict[str, StructFieldDefinition] = {}
+    fields: Dict[str, StructFieldDefinition]
 
     @classmethod
     def consume(cls, compiler: "TealishCompiler", parent: Optional[Node]) -> "Struct":
@@ -1583,7 +1583,7 @@ class Struct(InlineStatement):
     def process(self) -> None:
         for n in self.nodes:
             n.process()
-
+        self.fields = {}
         offset = 0
         for field in self.child_nodes:
             field = cast(StructFieldDefinition, field)
