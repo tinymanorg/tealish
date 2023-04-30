@@ -1,0 +1,3 @@
+black==23.1.0
+py-algorand-sdk==2.0.0
+tealish==0.0.2
