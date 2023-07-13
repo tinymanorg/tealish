@@ -26,6 +26,13 @@ def convert_args_to_types(args: str) -> List[TealishType]:
     return [type_lookup(args[idx]) for idx in range(len(args))]
 
 
+field_types = {
+    # TODO: Add more field type overrides here
+    # TODO: Later hopefully read this from improved langspec json
+    "Sender": BytesType(size=32),
+}
+
+
 class Op:
     """Definition of a single opcode in TEAL"""
 
@@ -98,6 +105,10 @@ class Op:
             self.arg_enum = []
             self.arg_enum_types = []
             self.arg_enum_dict = {}
+
+        for field_name in self.arg_enum_dict:
+            if field_name in field_types:
+                self.arg_enum_dict[field_name] = field_types[field_name]
 
         self.doc = op_def.get("Doc", "")
         self.doc_extra = op_def.get("DocExtra", "")

@@ -1,3 +1,4 @@
+import ast
 import re
 import textwrap
 from typing import (
@@ -170,6 +171,11 @@ class LiteralInt(Literal):
 class LiteralBytes(Literal):
     pattern = r'"(?P<value>.+)"$'
     value: str
+
+    def __init__(self, line: str, parent=None, compiler=None) -> None:
+        super().__init__(line, parent, compiler)
+        # unescape byte sequences in literal strings
+        self.value = ast.literal_eval(line)
 
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f'pushbytes "{self.value}"')

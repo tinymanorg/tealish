@@ -61,6 +61,9 @@ class IntType(TealishType):
         # If self and other are the same types and same size
         if isinstance(other, IntType) and other.size <= self.size:
             return True
+        # If other is "any" and this is not a small sized int
+        if isinstance(other, AnyType) and self.size == 8:
+            return True
 
     def __str__(self) -> str:
         s = self.name

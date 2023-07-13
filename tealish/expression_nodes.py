@@ -121,7 +121,7 @@ class Enum(BaseNode):
 
     def write_teal(self, writer: "TealWriter") -> None:
         if isinstance(self.type, IntType):
-            writer.write(self, f"pushint {self.name}")
+            writer.write(self, f"pushint {self.value} // {self.name}")
         elif isinstance(self.type, BytesType):
             writer.write(self, f"pushbytes {self.name}")
 
