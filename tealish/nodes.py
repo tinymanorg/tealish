@@ -1252,6 +1252,7 @@ class WhileStatement(InlineStatement):
         compiler.conditional_count += 1
         self.start_label: str = f"l{self.conditional_index}_while"
         self.end_label: str = f"l{self.conditional_index}_end"
+        self.new_scope(f"while__{self.conditional_index}")
 
     @classmethod
     def consume(cls, compiler: "TealishCompiler", parent: Node) -> "WhileStatement":
@@ -1307,6 +1308,7 @@ class ForStatement(InlineStatement):
         compiler.conditional_count += 1
         self.start_label = f"l{self.conditional_index}_for"
         self.end_label = f"l{self.conditional_index}_end"
+        self.new_scope(f"for__{self.conditional_index}")
 
     @classmethod
     def consume(cls, compiler: "TealishCompiler", parent: Node) -> "ForStatement":
@@ -1371,6 +1373,7 @@ class For_Statement(InlineStatement):
         compiler.conditional_count += 1
         self.start_label = f"l{self.conditional_index}_for"
         self.end_label = f"l{self.conditional_index}_end"
+        self.new_scope(f"for__{self.conditional_index}")
 
     @classmethod
     def consume(cls, compiler: "TealishCompiler", parent: Node) -> "For_Statement":
