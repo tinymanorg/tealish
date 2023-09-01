@@ -9,6 +9,19 @@ from typing import List, Dict, Any, Tuple, Optional
 
 abc = "ABCDEFGHIJK"
 
+# Hopefully these will eventually be added to langspec.json. Including here until then.
+# Note: Other pseudo ops like addr and base32 are not included here because their syntax isn't parseable by Tealish currently.
+# e.g addr(RIKLQ5HEVXAOAWYSW2LGQFYGWVO4J6LIAQQ72ZRULHZ4KS5NRPCCKYPCUU) is not parseable because the address isn't quoted.
+pseudo_ops = [
+    {
+        "Name": "method",
+        "Opcode": "method",
+        "Size": 2,
+        "Args": [],
+        "Returns": ["B"],
+    },
+]
+
 
 _opcode_type_map = {
     ".": AnyType(),
@@ -16,6 +29,59 @@ _opcode_type_map = {
     "U": IntType(),
     "": AnyType(),
 }
+
+operators = [
+    "+",
+    "-",
+    "*",
+    "/",
+    "%",
+    "==",
+    ">=",
+    "<=",
+    ">",
+    "<",
+    "!=",
+    "&&",
+    "||",
+    "|",
+    "%",
+    "^",
+    "!",
+    "&",
+    "~",
+    "b+",
+    "b-",
+    "b/",
+    "b*",
+    "b%",
+    "b==",
+    "b!=",
+    "b>=",
+    "b<=",
+    "b>",
+    "b<",
+    "b|",
+    "b&",
+    "b^",
+    "b~",
+]
+
+ignores = [
+    "intc*",
+    "bytec*",
+    "txn*",
+    "gtxn*",
+    "itxn_*",
+    "return",
+    "err",
+    "b",
+    "bz",
+    "bnz",
+    "arg_*",
+    "callsub",
+    "retsub",
+]
 
 
 def type_lookup(a: str) -> TealishType:
@@ -69,11 +135,14 @@ class Op:
     #: inferred method signature
     sig: str
 
+    is_operator: bool
+
     def __init__(self, op_def: Dict[str, Any]):
         self.opcode = op_def["Opcode"]
         self.name = op_def["Name"]
         self.size = op_def["Size"]
         self.immediate_args_num = self.size - 1
+        self.is_operator = self.name in operators
 
         if "Args" in op_def:
             self.args = op_def["Args"]
@@ -84,7 +153,8 @@ class Op:
 
         if "Returns" in op_def:
             self.returns = op_def["Returns"]
-            self.returns_types = convert_args_to_types(self.returns)
+            # reverse the list from stack order to tealish order
+            self.returns_types = convert_args_to_types(self.returns)[::-1]
         else:
             self.returns = ""
             self.returns_types = []
@@ -114,7 +184,7 @@ class Op:
         self.doc_extra = op_def.get("DocExtra", "")
         self.groups = op_def.get("groups", [])
 
-        arg_list = [f"{abc[i]}: {t}" for i, t in enumerate(self.arg_types)]
+        arg_list = [f"{abc[i]}: {t.name}" for i, t in enumerate(self.arg_types)]
         if len(self.arg_enum) > 0:
             arg_list = ["F: field"] + arg_list
         elif self.immediate_args_num > 0:
@@ -122,16 +192,30 @@ class Op:
 
         arg_string = ", ".join(arg_list)
 
-        self.sig = f"{self.name}({arg_string})"
-        if len(self.returns_types) > 0:
-            self.sig += ", ".join([r.name for r in self.returns_types])
+        if self.is_operator:
+            if len(self.args) == 2:
+                self.sig = f"A {self.name} B"
+            elif len(self.args) == 1:
+                self.sig = f"{self.name}A"
+        else:
+            self.sig = f"{self.name}({arg_string})"
+            if len(self.returns_types) > 0:
+                self.sig += " -> " + ", ".join([r.name for r in self.returns_types])
+
+        self.ignore = False
+        for x in ignores:
+            if x == self.name or x.endswith("*") and self.name.startswith(x[:-1]):
+                self.ignore = True
+                break
 
 
 class LangSpec:
     def __init__(self, spec: Dict[str, Any]) -> None:
         self.is_packaged = False
         self.spec = spec
-        self.ops: Dict[str, Op] = {op["Name"]: Op(op) for op in spec["Ops"]}
+        self.ops: Dict[str, Op] = {
+            op["Name"]: Op(op) for op in (spec["Ops"] + pseudo_ops)
+        }
 
         self.fields: Dict[str, Any] = {
             "Global": self.ops["global"].arg_enum_dict,

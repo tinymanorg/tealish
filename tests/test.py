@@ -33,6 +33,13 @@ def compile_min(p):
     return min_teal
 
 
+def compile_function_min(p):
+    program = ["exit(1)"] + p
+    teal = compile_lines(program)
+    min_teal = strip_comments(teal)
+    return min_teal[2:]
+
+
 def compile_expression_min(p, **kwargs):
     teal = compile_expression(p, **kwargs)
     min_teal = strip_comments(teal)
@@ -119,6 +126,12 @@ class TestFields(unittest.TestCase):
         teal = compile_expression_min("Gtxn[+1].TypeEnum")
         self.assertListEqual(
             teal, ["txn GroupIndex", "pushint 1", "+", "gtxns TypeEnum"]
+        )
+
+    def test_group_index_negative_array_field(self):
+        teal = compile_expression_min("Gtxn[-1].Accounts[0]")
+        self.assertListEqual(
+            teal, ["txn GroupIndex", "pushint 1", "-", "gtxnsa Accounts 0"]
         )
 
     def test_group_index_var(self):
@@ -311,7 +324,7 @@ class TestAssert(unittest.TestCase):
 
 class TestFunctionReturn(unittest.TestCase):
     def test_pass(self):
-        compile_lines(
+        compile_function_min(
             [
                 "func f():",
                 "return",
@@ -321,7 +334,7 @@ class TestFunctionReturn(unittest.TestCase):
 
     def test_fail_no_return(self):
         with self.assertRaises(ParseError) as e:
-            compile_lines(
+            compile_function_min(
                 [
                     "func f():",
                     "assert(1)",
@@ -333,7 +346,7 @@ class TestFunctionReturn(unittest.TestCase):
     @expectedFailure
     def test_fail_wrong_sig_1_return(self):
         with self.assertRaises(CompileError) as e:
-            compile_lines(
+            compile_function_min(
                 [
                     "func f():",
                     "return 1",
@@ -347,7 +360,7 @@ class TestFunctionReturn(unittest.TestCase):
     @expectedFailure
     def test_fail_wrong_sig_2_returns(self):
         with self.assertRaises(CompileError) as e:
-            compile_lines(
+            compile_function_min(
                 [
                     "func f() int:",
                     "return 1, 2",
@@ -359,7 +372,7 @@ class TestFunctionReturn(unittest.TestCase):
         )
 
     def test_pass_return_literal(self):
-        compile_lines(
+        compile_function_min(
             [
                 "func f() int:",
                 "return 1",
@@ -368,7 +381,7 @@ class TestFunctionReturn(unittest.TestCase):
         )
 
     def test_pass_return_two_literals(self):
-        compile_lines(
+        compile_function_min(
             [
                 "func f() int, int:",
                 "return 1, 2",
@@ -377,7 +390,7 @@ class TestFunctionReturn(unittest.TestCase):
         )
 
     def test_pass_return_math_expression(self):
-        compile_lines(
+        compile_function_min(
             [
                 "func f() int:",
                 "return 1 + 2",
@@ -386,7 +399,7 @@ class TestFunctionReturn(unittest.TestCase):
         )
 
     def test_pass_return_two_math_expressions(self):
-        compile_lines(
+        compile_function_min(
             [
                 "func f() int, int:",
                 "return 1 + 2, 3 + 1",
@@ -395,7 +408,7 @@ class TestFunctionReturn(unittest.TestCase):
         )
 
     def test_pass_return_bytes_with_comma(self):
-        teal = compile_min(
+        teal = compile_function_min(
             [
                 "func f() bytes:",
                 'return "1,2,3"',
@@ -405,7 +418,7 @@ class TestFunctionReturn(unittest.TestCase):
         self.assertListEqual(teal[1:], ['pushbytes "1,2,3"', "retsub"])
 
     def test_pass_return_two_func_calls(self):
-        teal = compile_min(
+        teal = compile_function_min(
             [
                 "func f() int, int:",
                 "return sqrt(25), exp(5, 2)",
@@ -1235,6 +1248,92 @@ class TestBoxes(unittest.TestCase):
                 "box_replace",
             ],
         )
+
+
+class TestPseudoOp(unittest.TestCase):
+    def test_pass_method_void(self):
+        teal = compile_expression_min('method("name(uint64,uint64)")')
+        self.assertListEqual(teal, ['method "name(uint64,uint64)"'])
+
+    def test_pass_method_return(self):
+        teal = compile_expression_min('method("name(uint64,uint64)uint64")')
+        self.assertListEqual(teal, ['method "name(uint64,uint64)uint64"'])
+
+    @expectedFailure
+    def test_pass_method_const(self):
+        teal = compile_min(
+            [
+                'const bytes SIG = "name(uint64,uint64)"',
+                "log(method(SIG))",
+            ]
+        )
+        self.assertListEqual(teal, ['method "name(uint64,uint64)"', "log"])
+
+
+class TestExits(unittest.TestCase):
+    def test_pass_nested_blocks(self):
+        compile_min(
+            [
+                "jump a",
+                "block a:",
+                "   jump b",
+                "   block b:",
+                "       exit(1)",
+                "   end",
+                "end",
+            ]
+        )
+
+    def test_pass_comments_after_jump(self):
+        compile_min(
+            [
+                "jump a",
+                "# a comment",
+                "block a:",
+                "   jump b",
+                "   # a comment",
+                "   block b:",
+                "       exit(1)",
+                "   end",
+                "end",
+            ]
+        )
+
+    def test_pass_func_in_block(self):
+        compile_min(
+            [
+                "jump a",
+                "block a:",
+                "   f()",
+                "   exit(1)",
+                "   func f():",
+                "       return",
+                "   end",
+                "end",
+            ]
+        )
+
+    def test_fail_block_before_exit(self):
+        with self.assertRaises(ParseError) as e:
+            compile_min(['log("abc")', "block a:", "   exit(1)", "end"])
+        self.assertIn("Unexpected Block definition", str(e.exception))
+
+    def test_fail_func_before_exit(self):
+        with self.assertRaises(ParseError) as e:
+            compile_min(['log("abc")', "func a():", "   return", "end"])
+        self.assertIn("Unexpected Func definition", str(e.exception))
+
+    def test_fail_block_without_exit(self):
+        with self.assertRaises(ParseError) as e:
+            compile_min(["jump a", "block a:", "   assert(1)", "end"])
+        self.assertIn("Unexpected end of block", str(e.exception))
+
+    def test_fail_block_without_final_exit(self):
+        with self.assertRaises(ParseError) as e:
+            compile_min(
+                ["jump a", "block a:", "   if 1:", "       exit(1)", "   end", "end"]
+            )
+        self.assertIn("Unexpected end of block", str(e.exception))
 
 
 class TestEverythingProgram(unittest.TestCase):

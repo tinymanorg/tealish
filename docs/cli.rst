@@ -36,13 +36,13 @@ Building
 
 Building (compiling & assembly & sourcemaps)::
 
-    tealish compile examples/counter_prize.tl
+    tealish build examples/counter_prize.tl
 
 This outputs the following files:
 
-    examples/build/counter_prize.teal
-    examples/build/counter_prize.teal.tok (bytecode)
-    examples/build/counter_prize.map.json (sourcemap)
+    * examples/build/counter_prize.teal
+    * examples/build/counter_prize.teal.tok (bytecode)
+    * examples/build/counter_prize.map.json (sourcemap)
 
 by default tealish build uses a remote algod (node) to compile but ``--goal`` can be specified to build using goal in the path::
 
@@ -97,4 +97,4 @@ Example::
 
     tealish langspec fetch feature/avm-box
 
-Now Tealish can use new opcodes defined in this branch that are not in the packaged version included with Tealish
+Now Tealish can use new opcodes defined in this branch that are not in the packaged version included with Tealish.

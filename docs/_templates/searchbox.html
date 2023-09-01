@@ -1,0 +1,58 @@
+{# basic/searchbox.html ~~~~~~~~~~~~~~~~~~~~ Sphinx sidebar template: quick
+search box. :copyright: Copyright 2007-2023 by the Sphinx team, see AUTHORS.
+:license: BSD, see LICENSE for details. #} 
+
+{%- if builder != "singlehtml" %}
+<div
+  id="searchbox"
+  style="display: none"
+  class="search-input-container sticky"
+  role="search"
+>
+  <div class="searchformwrapper">
+    <form class="search" action="{{ pathto('search') }}" method="get">
+      <label class="search-input-label">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+          <g opacity="0.4">
+            <circle
+              cx="8.5"
+              cy="4.5"
+              r="3.75"
+              stroke="rgba(0,0,0,0.8)"
+              stroke-width="1.5"
+            />
+            <path d="M6 7L1 12" stroke="rgba(0,0,0,0.8)" stroke-width="1.5" />
+          </g>
+        </svg>
+
+        <input
+          type="text"
+          name="q"
+          aria-labelledby="searchlabel"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
+          placeholder="Search in Tealish documentation"
+        />
+      </label>
+
+      <input
+        type="submit"
+        class="search-input__submit-button"
+        value="{{ _('Go') }}"
+      />
+    </form>
+  </div>
+
+
+  <button id="contents-menu-button">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M1 2H15V4H1V2ZM1 7H15V9H1V7ZM15 12H1V14H15V12Z" fill="currentColor"/>
+    </svg>
+  </button>
+</div>
+<script>
+  document.getElementById("searchbox").style.display = "flex";
+</script>
+{%- endif %}

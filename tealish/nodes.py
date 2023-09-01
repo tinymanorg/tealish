@@ -32,6 +32,9 @@ from .types import (
 )
 from .scope import Scope
 
+LITERAL_INT = r"[0-9]+"
+LITERAL_BYTE_STRING = r'"(.+)"'
+LITERAL_BYTE_HEX = r"0x([a-fA-F0-9]+)"
 VARIABLE_NAME = r"[a-z_][a-zA-Z0-9_]*"
 
 if TYPE_CHECKING:
@@ -147,7 +150,7 @@ class Literal(Expression):
 
     @classmethod
     def parse(cls, line: str, parent: Node, compiler: "TealishCompiler") -> Node:
-        matchable: List[Type[Expression]] = [LiteralInt, LiteralBytes]
+        matchable: List[Type[Expression]] = [LiteralInt, LiteralBytes, LiteralHex]
         for expr in matchable:
             if expr.match(line):
                 return expr(line, parent, compiler)
@@ -169,7 +172,21 @@ class LiteralInt(Literal):
 
 
 class LiteralBytes(Literal):
-    pattern = r'"(?P<value>.+)"$'
+    pattern = rf"(?P<value>{LITERAL_BYTE_STRING})$"
+    value: str
+
+    def write_teal(self, writer: "TealWriter") -> None:
+        writer.write(self, f"pushbytes {self.value}")
+
+    def type(self) -> AVMType:
+        return AVMType.bytes
+
+    def _tealish(self) -> str:
+        return f"{self.value}"
+
+
+class LiteralHex(Literal):
+    pattern = rf"(?P<value>{LITERAL_BYTE_HEX})$"
     value: str
 
     def __init__(self, line: str, parent=None, compiler=None) -> None:
@@ -267,6 +284,7 @@ class Program(Node):
     def consume(cls, compiler: "TealishCompiler", parent: Optional[Node]) -> "Program":
         node = Program("", parent=parent, compiler=compiler)
         expect_struct_definition = True
+        exit_statement = None
         while True:
             if compiler.peek() is None:
                 break
@@ -279,6 +297,22 @@ class Program(Node):
                 )
             if not isinstance(n, (TealVersion, Blank, Comment, StructDefinition)):
                 expect_struct_definition = False
+
+            if exit_statement:
+                if not isinstance(n, (Func, Block, Comment, Blank)):
+                    raise ParseError(
+                        f"Unexpected statement at line {n.line_no}."
+                        + f" Only Block and Function definitions should occure after a {exit_statement}."
+                    )
+            else:
+                if isinstance(n, (Func, Block)):
+                    raise ParseError(
+                        f"Unexpected {n} definition at line {n.line_no}. "
+                        + "Block and Function definitions must occur after an exit statement (e.g Exit, switch, jump)."
+                    )
+            if is_exit_statement(n):
+                exit_statement = n
+
             node.add_child(n)
         return node
 
@@ -601,11 +635,34 @@ class Block(Statement):
     def consume(cls, compiler: "TealishCompiler", parent: Optional[Node]) -> "Block":
         line = compiler.consume_line()
         block = Block(line, parent, compiler=compiler)
+        exit_statement = None
         while True:
             if compiler.peek() == "end":
                 compiler.consume_line()
+                if exit_statement is None:
+                    raise ParseError(
+                        f"Unexpected end of block at line {compiler.line_no}."
+                        + " Blocks must end with an exit statement (e.g. exit, switch, jump)"
+                    )
                 break
-            block.add_child(Statement.consume(compiler, block))
+
+            n = Statement.consume(compiler, block)
+            if exit_statement:
+                if not isinstance(n, (Func, Block, Comment, Blank)):
+                    raise ParseError(
+                        f"Unexpected statement at line {n.line_no}."
+                        + f" Only Block and Function definitions should occure after a {exit_statement}."
+                    )
+            else:
+                if isinstance(n, (Func, Block)):
+                    raise ParseError(
+                        f"Unexpected {n} definition at line {n.line_no}. "
+                        + "Block and Function definitions must occur after an exit statement (e.g. exit, switch, jump)."
+                    )
+            if is_exit_statement(n):
+                exit_statement = n
+
+            block.add_child(n)
         return block
 
     def process(self) -> None:
@@ -1735,3 +1792,8 @@ def split_return_args(s):
 
 def indent(s: str) -> str:
     return textwrap.indent(s, "    ")
+
+
+def is_exit_statement(node):
+    if isinstance(node, (Exit, Switch, Jump)):
+        return True
