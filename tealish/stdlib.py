@@ -435,6 +435,21 @@ class Lpad(FunctionCall):
         writer.write(self, "b|")
 
 
+class Concat(FunctionCall):
+    name = "Concat"
+
+    def process(self) -> None:
+        for arg in self.args:
+            arg.process()
+        self.type = BytesType()
+
+    def write_teal(self, writer: "TealWriter") -> None:
+        for arg in self.args:
+            writer.write(self, arg)
+        for _ in range(len(self.args) - 1):
+            writer.write(self, "concat")
+
+
 functions = {
     f.name: f
     for f in [
@@ -447,6 +462,7 @@ functions = {
         SizeOf,
         Rpad,
         Lpad,
+        Concat,
     ]
 }
 
