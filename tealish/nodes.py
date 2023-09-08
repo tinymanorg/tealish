@@ -161,11 +161,8 @@ class LiteralInt(Literal):
     pattern = r"(?P<value>[0-9]+)$"
     value: int
 
-    def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"pushint {self.value}")
-
-    def type(self) -> AVMType:
-        return AVMType.int
+    def type(self) -> UIntType:
+        return UIntType()
 
     def _tealish(self) -> str:
         return f"{self.value}"
@@ -173,40 +170,26 @@ class LiteralInt(Literal):
 
 class LiteralBytes(Literal):
     pattern = rf"(?P<value>{LITERAL_BYTE_STRING})$"
-    value: str
-
-    def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"pushbytes {self.value}")
+    value: str  # value contains quotes
 
     def type(self) -> AVMType:
-        return AVMType.bytes
+        return BytesType(size=len(ast.literal_eval(self.value)))
 
     def _tealish(self) -> str:
-        return f"{self.value}"
+        return self.value
 
 
-class LiteralHex(Literal):
+class LiteralHex(LiteralBytes):
     pattern = rf"(?P<value>{LITERAL_BYTE_HEX})$"
     value: str
 
-    def __init__(self, line: str, parent=None, compiler=None) -> None:
-        super().__init__(line, parent, compiler)
-        # unescape byte sequences in literal strings
-        self.value = ast.literal_eval(line)
-
-    def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f'pushbytes "{self.value}"')
-
     def type(self) -> BytesType:
-        return BytesType(size=len(self.value))
-
-    def _tealish(self) -> str:
-        return f'"{self.value}"'
+        return BytesType(size=len(bytes.fromhex(self.value[2:])))
 
 
 class Name(Expression):
     pattern = rf"(?P<value>{VARIABLE_NAME})$"
-    value: str
+    value: str  # value does not contain quotes
 
     def __init__(self, line: str) -> None:
         self.slot: Optional[int] = None
@@ -414,11 +397,11 @@ class Blank(LineStatement):
 class Const(LineStatement):
     pattern = (
         r"const (?P<tealish_type>\bint\b|\bbytes\b|\bbigint|addr\b) "
-        + r"(?P<name>[A-Z][a-zA-Z0-9_]*) = (?P<expression>.*)$"
+        + r"(?P<name>[A-Z][a-zA-Z0-9_]*) = (?P<literal>.*)$"
     )
     tealish_type: TealishType
     name: str
-    expression: Literal
+    literal: Literal
 
     def process(self) -> None:
         scope = self.get_current_scope()
@@ -426,17 +409,20 @@ class Const(LineStatement):
             tealish_type = get_type_instance(self.tealish_type)
         except KeyError:
             raise CompileError(f'Unknown type "{self.tealish_type}"', node=self)
-        if type(tealish_type) == BytesType:
-            tealish_type.size = len(self.expression.value)
-        scope.declare_const(self.name, (tealish_type, self.expression.value))
+        if not tealish_type.can_hold(self.literal.type()):
+            raise CompileError(
+                f"Incorrect type {self.literal.type()} for const {tealish_type}",
+                node=self,
+            )
+        scope.declare_const(self.name, (self.literal.type(), self.literal.value))
 
     def write_teal(self, writer: "TealWriter") -> None:
-        pass
+        writer.write(self, f"#define {self.name} {self.literal.value}")
 
     def _tealish(self) -> str:
         s = f"const {self.tealish_type} {self.name}"
-        if self.expression:
-            s += f" = {self.expression.tealish()}"
+        if self.literal:
+            s += f" = {self.literal.tealish()}"
         return s + "\n"
 
 
@@ -590,7 +576,7 @@ class Assignment(LineStatement):
 
             if not var.tealish_type.can_hold(self.incoming_types[i]):
                 raise CompileError(
-                    f"Incorrect type for {var.tealish_type} assignment. "
+                    "Incorrect type for assignment. "
                     + f"Expected {var.tealish_type}, got {self.incoming_types[i]}",
                     node=self,
                 )
@@ -1495,7 +1481,9 @@ class Func(InlineStatement):
             node.write_teal(writer)
 
     def _tealish(self) -> str:
-        returns = (" " + (", ".join(self.returns))) if self.returns else ""
+        returns = (
+            (" " + (", ".join(str(r) for r in self.returns))) if self.returns else ""
+        )
         output = f"func {self.name}({self.args.tealish()}){returns}:\n"
         for n in self.child_nodes:
             output += indent(n.tealish())

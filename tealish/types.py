@@ -71,7 +71,7 @@ class IntType(TealishType):
 
 
 class UIntType(IntType):
-    name = "uint64"
+    name = "uint"
     avm_type = AVMType.int
     size = 8
 

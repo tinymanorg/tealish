@@ -90,9 +90,9 @@ class Constant(BaseNode):
 
     def write_teal(self, writer: "TealWriter") -> None:
         if isinstance(self.type, IntType):
-            writer.write(self, f"pushint {self.value} // {self.name}")  # type: ignore
+            writer.write(self, f"pushint {self.name} // {self.value}")  # type: ignore
         elif isinstance(self.type, BytesType):
-            writer.write(self, f'pushbytes "{self.value}" // {self.name}')  # type: ignore
+            writer.write(self, f"pushbytes {self.name} // {self.value}")  # type: ignore
         else:
             raise CompileError(f"Unexpected const type {self.type}", node=self)
 
