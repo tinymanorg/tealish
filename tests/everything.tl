@@ -24,7 +24,7 @@ bytes b = BAR
 bytes c = BAZ
 
 # Structs
-Item item1 = bzero(46)
+Item item1 = Cast(bzero(46), Item)
 item1.id = 123
 item1.name = "xyz       "
 assert(item1.id > 0)
@@ -43,7 +43,7 @@ _, balance = asset_holding_get(AssetBalance, 1, 5)
 if FOO > 1:
     log(BAR)
 else:
-    error()
+    Error()
 end
 
 if 1:
@@ -144,7 +144,7 @@ end
 
 # Function with no args or return value
 func oops():
-    error()
+    Error()
     return
 end
 

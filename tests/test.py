@@ -456,7 +456,7 @@ class TestTypeCheck(unittest.TestCase):
         with self.assertRaises(CompileError) as e:
             compile_min(["bytes x = sqrt(25)"])
         self.assertIn(
-            "Incorrect type for bytes assignment. Expected bytes, got int",
+            "Incorrect type for assignment. Expected bytes, got int",
             str(e.exception),
         )
 
@@ -472,7 +472,7 @@ class TestTypeCheck(unittest.TestCase):
         with self.assertRaises(CompileError) as e:
             compile_min(["int x", "x = itob(2)"])
         self.assertIn(
-            "Incorrect type for int assignment. Expected int, got bytes",
+            "Incorrect type for assignment. Expected int, got bytes",
             str(e.exception),
         )
 
@@ -480,7 +480,7 @@ class TestTypeCheck(unittest.TestCase):
         with self.assertRaises(CompileError) as e:
             compile_min(["bytes b", "b = 2"])
         self.assertIn(
-            "Incorrect type for bytes assignment. Expected bytes, got int",
+            "Incorrect type for assignment. Expected bytes, got uint8",
             str(e.exception),
         )
 
@@ -713,7 +713,7 @@ class TestOperators(unittest.TestCase):
 
     def test_unary_variable(self):
         scope = Scope()
-        scope.declare_scratch_var("x", IntType)
+        scope.declare_scratch_var("x", IntType())
         teal = compile_expression_min("!x", scope=scope)
         self.assertEqual(
             teal,
@@ -971,13 +971,18 @@ class TestStructs(unittest.TestCase):
                 "   b: int",
                 "   c: bytes[10]",
                 "end",
-                "Item item1 = Txn.ApplicationArgs[0]",
+                "Item item1 = Cast(Txn.ApplicationArgs[0], Item)",
             ]
         )
         self.assertListEqual(
             teal,
             [
                 "txna ApplicationArgs 0",
+                "dup",
+                "len",
+                "pushint 26",
+                "==",
+                "assert",
                 "store 0",
             ],
         )
@@ -990,18 +995,19 @@ class TestStructs(unittest.TestCase):
                 "   b: int",
                 "   c: bytes[10]",
                 "end",
-                "Item item1 = Txn.ApplicationArgs[0]",
+                "Item item1 = bzero(SizeOf(Item))",
                 "assert(item1.a)",
             ]
         )
         self.assertListEqual(
             teal,
             [
-                "txna ApplicationArgs 0",
+                "pushint 26",
+                "bzero",
                 "store 0",
                 "load 0",
-                "pushint 0",
-                "extract_uint64",
+                "extract 0 8",
+                "btoi",
                 "assert",
             ],
         )
@@ -1014,14 +1020,15 @@ class TestStructs(unittest.TestCase):
                 "   b: int",
                 "   c: bytes[10]",
                 "end",
-                "Item item1 = Txn.ApplicationArgs[0]",
+                "Item item1 = bzero(SizeOf(Item))",
                 "log(item1.c)",
             ]
         )
         self.assertListEqual(
             teal,
             [
-                "txna ApplicationArgs 0",
+                "pushint 26",
+                "bzero",
                 "store 0",
                 "load 0",
                 "extract 16 10",
@@ -1037,18 +1044,18 @@ class TestStructs(unittest.TestCase):
                 "   b: int",
                 "   c: bytes[10]",
                 "end",
-                "Item item1 = bzero(28)",
-                "item1.c = Txn.ApplicationArgs[0]",
+                "Item item1 = bzero(SizeOf(Item))",
+                'item1.c = "abcdefghij"',
             ]
         )
         self.assertListEqual(
             teal,
             [
-                "pushint 28",
+                "pushint 26",
                 "bzero",
                 "store 0",
                 "load 0",
-                "txna ApplicationArgs 0",
+                'pushbytes "abcdefghij"',
                 "replace 16",
                 "store 0",
             ],
@@ -1062,14 +1069,14 @@ class TestStructs(unittest.TestCase):
                 "   b: int",
                 "   c: bytes[10]",
                 "end",
-                "Item item1 = bzero(28)",
+                "Item item1 = bzero(SizeOf(Item))",
                 "item1.a = 1",
             ]
         )
         self.assertListEqual(
             teal,
             [
-                "pushint 28",
+                "pushint 26",
                 "bzero",
                 "store 0",
                 "load 0",
@@ -1209,7 +1216,7 @@ class TestBoxes(unittest.TestCase):
                 "   c: bytes[10]",
                 "end",
                 'box<Item> item1 = Box("a")',
-                "item1.c = Txn.ApplicationArgs[0]",
+                'item1.c = "abcdefghij"',
             ]
         )
         self.assertListEqual(
@@ -1219,7 +1226,7 @@ class TestBoxes(unittest.TestCase):
                 "store 0",
                 "load 0",
                 "pushint 16",
-                "txna ApplicationArgs 0",
+                'pushbytes "abcdefghij"',
                 "box_replace",
             ],
         )
