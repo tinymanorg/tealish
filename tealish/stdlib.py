@@ -342,7 +342,7 @@ class TealWrapper(BaseNode):
 
 
 class EnsureType(FunctionCall):
-    name = "ensure_type"
+    name = "EnsureType"
 
     def process(self) -> None:
         types = [get_type_instance(a.name) for a in self.args[1:]]
@@ -450,6 +450,19 @@ class Concat(FunctionCall):
             writer.write(self, "concat")
 
 
+class Address(FunctionCall):
+    name = "Address"
+
+    def process(self) -> None:
+        for arg in self.args:
+            arg.process()
+        self.type = BytesType()
+
+    def write_teal(self, writer: "TealWriter") -> None:
+        value = self.args[0].value
+        writer.write(self, f"addr {value}")
+
+
 functions = {
     f.name: f
     for f in [
@@ -463,6 +476,7 @@ functions = {
         Rpad,
         Lpad,
         Concat,
+        Address,
     ]
 }
 
