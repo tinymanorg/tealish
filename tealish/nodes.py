@@ -231,6 +231,8 @@ class Statement(Node):
             return Switch.consume(compiler, parent)
         elif line.startswith("func "):
             return Func.consume(compiler, parent)
+        elif line.startswith("@"):
+            return DecoratedFunc.consume(compiler, parent)
         elif line.startswith("if "):
             return IfStatement.consume(compiler, parent)
         elif line.startswith("while "):
@@ -1478,6 +1480,8 @@ class Func(InlineStatement):
         except KeyError as e:
             raise ParseError(str(e) + f" Line {self.line_no}")
         self.vars: Dict[str, Var] = {}
+        self.decorators = []
+        self.attributes = {}
 
     @classmethod
     def consume(cls, compiler: "TealishCompiler", parent: Optional[Node]) -> "Func":
@@ -1577,6 +1581,76 @@ class Return(LineStatement):
                 f" {', '.join([e.tealish() for e in self.args_expressions[::-1]])}"
             )
         return output + "\n"
+
+
+class Decorator(Node):
+    pattern = r"@(?P<name>[a-z][a-zA-Z_0-9]*)\((?P<params>.*)\)$"
+    name: str
+    params: str
+
+    def write_teal(self, writer: "TealWriter") -> None:
+        writer.write(self, f"// {self.line}")
+
+    def _tealish(self) -> str:
+        output = f"@{self.name}({self.params})\n"
+        return output
+
+
+class DecoratedFunc(InlineStatement):
+    possible_child_nodes = [Decorator, Comment, Func]
+    pattern = r""
+
+    def __init__(
+        self,
+        line: str,
+        parent: Optional[Node] = None,
+        compiler: Optional["TealishCompiler"] = None,
+    ) -> None:
+        super().__init__(line, parent, compiler)
+        self.func = None
+        self.decorators = []
+
+    def add_decorator(self, node) -> None:
+        self.decorators.append(node)
+        self.add_child(node)
+
+    def set_func(self, node) -> None:
+        self.func = node
+        self.func.decorators = self.decorators
+        for decorator in self.decorators:
+            self.func.attributes[decorator.name] = {}
+            if m := re.match(r"(?P<key>.*)=(?P<value>.*)", decorator.params):
+                self.func.attributes[decorator.name] = {
+                    m.groupdict()["key"]: m.groupdict()["value"]
+                }
+        self.add_child(node)
+
+    @classmethod
+    def consume(
+        cls, compiler: "TealishCompiler", parent: Optional[Node]
+    ) -> "DecoratedFunc":
+        decorated_func = DecoratedFunc("", parent, compiler=compiler)
+        while True:
+            if compiler.peek().startswith("func "):
+                decorated_func.set_func(Func.consume(compiler, decorated_func))
+                break
+            elif compiler.peek().startswith("@"):
+                decorated_func.add_decorator(Decorator.consume(compiler, parent))
+        return decorated_func
+
+    def process(self) -> None:
+        for node in self.child_nodes:
+            node.process()
+
+    def write_teal(self, writer: "TealWriter") -> None:
+        writer.write(self, self.func)
+
+    def _tealish(self) -> str:
+        output = ""
+        for n in self.decorators:
+            output += n.tealish()
+        output += self.func.tealish()
+        return output
 
 
 class StructFieldDefinition(InlineStatement):
