@@ -305,10 +305,43 @@ class Program(Node):
     def process(self) -> None:
         for n in self.nodes:
             n.process()
+        if self.has_child_node(InnerTxn):
+            scope = self.get_current_scope()
+            var = scope.declare_scratch_var(
+                "inner_group_flag", IntType, self.compiler.max_slot + 1
+            )
+            self.compiler.max_slot = max(self.compiler.max_slot, var.scratch_slot)
 
     def write_teal(self, writer: "TealWriter") -> None:
         for n in self.child_nodes:
             n.write_teal(writer)
+
+        if self.has_child_node(InnerTxn):
+            var = self.get_var("inner_group_flag")
+            teal = f"""
+            _itxn_group_begin:
+            load {var.scratch_slot}; !; assert // ensure no group active
+            int 1; store {var.scratch_slot}; retsub // set group flag
+
+            _itxn_begin:
+            load {var.scratch_slot}
+            switch _itxn_begin__0 _itxn_begin__1 _itxn_begin__2
+            err
+            _itxn_begin__0: itxn_begin; retsub // no group
+            _itxn_begin__1: itxn_begin; int 2; store {var.scratch_slot}; retsub // start first txn of group
+            _itxn_begin__2: itxn_next; retsub // start next txn of group
+
+            _itxn_submit:
+            load {var.scratch_slot}
+            bz _itxn_submit__0
+            retsub // in a group, don't submit
+            _itxn_submit__0: itxn_submit; retsub // no group, submit
+            _itxn_group_submit:
+            itxn_submit
+            int 0; store {var.scratch_slot}; retsub // set group flag to 0
+            """
+            for line in teal.splitlines():
+                writer.write(self, line.strip())
 
     def _tealish(self) -> str:
         s = ""
@@ -874,16 +907,12 @@ class InnerTxn(InlineStatement):
 
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line}")
-        if not self.group:
-            writer.write(self, "itxn_begin")
-        elif self.group_index > 0:
-            writer.write(self, "itxn_next")
+        writer.write(self, "callsub _itxn_begin")
         writer.level += 1
         for node in self.child_nodes:
             writer.write(self, node)
         writer.level -= 1
-        if not self.group:
-            writer.write(self, "itxn_submit")
+        writer.write(self, "callsub _itxn_submit")
         writer.write(self, "// end inner_txn")
 
     def _tealish(self) -> str:
@@ -917,11 +946,11 @@ class InnerGroup(InlineStatement):
 
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line}")
+        writer.write(self, "callsub _itxn_group_begin")
         writer.level += 1
-        writer.write(self, "itxn_begin")
         for i, node in enumerate(self.child_nodes):
             writer.write(self, node)
-        writer.write(self, "itxn_submit")
+        writer.write(self, "callsub _itxn_group_submit")
         writer.level -= 1
         writer.write(self, "// end inner_group")
 
