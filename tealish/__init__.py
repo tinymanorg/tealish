@@ -54,6 +54,7 @@ class TealishCompiler:
         self.max_slot = 0
         self.writer = TealWriter()
         self.processed = False
+        self.line_nodes = {}
 
     def consume_line(self) -> str:
         if self.line_no == len(self.source_lines):

@@ -59,6 +59,9 @@ class Node(BaseNode):
         self.compiler = compiler
         self._line = line
         self._line_no = compiler.line_no if compiler else None
+        if compiler:
+            if not compiler.line_nodes.get(self._line_no):
+                compiler.line_nodes[self._line_no] = self
 
         # self.child_nodes includes nested nodes
         #   (e.g. function body or statements within if...else...end)
