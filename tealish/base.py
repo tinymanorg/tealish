@@ -123,8 +123,7 @@ class BaseNode:
         return None
 
     def has_child_node(self, node_class: type) -> bool:
-        # TODO: Only available on Node and other subclasses
-        for node in self.nodes:  # type: ignore
+        for node in getattr(self, "nodes", []):
             if isinstance(node, node_class) or node.has_child_node(
                 node_class
             ):  # type: ignore
