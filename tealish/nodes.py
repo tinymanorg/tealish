@@ -324,28 +324,30 @@ class Program(Node):
             var = self.get_var("inner_group_flag")
             teal = f"""
             _itxn_group_begin:
-            load {var.scratch_slot}; !; assert // ensure no group active
-            int 1; store {var.scratch_slot}; retsub // set group flag
+              load {var.scratch_slot}; !; assert // ensure no group active
+              int 1; store {var.scratch_slot}; retsub // set group flag
 
             _itxn_begin:
-            load {var.scratch_slot}
-            switch _itxn_begin__0 _itxn_begin__1 _itxn_begin__2
-            err
-            _itxn_begin__0: itxn_begin; retsub // no group
-            _itxn_begin__1: itxn_begin; int 2; store {var.scratch_slot}; retsub // start first txn of group
-            _itxn_begin__2: itxn_next; retsub // start next txn of group
+              load {var.scratch_slot}
+              switch _itxn_begin__0 _itxn_begin__1 _itxn_begin__2
+              err
+              _itxn_begin__0: itxn_begin; retsub // no group
+              _itxn_begin__1: itxn_begin; int 2; store {var.scratch_slot}; retsub // start first txn of group
+              _itxn_begin__2: itxn_next; retsub // start next txn of group
 
             _itxn_submit:
-            load {var.scratch_slot}
-            bz _itxn_submit__0
-            retsub // in a group, don't submit
-            _itxn_submit__0: itxn_submit; retsub // no group, submit
+              load {var.scratch_slot}
+              bz _itxn_submit__0
+              retsub // in a group, don't submit
+              _itxn_submit__0: itxn_submit; retsub // no group, submit
+
             _itxn_group_submit:
-            itxn_submit
-            int 0; store {var.scratch_slot}; retsub // set group flag to 0
+              itxn_submit
+              int 0; store {var.scratch_slot}; retsub // set group flag to 0
             """
+            indent_spaces = teal.index("_itxn_group_begin") - 1
             for line in teal.splitlines():
-                writer.write(self, line.strip())
+                writer.write(self, line[indent_spaces:])
 
     def _tealish(self) -> str:
         s = ""
@@ -864,14 +866,14 @@ class Router(InlineStatement):
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line}")
         for route in self.routes:
-            writer.write(self, "txna ApplicationArgs 0")
             writer.write(self, f'pushbytes "{route.name}"')
-            writer.write(self, "==")
-            writer.write(self, f"bnz {route.label}")
+        writer.write(self, "txna ApplicationArgs 0")
+        writer.write(self, f"match {' '.join(r.label for r in self.routes)}")
         writer.write(self, "err // unexpected value")
 
         for i, route in enumerate(self.routes):
             writer.write(self, f"{route.label}:")
+            writer.level += 1
             func = self.lookup_func(route.name)
             oc = func.attributes["public"].get("OnCompletion", "NoOp")
             if oc == "CreateApplication":
@@ -890,13 +892,30 @@ class Router(InlineStatement):
                 writer.write(self, arg_expression)
             writer.write(self, f"callsub {func.label}")
             if func.returns:
-                if isinstance(func.returns[0], IntType):
-                    writer.write(self, "itob")
+                writer.write(
+                    self, f"// return {', '.join([r.name for r in func.returns])}"
+                )
+                # iterate through the return values on the stack and reverse their order before concatting
+                # ints are converted to bytes
+                for i, r in enumerate(func.returns):
+                    if i > 0:
+                        writer.write(self, f"uncover {i} // {r.name}")
+                    else:
+                        # no need to actually uncover the first return value as it's already on top of the stack
+                        writer.write(self, f"// uncover {i} {r.name}")
+                    if isinstance(r, IntType):
+                        writer.write(self, "itob")
+                # concat n-1 times
+                for i in range(len(func.returns) - 1):
+                    writer.write(self, "concat")
                 writer.write(self, "pushbytes 0x151f7c75 // arc4 return prefix")
+                # move the prefix bytes before the result bytes
+                writer.write(self, "swap")
                 writer.write(self, "concat")
                 writer.write(self, "log")
             writer.write(self, "pushint 1")
             writer.write(self, "return")
+            writer.level -= 1
 
     def _tealish(self) -> str:
         output = "router:\n"
@@ -1619,6 +1638,7 @@ class Func(InlineStatement):
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line}")
         writer.write(self, f"{self.label}:")
+        writer.level += 1
         for name, _ in self.args.args[::-1]:
             var = self.vars[name]
             writer.write(
@@ -1626,6 +1646,7 @@ class Func(InlineStatement):
             )
         for node in self.child_nodes:
             node.write_teal(writer)
+        writer.level -= 1
 
     def _tealish(self) -> str:
         returns = (
@@ -1658,13 +1679,13 @@ class Return(LineStatement):
         self.args_expressions: List[BaseNode] = []
         if self.args:
             args = split_return_args(self.args)
-            for a in args[::-1]:
+            for a in args:
                 arg = a.strip()
                 node = GenericExpression.parse(arg, parent, compiler)
                 self.args_expressions.append(node)
         if len(self.args_expressions) != len(self.func.returns):
             raise ParseError(f"Incorrect number of returns. Line {self.line_no}")
-        self.nodes = self.args_expressions
+        self.nodes = self.args_expressions[::-1]
 
     def process(self) -> None:
         for n in self.nodes:
@@ -1681,16 +1702,14 @@ class Return(LineStatement):
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, f"// {self.line}")
         if self.args:
-            for i, expression in enumerate(self.args_expressions):
+            for i, expression in enumerate(self.args_expressions[::-1]):
                 writer.write(self, expression)
         writer.write(self, "retsub")
 
     def _tealish(self) -> str:
         output = "return"
         if self.args_expressions:
-            output += (
-                f" {', '.join([e.tealish() for e in self.args_expressions[::-1]])}"
-            )
+            output += f" {', '.join([e.tealish() for e in self.args_expressions])}"
         return output + "\n"
 
 
