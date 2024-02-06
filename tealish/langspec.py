@@ -240,7 +240,7 @@ class LangSpec:
 
 
 packaged_lang_spec = LangSpec(
-    json.loads(importlib.resources.read_text(package=tealish, resource="langspec.json"))
+    json.loads(importlib.resources.files(tealish).joinpath("langspec.json").read_text())
 )
 packaged_lang_spec.is_packaged = True
 
