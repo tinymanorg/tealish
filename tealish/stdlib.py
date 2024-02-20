@@ -378,10 +378,10 @@ class Error(FunctionCall):
 class SizeOf(FunctionCall):
     name = "SizeOf"
 
-    def process(self) -> None:
+    def process(self):
         type = get_type_instance(self.args[0].name)
         self.value = type.size
-        self.type = self.value
+        self.type = IntType()
 
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, Integer(self.value, parent=self))

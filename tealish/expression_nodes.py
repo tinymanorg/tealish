@@ -286,14 +286,20 @@ class OpCall(BaseNode):
             arg.process()
         self.check_arg_types(self.name, self.args)
         for i, x in enumerate(immediates):
+            x.process()
             if isinstance(x, Constant):
                 immediates[i] = x.name
-            elif isinstance(x, Integer):
-                immediates[i] = x.value
             elif isinstance(x, Enum):
                 immediates[i] = x.name
-            elif isinstance(x, Bytes):
+            elif hasattr(x, "value") and isinstance(x.type, IntType):
+                immediates[i] = x.value
+            elif hasattr(x, "value") and isinstance(x.type, BytesType):
                 immediates[i] = f'"{x.value}"'
+            else:
+                raise CompileError(
+                    f"{x} can not be used as an immediate argument for {op.name}",
+                    node=self,
+                )
         self.immediate_args = " ".join(map(str, immediates))
         returns = op.returns_types
         self.type = returns[0] if len(returns) == 1 else returns
