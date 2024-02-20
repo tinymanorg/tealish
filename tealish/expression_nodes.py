@@ -112,7 +112,11 @@ class Enum(BaseNode):
             # builtin TEAL constants
             type, value = self.lookup_avm_constant(self.name)
         except KeyError:
-            raise CompileError(f'Unknown builtin enum "{self.name}"', node=self)
+            try:
+                # op field
+                type = self.lookup_op_field(self.parent.name, self.name)
+            except KeyError:
+                raise CompileError(f'Unknown builtin enum "{self.name}"', node=self)
         if not isinstance(type, (IntType, BytesType, BigIntType, AddrType)):
             raise CompileError(f"Unexpected const type {type}", node=self)
 

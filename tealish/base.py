@@ -158,6 +158,9 @@ class BaseNode:
     def lookup_avm_constant(self, name: str) -> Tuple["TealishType", Any]:
         return lang_spec.lookup_avm_constant(name)
 
+    def lookup_op_field(self, op_name: str, field_name: str) -> "TealishType":
+        return lang_spec.lookup_op_field(op_name, field_name)
+
     # TODO: these attributes are only available on Node and other children types
     # we should either define them here or something else?
     @property

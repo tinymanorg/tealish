@@ -237,6 +237,11 @@ class LangSpec:
             raise KeyError(f'Op "{name}" does not exist!')
         return self.ops[name]
 
+    def lookup_op_field(self, op_name: str, field_name: str) -> Op:
+        op = self.lookup_op(op_name)
+        type = op.arg_enum_dict[field_name]
+        return type
+
     def lookup_avm_constant(self, name: str) -> Tuple[TealishType, Any]:
         if name not in constants:
             raise KeyError(f'Constant "{name}" does not exist!')
