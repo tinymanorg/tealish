@@ -429,10 +429,49 @@ Examples:
 .. literalinclude:: ./source/language/functions.tl
     :language: tealish
 
+
+.. _router:
+
+Router
+------
+
+A common pattern in AVM contracts is to execute different functions based on the first application argument (``Txn.ApplicationArgs[0]``).
+Tealish includes a Router to make this common pattern easier to write. The router calls functions where the first application argument matches the function name.
+The remaining application arguments are passed to the function as parameters.
+
+The router is defined in Tealish in the following form::
+
+    router:
+        {function_name_1}
+        {function_name_2}
+        {function_name_3}
+        ...
+    end
+
+Notes:
+
+- Functions must be decorated with ``@public(...)`` to be included in the router.
+- The router is a type of exit statement. Execution will not continue after it.
+- If ``Txn.ApplicationArgs[0]`` does not match one of the included function names an error will be raised.
+
+Examples:
+
+.. literalinclude:: ./source/language/router.tl
+    :language: tealish
+
+The generated Teal for the above code would be as follows:
+
+.. literalinclude:: ./source/language/router.teal
+    :language: teal
+
+
 .. _blocks:
 
 Blocks
 ------
+Blocks are low level scoping and labeling constructs. Execution can jump between blocks using ``jump`` or ``switch`` statements.
+
+.. note:: Blocks are a low level feature that are less commonly used now that the Function Router is available. Most previous uses of blocks can now be more cleanly written with the router and functions.
 
 Blocks can be defined in Tealish in the following forms::
 
