@@ -36,7 +36,8 @@ def _build(
         teal_filename = output_path / f"{base_filename}.teal"
         if not quiet:
             click.echo(f"Compiling {path} to {teal_filename}")
-        teal, tealish_map = _compile_program(open(path).read())
+        with open(path, "r") as f:
+            teal, tealish_map = _compile_program(f.read())
         teal_string = "\n".join(teal + [""])
         with open(teal_filename, "w") as f:
             f.write("\n".join(teal + [""]))
