@@ -158,7 +158,7 @@ class Cast(FunctionCall):
 
 
 class ToBytes(FunctionCall):
-    name = "to_bytes"
+    name = "ToBytes"
 
     def process(self) -> None:
         self.args[0].process()
@@ -167,7 +167,7 @@ class ToBytes(FunctionCall):
         self.type = BytesType(size)
         if not isinstance(self.expression.type, (IntType, BigIntType)):
             raise CompileError(
-                f"Incorrect type {self.expression.type} for to_bytes. Expected int, uint or bigint.",
+                f"Incorrect type {self.expression.type} for ToBytes. Expected int, uint or bigint.",
                 node=self.expression,
             )
 
@@ -186,7 +186,7 @@ class ToBytes(FunctionCall):
 
 
 class FromBytes(FunctionCall):
-    name = "to_bytes"
+    name = "FromBytes"
 
     def process(self) -> None:
         self.args[0].process()
@@ -198,7 +198,7 @@ class FromBytes(FunctionCall):
 
         if not isinstance(self.expression.type, (BytesType,)):
             raise CompileError(
-                f"Incorrect source type {self.expression.type} for from_bytes. Expected bytes."
+                f"Incorrect source type {self.expression.type} for FromBytes. Expected bytes."
             )
 
     def write_teal(self, writer: "TealWriter") -> None:
@@ -264,13 +264,17 @@ class BytesSizeAssertionWrapper(BaseNode):
     def write_teal(self, writer):
         writer.write(self, self.expression)
         # Assert that the expression is bytes of size N
-        writer.write(self, "// Bytes Size Assertion")
-        writer.write(self, "dup")
-        writer.write(self, "len")
-        writer.write(self, f"pushint {self.size}")
-        writer.write(self, "==")
-        writer.write(self, f"// Error: Expected {self.size} bytes")
-        writer.write(self, "assert")
+        writer.write(
+            self,
+            [
+                "dup",
+                "len",
+                f"pushint {self.size}",
+                "==",
+                "assert",
+                f"// Bytes Size Assertion: {self.size} bytes",
+            ],
+        )
 
 
 class UIntSizeAssertionWrapper(BaseNode):
@@ -283,13 +287,17 @@ class UIntSizeAssertionWrapper(BaseNode):
     def write_teal(self, writer):
         writer.write(self, self.expression)
         # Assert that the expression is an int of N*8 bits
-        writer.write(self, "// UInt Size Assertion")
-        writer.write(self, "dup")
-        writer.write(self, "bitlen")
-        writer.write(self, f"pushint {self.size * 8}")
-        writer.write(self, "<=")
-        writer.write(self, f"// Error: Expected uint of at most {self.size} bits")
-        writer.write(self, "assert")
+        writer.write(
+            self,
+            [
+                "dup",
+                "bitlen",
+                f"pushint {self.size * 8}",
+                "<=",
+                "assert",
+                f"// UInt Size Assertion: {self.size} bits",
+            ],
+        )
 
 
 class BytesToUIntWrapper(BaseNode):
@@ -403,14 +411,19 @@ class Rpad(FunctionCall):
 
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, self.expression)
-        writer.write(self, f"// Rpad({self.size})")
-        writer.write(self, "dup")
-        writer.write(self, "len")
-        writer.write(self, f"pushint {self.size}")
-        writer.write(self, "swap")
-        writer.write(self, "-")
-        writer.write(self, "bzero")
-        writer.write(self, "concat")
+        writer.write(
+            self,
+            [
+                "dup",
+                "len",
+                f"pushint {self.size}",
+                "swap",
+                "-",
+                "bzero",
+                "concat",
+                f"// Rpad({self.size})",
+            ],
+        )
 
 
 class Lpad(FunctionCall):
@@ -429,10 +442,20 @@ class Lpad(FunctionCall):
 
     def write_teal(self, writer: "TealWriter") -> None:
         writer.write(self, self.expression)
-        writer.write(self, f"// Lpad({self.size})")
-        writer.write(self, f"pushint {self.size}")
-        writer.write(self, "bzero")
-        writer.write(self, "b|")
+        writer.write(
+            self,
+            [
+                "dup",
+                "len",
+                f"pushint {self.size}",
+                "swap",
+                "-",
+                "bzero",
+                "swap",
+                "concat",
+                f"// Lpad({self.size})",
+            ],
+        )
 
 
 class Concat(FunctionCall):
@@ -472,6 +495,7 @@ functions = {
         UncheckedCast,
         EnsureType,
         ToBytes,
+        FromBytes,
         SizeOf,
         Rpad,
         Lpad,

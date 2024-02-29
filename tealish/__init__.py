@@ -12,32 +12,62 @@ class TealWriter:
         self.current_output_line = 1
         self.current_input_line = 1
 
-    def write(self, parent: BaseNode, node_or_teal: Union[BaseNode, str]) -> None:
+    def write(
+        self, parent: BaseNode, node_or_teal: Union[BaseNode, str], one_line=False
+    ) -> None:
+        if one_line:
+            w = OneLineTealWriter()
+            node_or_teal.write_teal(w)
+            self.write(parent, w.teal)
+            return
         parent._teal = []
         if isinstance(node_or_teal, BaseNode):
             node = node_or_teal
             i = len(self.output)
             node.write_teal(self)
             parent._teal += self.output[i:]
-
         elif isinstance(node_or_teal, str):
             teal = node_or_teal
-            if " //" in teal:
+            prefix = (" " * 4) * self.level
+            teal = prefix + teal
+            if " //" in teal.strip():
                 teal, comment = teal.split("//", 1)
-                teal = teal.ljust(20) + "//" + comment
+                teal = teal.ljust(60) + "//" + comment
             parent._teal.append(teal)
-            prefix: str = "  " * self.level
-            line = prefix + teal
-            # print(line)
-            self.output.append(line)
+            self.output.append(teal)
             if hasattr(parent, "line_no"):
                 self.current_input_line = parent.line_no
             self.source_map[self.current_output_line] = self.current_input_line
             self.current_output_line += 1
+        elif isinstance(node_or_teal, list):
+            teal_ops = node_or_teal
+            if teal_ops[-1].strip().startswith("//"):
+                teal = "; ".join(teal_ops[:-1]) + teal_ops[-1]
+            else:
+                teal = "; ".join(teal_ops)
+            self.write(parent, teal)
         else:
             raise Exception(
                 "Expected BaseNode or str type as second argument of `write` function"
             )
+
+
+class OneLineTealWriter:
+    def __init__(self) -> None:
+        self.teal = []
+
+    def write(self, parent, node_or_teal):
+        if isinstance(node_or_teal, BaseNode):
+            node_or_teal.write_teal(self)
+        elif isinstance(node_or_teal, list):
+            self.teal += node_or_teal
+        else:
+            teal = node_or_teal.split("//", 1)[0]
+            self.teal.append(teal)
+
+    @property
+    def output(self):
+        return "; ".join(self.teal)
 
 
 class TealishCompiler:

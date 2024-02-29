@@ -28,7 +28,7 @@ class Integer(BaseNode):
         self.parent = parent
 
     def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"pushint {self.value} // {self.type}")
+        writer.write(self, f"pushint {self.value}")
 
     def _tealish(self) -> str:
         return f"{self.value}"
@@ -580,19 +580,26 @@ class StructOrBoxField(BaseNode):
         self.type = struct_field.tealish_type
 
     def write_teal(self, writer: "TealWriter") -> None:
+        teal = ""
         if isinstance(self.object_type, StructType):
-            writer.write(self, f"load {self.var.scratch_slot} // {self.name}")
-            writer.write(self, f"extract {self.offset} {self.size} // {self.field}")
+            teal = [
+                f"load {self.var.scratch_slot}",
+                f"extract {self.offset} {self.size}",
+            ]
         elif isinstance(self.object_type, BoxType):
-            writer.write(self, f"load {self.var.scratch_slot} // box key {self.name}")
-            writer.write(self, f"pushint {self.offset} // offset")
-            writer.write(self, f"pushint {self.size} // size")
-            writer.write(self, f"box_extract // {self.name}.{self.field}")
+            teal = [
+                f"load {self.var.scratch_slot}",
+                f"pushint {self.offset}",
+                f"pushint {self.size}",
+                "box_extract",
+            ]
         else:
             raise Exception()
         # If the field is a Int or Uint convert it from bytes to int
         if isinstance(self.type, IntType):
-            writer.write(self, "btoi")
+            teal.append("btoi")
+        teal.append(f"// {self.name}.{self.field}")
+        writer.write(self, teal)
 
     def _tealish(self) -> str:
         return f"{self.name}.{self.field}"

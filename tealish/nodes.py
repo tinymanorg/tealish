@@ -473,7 +473,7 @@ class Jump(LineStatement):
     block_name: str
 
     def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"// {self.line}")
+        writer.write(self, f"// tl:{self.line_no}: {self.line}")
         b = self.get_block(self.block_name)
         writer.write(self, f"b {b.label}")
 
@@ -491,7 +491,7 @@ class Exit(LineStatement):
         self.expression.process()
 
     def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"// {self.line}")
+        writer.write(self, f"// tl:{self.line_no}: {self.line}")
         writer.write(self, self.expression)
         writer.write(self, "return")
 
@@ -514,7 +514,7 @@ class FunctionCallStatement(LineStatement):
             )
 
     def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"// {self.line}")
+        writer.write(self, f"// tl:{self.line_no}: {self.line}")
         writer.write(self, self.expression)
 
     def _tealish(self) -> str:
@@ -541,7 +541,7 @@ class Assert(LineStatement):
             self.compiler.error_messages[self.line_no] = self.message
 
     def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"// {self.line}")
+        writer.write(self, f"// tl:{self.line_no}: {self.line}")
         writer.write(self, self.arg)
         if self.message:
             writer.write(self, f"assert // {self.message}")
@@ -574,7 +574,9 @@ class VarDeclaration(LineStatement):
                 raise CompileError(message)
 
     def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"// {self.line} [slot {self.var.scratch_slot}]")
+        writer.write(
+            self, f"// tl:{self.line_no}: {self.line} [slot {self.var.scratch_slot}]"
+        )
         if self.expression:
             writer.write(self, self.expression)
             writer.write(self, f"store {self.var.scratch_slot} // {self.name.value}")
@@ -627,7 +629,7 @@ class Assignment(LineStatement):
             self.vars.append(var)
 
     def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"// {self.line}")
+        writer.write(self, f"// tl:{self.line_no}: {self.line}")
         writer.write(self, self.expression)
         for i, name in enumerate(self.name_nodes):
             if name.value == "_":
@@ -778,7 +780,7 @@ class Switch(InlineStatement):
             node.expression.process()
 
     def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"// {self.line}")
+        writer.write(self, f"// tl:{self.line_no}: {self.line}")
         for node in self.options:
             writer.write(self, self.expression)
             writer.write(self, node.expression)
@@ -818,7 +820,7 @@ class Route(Node):
             if type_name == "bytes":
                 line = f"Txn.ApplicationArgs[{a}]"
             elif type_name == "int":
-                line = f"btoi(Txn.ApplicationArgs[{a}])"
+                line = f"FromBytes(Txn.ApplicationArgs[{a}], {type_name})"
             elif isinstance(arg_type, IntType) and arg_type.size != 8:
                 line = f"Cast(btoi(Txn.ApplicationArgs[{a}]), {type_name})"
             elif isinstance(arg_type, BytesType):
@@ -864,7 +866,7 @@ class Router(InlineStatement):
             node.process()
 
     def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"// {self.line}")
+        writer.write(self, f"// tl:{self.line_no}: {self.line}")
         for route in self.routes:
             writer.write(self, f'pushbytes "{route.name}"')
         writer.write(self, "txna ApplicationArgs 0")
@@ -877,19 +879,19 @@ class Router(InlineStatement):
             func = self.lookup_func(route.name)
             oc = func.attributes["public"].get("OnCompletion", "NoOp")
             if oc == "CreateApplication":
-                writer.write(self, "txn ApplicationID")
-                writer.write(self, "pushint 0")
-                writer.write(self, "==")
-                writer.write(self, "assert // ApplicationID == 0")
+                writer.write(
+                    self,
+                    "txn ApplicationID; pushint 0; ==; assert // ApplicationID == 0",
+                )
             else:
-                writer.write(self, "txn OnCompletion")
-                writer.write(self, f"pushint {constants[oc][1]} // {oc}")
-                writer.write(self, "==")
-                writer.write(self, "assert")
+                writer.write(
+                    self,
+                    f"txn OnCompletion; pushint {constants[oc][1]}; ==; assert // assert OnCompletion == {oc}",
+                )
 
             for arg_expression in route.arg_expressions:
-                writer.write(self, f"// {arg_expression.tealish()}")
-                writer.write(self, arg_expression)
+                # writer.write(self, f"// {arg_expression.tealish()}")
+                writer.write(self, arg_expression, one_line=True)
             writer.write(self, f"callsub {func.label}")
             if func.returns:
                 writer.write(
@@ -908,13 +910,11 @@ class Router(InlineStatement):
                 # concat n-1 times
                 for i in range(len(func.returns) - 1):
                     writer.write(self, "concat")
-                writer.write(self, "pushbytes 0x151f7c75 // arc4 return prefix")
-                # move the prefix bytes before the result bytes
-                writer.write(self, "swap")
-                writer.write(self, "concat")
-                writer.write(self, "log")
-            writer.write(self, "pushint 1")
-            writer.write(self, "return")
+                # move the prefix bytes before the result bytes and log
+                writer.write(
+                    self, "pushbytes 0x151f7c75; swap; concat; log // arc4 return log"
+                )
+            writer.write(self, "pushint 1; return")
             writer.level -= 1
 
     def _tealish(self) -> str:
@@ -962,7 +962,7 @@ class InnerTxnFieldSetter(InlineStatement):
     expression: GenericExpression
 
     def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"// {self.line}")
+        writer.write(self, f"// tl:{self.line_no}: {self.line}")
         writer.write(self, self.expression)
         writer.write(self, f"itxn_field {self.field_name}")
 
@@ -1038,7 +1038,7 @@ class InnerTxn(InlineStatement):
                 node.expression.process()
 
     def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"// {self.line}")
+        writer.write(self, f"// tl:{self.line_no}: {self.line}")
         writer.write(self, "callsub _itxn_begin")
         writer.level += 1
         for node in self.child_nodes:
@@ -1077,7 +1077,7 @@ class InnerGroup(InlineStatement):
             node.process()
 
     def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"// {self.line}")
+        writer.write(self, f"// tl:{self.line_no}: {self.line}")
         writer.write(self, "callsub _itxn_group_begin")
         writer.level += 1
         for i, node in enumerate(self.child_nodes):
@@ -1162,7 +1162,6 @@ class Elif(Node):
             n.process()
 
     def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"// {self.line}")
         writer.write(self, self.condition)
         if self.modifier == "not":
             writer.write(self, f"bnz {self.next_label}")
@@ -1205,11 +1204,8 @@ class Else(Node):
             n.process()
 
     def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"// {self.line}")
-        writer.level += 1
         for n in self.child_nodes:
             n.write_teal(writer)
-        writer.level -= 1
 
     def _tealish(self) -> str:
         output = "else:\n"
@@ -1329,8 +1325,7 @@ class IfStatement(InlineStatement):
             self.else_.process()
 
     def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"// {self.line}")
-        writer.level += 1
+        writer.write(self, f"// tl:{self.line_no}: {self.line}")
         writer.write(self, self.condition)
         if self.modifier == "not":
             writer.write(self, f"bnz {self.next_label}")
@@ -1339,20 +1334,28 @@ class IfStatement(InlineStatement):
 
         if self.if_then is not None:
             self.if_then.write_teal(writer)
-
         if self.elifs or self.else_:
+            writer.level += 1
             writer.write(self, f"b {self.end_label}")
+            writer.level -= 1
 
         for i, n in enumerate(self.elifs):
             writer.write(self, f"{n.label}:")
+            writer.write(self, f"// tl:{n.line_no}: {n.line}")
+            writer.level += 1
             n.write_teal(writer)
             if i != (len(self.elifs) - 1) or self.else_:
+                writer.level += 1
                 writer.write(self, f"b {self.end_label}")
+                writer.level -= 1
+            writer.level -= 1
         if self.else_:
             writer.write(self, f"{self.else_.label}:")
+            writer.write(self, f"// tl:{self.else_.line_no}: {self.else_.line}")
+            writer.level += 1
             self.else_.write_teal(writer)
-        writer.write(self, f"{self.end_label}: // end")
-        writer.level -= 1
+            writer.level -= 1
+        writer.write(self, f"{self.end_label}:")
 
     def _tealish(self) -> str:
         output = f"if {'not ' if self.modifier else ''}{self.condition.tealish()}:\n"
@@ -1378,7 +1381,7 @@ class Break(LineStatement):
             )
 
     def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"// {self.line}")
+        writer.write(self, f"// tl:{self.line_no}: {self.line}")
         writer.write(self, f"b {self.parent_loop.end_label}")
 
     def _tealish(self) -> str:
@@ -1420,7 +1423,7 @@ class WhileStatement(InlineStatement):
             n.process()
 
     def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"// {self.line}")
+        writer.write(self, f"// tl:{self.line_no}: {self.line}")
         writer.write(self, f"{self.start_label}:")
         writer.level += 1
         writer.write(self, self.condition)
@@ -1431,7 +1434,7 @@ class WhileStatement(InlineStatement):
         for n in self.child_nodes:
             n.write_teal(writer)
         writer.write(self, f"b {self.start_label}")
-        writer.write(self, f"{self.end_label}: // end")
+        writer.write(self, f"{self.end_label}:")
         writer.level -= 1
 
     def _tealish(self) -> str:
@@ -1477,7 +1480,7 @@ class ForStatement(InlineStatement):
         self.del_var(self.var_name)
 
     def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"// {self.line}")
+        writer.write(self, f"// tl:{self.line_no}: {self.line}")
         writer.level += 1
         writer.write(self, self.start)
         writer.write(self, f"store {self.var.scratch_slot} // {self.var.name}")
@@ -1493,7 +1496,7 @@ class ForStatement(InlineStatement):
         writer.write(self, "+")
         writer.write(self, f"store {self.var.scratch_slot} // {self.var.name}")
         writer.write(self, f"b {self.start_label}")
-        writer.write(self, f"{self.end_label}: // end")
+        writer.write(self, f"{self.end_label}:")
         writer.level -= 1
 
     def _tealish(self) -> str:
@@ -1540,7 +1543,7 @@ class For_Statement(InlineStatement):
             n.process()
 
     def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"// {self.line}")
+        writer.write(self, f"// tl:{self.line_no}: {self.line}")
         writer.level += 1
         writer.write(self, self.start)
         writer.write(self, "dup")
@@ -1555,7 +1558,7 @@ class For_Statement(InlineStatement):
         writer.write(self, "dup")
         writer.write(self, f"b {self.start_label}")
         writer.write(self, "pop")
-        writer.write(self, f"{self.end_label}: // end")
+        writer.write(self, f"{self.end_label}:")
         writer.level -= 1
 
     def _tealish(self) -> str:
@@ -1636,7 +1639,7 @@ class Func(InlineStatement):
             node.process()
 
     def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"// {self.line}")
+        writer.write(self, f"// tl:{self.line_no}: {self.line}")
         writer.write(self, f"{self.label}:")
         writer.level += 1
         for name, _ in self.args.args[::-1]:
@@ -1700,7 +1703,7 @@ class Return(LineStatement):
                 )
 
     def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"// {self.line}")
+        writer.write(self, f"// tl:{self.line_no}: {self.line}")
         if self.args:
             for i, expression in enumerate(self.args_expressions[::-1]):
                 writer.write(self, expression)
@@ -1719,7 +1722,7 @@ class Decorator(Node):
     params: str
 
     def write_teal(self, writer: "TealWriter") -> None:
-        writer.write(self, f"// {self.line}")
+        writer.write(self, f"// tl:{self.line_no}: {self.line}")
 
     def _tealish(self) -> str:
         output = f"@{self.name}({self.params})\n"
@@ -1911,33 +1914,47 @@ class StructOrBoxAssignment(LineStatement):
 
     def write_teal(self, writer: "TealWriter") -> None:
         if isinstance(self.object_type, StructType):
-            writer.write(self, f"// {self.line} [slot {self.var.scratch_slot}]")
-            writer.write(self, f"load {self.var.scratch_slot} // {self.name.value}")
-            writer.write(self, self.expression)
-            if isinstance(self.data_type, IntType):
-                writer.write(self, "itob")
-                if isinstance(self.data_type, UIntType):
-                    writer.write(
-                        self, f"extract {8 - self.data_type.size} {self.data_type.size}"
-                    )
             writer.write(
-                self, f"replace {self.offset} // {self.name.value}.{self.field_name}"
+                self,
+                f"// tl:{self.line_no}: {self.line} [slot {self.var.scratch_slot}]",
             )
-            writer.write(self, f"store {self.var.scratch_slot} // {self.name.value}")
+            writer.write(self, self.expression)
+            teal = []
+            if isinstance(self.data_type, IntType):
+                teal.append("itob")
+                if isinstance(self.data_type, UIntType):
+                    teal.append(
+                        f"extract {8 - self.data_type.size} {self.data_type.size}"
+                    )
+            # struct setter one liner
+            teal += [
+                f"load {self.var.scratch_slot}",
+                "swap",
+                f"replace {self.offset}",
+                f"store {self.var.scratch_slot}",
+                f"// set {self.name.value}.{self.field_name}",
+            ]
+            writer.write(self, teal)
         elif isinstance(self.object_type, BoxType):
-            writer.write(self, f"// {self.line} [box]")
-            writer.write(
-                self, f"load {self.var.scratch_slot} // box key {self.name.value}"
-            )
-            writer.write(self, f"pushint {self.offset} // offset")
+            writer.write(self, f"// tl:{self.line_no}: {self.line}")
             writer.write(self, self.expression)
+            teal = []
             if isinstance(self.data_type, IntType):
-                writer.write(self, "itob")
+                teal.append("itob")
                 if isinstance(self.data_type, UIntType):
-                    writer.write(
-                        self, f"extract {8 - self.data_type.size} {self.data_type.size}"
+                    teal.append(
+                        f"extract {8 - self.data_type.size} {self.data_type.size}"
                     )
-            writer.write(self, f"box_replace // {self.name.value}.{self.field_name}")
+            # box setter one liner
+            # Use uncover to bring the value to the top of the stack above the box name and offset
+            teal += [
+                f"load {self.var.scratch_slot}",
+                f"pushint {self.offset}",
+                "uncover 2",
+                "box_replace",
+                f"// boxset {self.name.value}.{self.field_name}",
+            ]
+            writer.write(self, teal)
 
     def _tealish(self) -> str:
         s = f"{self.name.tealish()}.{self.field_name}"
@@ -1975,23 +1992,29 @@ class BoxDeclaration(LineStatement):
             )
 
     def write_teal(self, writer):
-        writer.write(self, f"// {self.line} [slot {self.var.scratch_slot}]")
+        writer.write(
+            self, f"// tl:{self.line_no}: {self.line} [slot {self.var.scratch_slot}]"
+        )
         writer.write(self, self.key)
         if self.method == "Open":
-            writer.write(self, "dup")
-            writer.write(self, "box_len")
-            writer.write(self, "assert // exists")
-            writer.write(self, f"pushint {self.box_size}")
-            writer.write(self, "==")
-            writer.write(self, "assert // len(box) == {self.struct_name}.size")
+            writer.write(
+                self,
+                f"dup; box_len; assert; pushint {self.box_size}; ==; assert // len(box) == {self.struct_name}.size",
+            )
         elif self.method == "Create":
-            writer.write(self, "dup")
-            writer.write(self, f"pushint {self.box_size}")
-            writer.write(self, "box_create")
-            writer.write(self, "assert // assert created")
+            writer.write(
+                self,
+                f"dup; pushint {self.box_size}; box_create; assert // create & assert created",
+            )
+        elif self.method == "OpenOrCreate":
+            writer.write(
+                self,
+                f"dup; pushint {self.box_size}; box_create; pop // create if didn't already exist",
+            )
         else:
-            writer.write(self, "// assume box exists")
-        writer.write(self, f"store {self.var.scratch_slot} // {self.name.value}")
+            # assume box exists
+            pass
+        writer.write(self, f"store {self.var.scratch_slot} // box:{self.name.value}")
 
     def _tealish(self):
         s = (
