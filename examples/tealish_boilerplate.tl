@@ -5,77 +5,49 @@ if Txn.ApplicationID == 0:
     exit(1)
 end
 
-switch Txn.OnCompletion:
-    NoOp: main
-    OptIn: opt_in
-    CloseOut: close_out
-    UpdateApplication: update_app
-    DeleteApplication: delete_app
+router:
+    method_a
+    method_b
+    method_c
+    update_app
+    delete_app
 end
 
-block opt_in:
-    # Handle Opt In
-    # some statements here
-    # exit(1)
-
-    # OR
-    # Disallow Opt In
-    exit(0)
-end
-
-block close_out:
-    # Handle Close Out
-    # some statements here
-    # exit(1)
-
-    # OR
-    # Disallow Closing Out
-    exit(0)
-end
-
-block update_app:
+@public(OnCompletion=UpdateApplication)
+func update_app():
     # Handle Update App
     # Example: Only allow the Creator to update the app (useful during development)
-    exit(Txn.Sender == Global.CreatorAddress)
-
-    # OR
-    # Disallow Update App
-    # exit(0)
+    assert(Txn.Sender == Global.CreatorAddress)
+    # OR Disallow Update App by removing this function
+    return
 end
 
-block delete_app:
+@public(OnCompletion=DeleteApplication)
+func delete_app():
     # Handle Delete App
     # Example: Only allow the Creator to update the app (useful during development)
-    exit(Txn.Sender == Global.CreatorAddress)
-
-    # OR
-    # Disallow Delete App
-    # exit(0)
+    assert(Txn.Sender == Global.CreatorAddress)
+    # OR Disallow Delete App by removing this function
+    return
 end
 
-block main:
-    switch Txn.ApplicationArgs[0]:
-        "method_a": method_a
-        "method_b": method_b
-        "method_c": method_c
-    end
+@public()
+func method_a(user_address: bytes[32], amount: int):
+    # Handle method_a
+    # some statements here
+    return
+end
 
-    block method_a:
-        # Handle method_a
-        # some statements here
-        exit(1)
-    end
+@public()
+func method_b():
+    # Handle method_b
+    # some statements here
+    return
+end
 
-    block method_b:
-        # Handle method_b
-        # some statements here
-        exit(1)
-    end
-
-    block method_c:
-        # Handle method_c
-        # some statements here
-        exit(1)
-    end
-
+@public()
+func method_c():
+    # Handle method_c
+    # some statements here
+    return
 end

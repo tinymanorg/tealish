@@ -559,7 +559,7 @@ Examples:
     :language: tealish
 
 
-.. warning:: There are no implicit runtime checks when assigning to a struct or struct field. Care must be taken to ensure field values are correctly sized.
+.. note:: There are no implicit runtime checks when assigning to a struct or struct field. Care must be taken to ensure field values are correctly sized.
 
 
 Boxes
@@ -587,3 +587,84 @@ Examples:
     :language: tealish
 
 .. warning:: There are no implicit runtime checks when assigning to a box field. Care must be taken to ensure field values are correctly sized.
+
+
+.. _types:
+
+Types
+-----
+
+The AVM has two types; ``bytes`` and ``int``. Bytes are bytestrings up to 4096 bytes in length. Ints are unsigned 64bit integers in the range 0 - (2^64 - 1). Ints always take up 8 bytes.
+
+Tealish introduces fixed sized byte strings (``bytes[size]``), and custom types with structs_.
+
+The Tealish compiler checks types at compile time for assignments and function call arguments. If the types do not match an error will be raised.
+
+Example 1:
+__________
+
+.. code-block::
+
+    Error: Incorrect type uint8 for arg 0 of log. Expected bytes at line 19
+        log(42)
+
+In this case the compiler is informing us that ``log`` expects bytes but we have given an int. We must change our code somehow to make this work.
+
+Example 2:
+__________
+
+.. code-block::
+
+    $ tealish compile source/language/structs.tl
+    Compiling source/language/structs.tl to source/language/build/structs.teal
+    Error: Incorrect type for assignment. Expected Item, got bytes at line 7.
+    Perhaps Cast or padding is required? 
+    - Item item = Txn.ApplicationArgs[0]
+    + Item item = Cast(Txn.ApplicationArgs[0], Item)
+
+In this case we want to treat a bytestring from the application args as an ``Item`` struct. \
+However the compiler can't know if the bytestring is the correct size for this struct so we need to convince it. 
+We ourselves can't be sure the arg will be the right size so the safest way forward is to use ``Cast`` as suggested which will tell the compiler the value is the right size but also add a *runtime* assertion to ensure it is.
+
+.. code-block::
+
+    Item item = Cast(Txn.ApplicationArgs[0], Item)
+
+Example 3:
+__________
+
+.. code-block::
+
+    transfer(app_global_get("MANAGER"))
+    ...
+
+    func transfer(user: bytes[32]):
+        return
+    end
+
+    Error: Incorrect type any for arg 0 of transfer. Expected bytes[32] at line 18
+        transfer(app_global_get("MANAGER"))
+
+In this case we have a user defined function with an argument with a fixed size byte string (``bytes[32]``). 
+Again the compiler doesn't know the size of the value we retrieve from global state so we should use a ``Cast`` here again.
+
+If we can be certain that the value retrieved from global state is of the required type we can skip the runtime type assertion introduced by ``Cast`` and use ``UncheckedCast`` instead.
+This tells the compiler the value *is known* to have a certain type. This should be used with caution and only when a logical proof of type is possible and when the cost of the additional assertion is unacceptable.
+
+.. code-block::
+
+    # use UncheckedCast with caution!
+    transfer(UncheckedCast(app_global_get("MANAGER"), bytes[32]))
+
+
+Example 4:
+__________
+
+.. code-block::
+
+    transfer(Txn.Sender)
+    ...
+
+The above line does not raise an error or require a ``Cast`` however because the compiler knows that ``Txn.Sender`` is always a ``bytes[32]``.
+
+

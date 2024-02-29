@@ -1,0 +1,69 @@
+#pragma version 9
+
+// tl:3: router:
+pushbytes "method_a"
+pushbytes "method_b"
+pushbytes "update_app"
+pushbytes "delete_app"
+txna ApplicationArgs 0
+match route_method_a route_method_b route_update_app route_delete_app
+err                                                         // unexpected value
+route_method_a:
+    txn OnCompletion; pushint 0; ==; assert                 // assert OnCompletion == NoOp
+    txna ApplicationArgs 1; dup; len; pushint 32; ==; assert// Bytes Size Assertion: 32 bytes
+    txna ApplicationArgs 2; btoi 
+    callsub __func__method_a
+    pushint 1; return
+route_method_b:
+    txn OnCompletion; pushint 0; ==; assert                 // assert OnCompletion == NoOp
+    callsub __func__method_b
+    // return int
+    // uncover 0 int
+    itob
+    pushbytes 0x151f7c75; swap; concat; log                 // arc4 return log
+    pushint 1; return
+route_update_app:
+    txn OnCompletion; pushint 4; ==; assert                 // assert OnCompletion == UpdateApplication
+    callsub __func__update_app
+    pushint 1; return
+route_delete_app:
+    txn OnCompletion; pushint 5; ==; assert                 // assert OnCompletion == DeleteApplication
+    callsub __func__delete_app
+    pushint 1; return
+
+// tl:11: func update_app():
+__func__update_app:
+    // tl:12: assert(Txn.Sender == Global.CreatorAddress)
+    txn Sender
+    global CreatorAddress
+    ==
+    assert
+    // tl:13: return
+    retsub
+
+// tl:17: func delete_app():
+__func__delete_app:
+    // tl:18: assert(Txn.Sender == Global.CreatorAddress)
+    txn Sender
+    global CreatorAddress
+    ==
+    assert
+    // tl:19: return
+    retsub
+
+// a public decorator with the default OnCompletion=NoOp
+// tl:24: func method_a(user_address: bytes[32], amount: int):
+__func__method_a:
+    store 1                                                 // amount [int]
+    store 2                                                 // user_address [bytes[32]]
+    // some statements here
+    // tl:26: return
+    retsub
+
+// tl:30: func method_b() int:
+__func__method_b:
+    // this value will be logged by the router as an arc4 style return value
+    // tl:32: return 42
+    pushint 42
+    retsub
+
