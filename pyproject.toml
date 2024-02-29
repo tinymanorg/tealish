@@ -8,7 +8,7 @@ packages = ["tealish"]
 
 [project]
 name = "tealish"
-version = "0.0.2"
+version = "0.0.3"
 authors = [
   { name="Tinyman", email="hello@tinyman.org" },
 ]
