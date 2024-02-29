@@ -1,3 +1,4 @@
+import sys
 from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -15,3 +16,10 @@ class CompileError(Exception):
             message += f" at line {node.line_no}\n"
             message += f" {node.line}"
         super().__init__(message)
+
+
+def warning(message: str, node: Optional["BaseNode"] = None) -> None:
+    if node and getattr(node, "line_no", None):
+        message += f" at line {node.line_no}\n"
+        message += f" {node.line}"
+    sys.stderr.write("Warning: " + message + "\n")

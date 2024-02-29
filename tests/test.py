@@ -16,7 +16,7 @@ from tealish.nodes import Node
 from tealish.tx_expressions import parse_expression
 from tealish.utils import strip_comments
 from tealish.scope import Scope
-from tealish.tealish_builtins import AVMType
+from tealish.types import IntType
 
 
 def compile_lines(source_lines: List[str]) -> List[str]:
@@ -136,7 +136,7 @@ class TestFields(unittest.TestCase):
 
     def test_group_index_var(self):
         scope = Scope()
-        scope.declare_var("index", AVMType.int)
+        scope.declare_scratch_var("index", IntType)
         teal = compile_expression_min("Gtxn[index].TypeEnum", scope=scope)
         self.assertListEqual(teal, ["load 0", "gtxns TypeEnum"])
 
@@ -456,7 +456,7 @@ class TestTypeCheck(unittest.TestCase):
         with self.assertRaises(CompileError) as e:
             compile_min(["bytes x = sqrt(25)"])
         self.assertIn(
-            "Incorrect type for bytes assignment. Expected bytes, got int",
+            "Incorrect type for assignment. Expected bytes, got int",
             str(e.exception),
         )
 
@@ -472,7 +472,7 @@ class TestTypeCheck(unittest.TestCase):
         with self.assertRaises(CompileError) as e:
             compile_min(["int x", "x = itob(2)"])
         self.assertIn(
-            "Incorrect type for int assignment. Expected int, got bytes",
+            "Incorrect type for assignment. Expected int, got bytes",
             str(e.exception),
         )
 
@@ -480,7 +480,7 @@ class TestTypeCheck(unittest.TestCase):
         with self.assertRaises(CompileError) as e:
             compile_min(["bytes b", "b = 2"])
         self.assertIn(
-            "Incorrect type for bytes assignment. Expected bytes, got int",
+            "Incorrect type for assignment. Expected bytes, got uint8",
             str(e.exception),
         )
 
@@ -490,31 +490,33 @@ class TestInnerGroup(unittest.TestCase):
         teal = compile_min(
             [
                 "inner_group:",
-                "inner_txn:",
-                "TypeEnum: Axfer",
-                "Fee: 0",
-                "AssetReceiver: Txn.Sender",
-                "XferAsset: 10",
-                "AssetAmount: 2000000",
-                "end",
-                "inner_txn:",
-                "TypeEnum: Appl",
-                "Fee: 2000",
-                "ApplicationID: 1",
-                'ApplicationArgs[0]: "swap"',
-                "ApplicationArgs[1]: 30",
-                'ApplicationArgs[2]: "fixed-input"',
-                "Accounts[0]: Txn.Accounts[1]",
-                "Assets[0]: Txn.Assets[0]",
-                "Assets[1]: Txn.Assets[1]",
-                "end",
+                "   inner_txn:",
+                "       TypeEnum: Axfer",
+                "       Fee: 0",
+                "       AssetReceiver: Txn.Sender",
+                "       XferAsset: 10",
+                "       AssetAmount: 2000000",
+                "   end",
+                "   inner_txn:",
+                "       TypeEnum: Appl",
+                "       Fee: 2000",
+                "       ApplicationID: 1",
+                '       ApplicationArgs[0]: "swap"',
+                "       ApplicationArgs[1]: 30",
+                '       ApplicationArgs[2]: "fixed-input"',
+                "       Accounts[0]: Txn.Accounts[1]",
+                "       Assets[0]: Txn.Assets[0]",
+                "       Assets[1]: Txn.Assets[1]",
+                "   end",
                 "end",
             ]
         )
+        teal = teal[: teal.index("_itxn_group_begin:")]
         self.assertListEqual(
             teal,
             [
-                "itxn_begin",
+                "callsub _itxn_group_begin",
+                "callsub _itxn_begin",
                 "pushint 4",
                 "itxn_field TypeEnum",
                 "pushint 0",
@@ -525,7 +527,8 @@ class TestInnerGroup(unittest.TestCase):
                 "itxn_field XferAsset",
                 "pushint 2000000",
                 "itxn_field AssetAmount",
-                "itxn_next",
+                "callsub _itxn_submit",
+                "callsub _itxn_begin",
                 "pushint 6",
                 "itxn_field TypeEnum",
                 "pushint 2000",
@@ -544,11 +547,11 @@ class TestInnerGroup(unittest.TestCase):
                 "itxn_field Assets",
                 "txna Assets 1",
                 "itxn_field Assets",
-                "itxn_submit",
+                "callsub _itxn_submit",
+                "callsub _itxn_group_submit",
             ],
         )
 
-    @expectedFailure
     def test_pass_inner_group_with_if(self):
         # TODO: This currently fails because we don't correctly
         # figure out which is the first txn of the group
@@ -556,43 +559,45 @@ class TestInnerGroup(unittest.TestCase):
             [
                 "int asset_id",
                 "inner_group:",
-                "if asset_id:",
-                "inner_txn:",
-                "TypeEnum: Axfer",
-                "Fee: 0",
-                "AssetReceiver: Txn.Sender",
-                "XferAsset: asset_id",
-                "AssetAmount: 2000000",
-                "end",
-                "else:",
-                "inner_txn:",
-                "TypeEnum: Pay",
-                "Fee: 0",
-                "Receiver: Txn.Sender",
-                "XferAsset: asset_id",
-                "Amount: 2000000",
-                "end",
-                "end",
-                "inner_txn:",
-                "TypeEnum: Appl",
-                "Fee: 2000",
-                "ApplicationID: 1",
-                'ApplicationArgs[0]: "swap"',
-                "ApplicationArgs[1]: 30",
-                'ApplicationArgs[2]: "fixed-input"',
-                "Accounts[0]: Txn.Accounts[1]",
-                "Assets[0]: Txn.Assets[0]",
-                "Assets[1]: Txn.Assets[1]",
-                "end",
+                "   if asset_id:",
+                "      inner_txn:",
+                "         TypeEnum: Axfer",
+                "         Fee: 0",
+                "         AssetReceiver: Txn.Sender",
+                "         XferAsset: asset_id",
+                "         AssetAmount: 2000000",
+                "      end",
+                "   else:",
+                "      inner_txn:",
+                "          TypeEnum: Pay",
+                "          Fee: 0",
+                "          Receiver: Txn.Sender",
+                "          XferAsset: asset_id",
+                "          Amount: 2000000",
+                "      end",
+                "   end",
+                "   inner_txn:",
+                "      TypeEnum: Appl",
+                "      Fee: 2000",
+                "      ApplicationID: 1",
+                '      ApplicationArgs[0]: "swap"',
+                "      ApplicationArgs[1]: 30",
+                '      ApplicationArgs[2]: "fixed-input"',
+                "      Accounts[0]: Txn.Accounts[1]",
+                "      Assets[0]: Txn.Assets[0]",
+                "      Assets[1]: Txn.Assets[1]",
+                "   end",
                 "end",
             ]
         )
+        teal = teal[: teal.index("_itxn_group_begin:")]
         self.assertListEqual(
             teal,
             [
-                "itxn_begin",
+                "callsub _itxn_group_begin",
                 "load 0",
                 "bz l0_else",
+                "callsub _itxn_begin",
                 "pushint 4",
                 "itxn_field TypeEnum",
                 "pushint 0",
@@ -603,8 +608,10 @@ class TestInnerGroup(unittest.TestCase):
                 "itxn_field XferAsset",
                 "pushint 2000000",
                 "itxn_field AssetAmount",
+                "callsub _itxn_submit",
                 "b l0_end",
                 "l0_else:",
+                "callsub _itxn_begin",
                 "pushint 1",
                 "itxn_field TypeEnum",
                 "pushint 0",
@@ -615,8 +622,9 @@ class TestInnerGroup(unittest.TestCase):
                 "itxn_field XferAsset",
                 "pushint 2000000",
                 "itxn_field Amount",
+                "callsub _itxn_submit",
                 "l0_end:",
-                "itxn_next",
+                "callsub _itxn_begin",
                 "pushint 6",
                 "itxn_field TypeEnum",
                 "pushint 2000",
@@ -635,7 +643,8 @@ class TestInnerGroup(unittest.TestCase):
                 "itxn_field Assets",
                 "txna Assets 1",
                 "itxn_field Assets",
-                "itxn_submit",
+                "callsub _itxn_submit",
+                "callsub _itxn_group_submit",
             ],
         )
 
@@ -645,25 +654,27 @@ class TestInnerGroup(unittest.TestCase):
                 "int a",
                 "int b",
                 "inner_group:",
-                "int c = a + b",
-                "inner_txn:",
-                "TypeEnum: Axfer",
-                "Fee: 0",
-                "AssetReceiver: Txn.Sender",
-                "XferAsset: c",
-                "AssetAmount: 2000000",
-                "end",
+                "   int c = a + b",
+                "   inner_txn:",
+                "       TypeEnum: Axfer",
+                "       Fee: 0",
+                "       AssetReceiver: Txn.Sender",
+                "       XferAsset: c",
+                "       AssetAmount: 2000000",
+                "   end",
                 "end",
             ]
         )
+        teal = teal[: teal.index("_itxn_group_begin:")]
         self.assertListEqual(
             teal,
             [
-                "itxn_begin",
+                "callsub _itxn_group_begin",
                 "load 0",
                 "load 1",
                 "+",
                 "store 2",
+                "callsub _itxn_begin",
                 "pushint 4",
                 "itxn_field TypeEnum",
                 "pushint 0",
@@ -674,7 +685,8 @@ class TestInnerGroup(unittest.TestCase):
                 "itxn_field XferAsset",
                 "pushint 2000000",
                 "itxn_field AssetAmount",
-                "itxn_submit",
+                "callsub _itxn_submit",
+                "callsub _itxn_group_submit",
             ],
         )
 
@@ -713,7 +725,7 @@ class TestOperators(unittest.TestCase):
 
     def test_unary_variable(self):
         scope = Scope()
-        scope.declare_var("x", AVMType.int)
+        scope.declare_scratch_var("x", IntType())
         teal = compile_expression_min("!x", scope=scope)
         self.assertEqual(
             teal,
@@ -971,13 +983,14 @@ class TestStructs(unittest.TestCase):
                 "   b: int",
                 "   c: bytes[10]",
                 "end",
-                "Item item1 = Txn.ApplicationArgs[0]",
+                "Item item1 = Cast(Txn.ApplicationArgs[0], Item)",
             ]
         )
         self.assertListEqual(
             teal,
             [
                 "txna ApplicationArgs 0",
+                "dup; len; pushint 26; ==; assert",
                 "store 0",
             ],
         )
@@ -990,18 +1003,17 @@ class TestStructs(unittest.TestCase):
                 "   b: int",
                 "   c: bytes[10]",
                 "end",
-                "Item item1 = Txn.ApplicationArgs[0]",
+                "Item item1 = bzero(SizeOf(Item))",
                 "assert(item1.a)",
             ]
         )
         self.assertListEqual(
             teal,
             [
-                "txna ApplicationArgs 0",
+                "pushint 26",
+                "bzero",
                 "store 0",
-                "load 0",
-                "pushint 0",
-                "extract_uint64",
+                "load 0; extract 0 8; btoi",
                 "assert",
             ],
         )
@@ -1014,17 +1026,17 @@ class TestStructs(unittest.TestCase):
                 "   b: int",
                 "   c: bytes[10]",
                 "end",
-                "Item item1 = Txn.ApplicationArgs[0]",
+                "Item item1 = bzero(SizeOf(Item))",
                 "log(item1.c)",
             ]
         )
         self.assertListEqual(
             teal,
             [
-                "txna ApplicationArgs 0",
+                "pushint 26",
+                "bzero",
                 "store 0",
-                "load 0",
-                "extract 16 10",
+                "load 0; extract 16 10",
                 "log",
             ],
         )
@@ -1037,20 +1049,18 @@ class TestStructs(unittest.TestCase):
                 "   b: int",
                 "   c: bytes[10]",
                 "end",
-                "Item item1 = bzero(28)",
-                "item1.c = Txn.ApplicationArgs[0]",
+                "Item item1 = bzero(SizeOf(Item))",
+                'item1.c = "abcdefghij"',
             ]
         )
         self.assertListEqual(
             teal,
             [
-                "pushint 28",
+                "pushint 26",
                 "bzero",
                 "store 0",
-                "load 0",
-                "txna ApplicationArgs 0",
-                "replace 16",
-                "store 0",
+                'pushbytes "abcdefghij"',
+                "load 0; swap; replace 16; store 0",
             ],
         )
 
@@ -1062,21 +1072,18 @@ class TestStructs(unittest.TestCase):
                 "   b: int",
                 "   c: bytes[10]",
                 "end",
-                "Item item1 = bzero(28)",
+                "Item item1 = bzero(SizeOf(Item))",
                 "item1.a = 1",
             ]
         )
         self.assertListEqual(
             teal,
             [
-                "pushint 28",
+                "pushint 26",
                 "bzero",
                 "store 0",
-                "load 0",
                 "pushint 1",
-                "itob",
-                "replace 0",
-                "store 0",
+                "itob; load 0; swap; replace 0; store 0",
             ],
         )
 
@@ -1097,10 +1104,7 @@ class TestBoxes(unittest.TestCase):
             teal,
             [
                 'pushbytes "a"',
-                "dup",
-                "pushint 26",
-                "box_create",
-                "assert",
+                "dup; pushint 26; box_create; assert",
                 "store 0",
             ],
         )
@@ -1120,12 +1124,7 @@ class TestBoxes(unittest.TestCase):
             teal,
             [
                 'pushbytes "a"',
-                "dup",
-                "box_len",
-                "assert",
-                "pushint 26",
-                "==",
-                "assert",
+                "dup; box_len; assert; pushint 26; ==; assert",
                 "store 0",
             ],
         )
@@ -1166,11 +1165,7 @@ class TestBoxes(unittest.TestCase):
             [
                 'pushbytes "a"',
                 "store 0",
-                "load 0",
-                "pushint 0",
-                "pushint 8",
-                "box_extract",
-                "btoi",
+                "load 0; pushint 0; pushint 8; box_extract; btoi",
                 "assert",
             ],
         )
@@ -1192,10 +1187,7 @@ class TestBoxes(unittest.TestCase):
             [
                 'pushbytes "a"',
                 "store 0",
-                "load 0",
-                "pushint 16",
-                "pushint 10",
-                "box_extract",
+                "load 0; pushint 16; pushint 10; box_extract",
                 "log",
             ],
         )
@@ -1209,7 +1201,7 @@ class TestBoxes(unittest.TestCase):
                 "   c: bytes[10]",
                 "end",
                 'box<Item> item1 = Box("a")',
-                "item1.c = Txn.ApplicationArgs[0]",
+                'item1.c = "abcdefghij"',
             ]
         )
         self.assertListEqual(
@@ -1217,10 +1209,8 @@ class TestBoxes(unittest.TestCase):
             [
                 'pushbytes "a"',
                 "store 0",
-                "load 0",
-                "pushint 16",
-                "txna ApplicationArgs 0",
-                "box_replace",
+                'pushbytes "abcdefghij"',
+                "load 0; pushint 16; uncover 2; box_replace",
             ],
         )
 
@@ -1241,11 +1231,8 @@ class TestBoxes(unittest.TestCase):
             [
                 'pushbytes "a"',
                 "store 0",
-                "load 0",
-                "pushint 0",
                 "pushint 1",
-                "itob",
-                "box_replace",
+                "itob; load 0; pushint 0; uncover 2; box_replace",
             ],
         )
 
@@ -1358,3 +1345,133 @@ class TestEverythingProgram(unittest.TestCase):
     def test_pass_reformat(self):
         output = reformat_program("\n".join(self.src_lines))
         self.assertListEqual(output.split("\n"), self.src_lines)
+
+
+class TestRouter(unittest.TestCase):
+    def test_pass(self):
+        teal = compile_min(
+            [
+                "router:",
+                "   method_a",
+                "   method_b",
+                "end",
+                "@public()",
+                "func method_a():",
+                "   return",
+                "end",
+                "@public()",
+                "func method_b():",
+                "   return",
+                "end",
+            ]
+        )
+        self.assertListEqual(
+            teal,
+            [
+                'pushbytes "method_a"',
+                'pushbytes "method_b"',
+                "txna ApplicationArgs 0",
+                "match route_method_a route_method_b",
+                "err",
+                "route_method_a:",
+                "txn OnCompletion; pushint 0; ==; assert",
+                "callsub __func__method_a",
+                "pushint 1; return",
+                "route_method_b:",
+                "txn OnCompletion; pushint 0; ==; assert",
+                "callsub __func__method_b",
+                "pushint 1; return",
+                "__func__method_a:",
+                "retsub",
+                "__func__method_b:",
+                "retsub",
+            ],
+        )
+
+    def test_pass_with_int_arg(self):
+        teal = compile_min(
+            [
+                "router:",
+                "   method_a",
+                "end",
+                "@public()",
+                "func method_a(x: int):",
+                "   return",
+                "end",
+            ]
+        )
+        self.assertListEqual(
+            teal,
+            [
+                'pushbytes "method_a"',
+                "txna ApplicationArgs 0",
+                "match route_method_a",
+                "err",
+                "route_method_a:",
+                "txn OnCompletion; pushint 0; ==; assert",
+                "txna ApplicationArgs 1; btoi",
+                "callsub __func__method_a",
+                "pushint 1; return",
+                "__func__method_a:",
+                "store 1",
+                "retsub",
+            ],
+        )
+
+    def test_pass_with_bytes32_arg(self):
+        teal = compile_min(
+            [
+                "router:",
+                "   method_a",
+                "end",
+                "@public()",
+                "func method_a(x: bytes[32]):",
+                "   return",
+                "end",
+            ]
+        )
+        self.assertListEqual(
+            teal,
+            [
+                'pushbytes "method_a"',
+                "txna ApplicationArgs 0",
+                "match route_method_a",
+                "err",
+                "route_method_a:",
+                "txn OnCompletion; pushint 0; ==; assert",
+                "txna ApplicationArgs 1; dup; len; pushint 32; ==; assert",
+                "callsub __func__method_a",
+                "pushint 1; return",
+                "__func__method_a:",
+                "store 1",
+                "retsub",
+            ],
+        )
+
+    def test_pass_with_oc_delete(self):
+        teal = compile_min(
+            [
+                "router:",
+                "   method_a",
+                "end",
+                "@public(OnCompletion=DeleteApplication)",
+                "func method_a():",
+                "   return",
+                "end",
+            ]
+        )
+        self.assertListEqual(
+            teal,
+            [
+                'pushbytes "method_a"',
+                "txna ApplicationArgs 0",
+                "match route_method_a",
+                "err",
+                "route_method_a:",
+                "txn OnCompletion; pushint 5; ==; assert",
+                "callsub __func__method_a",
+                "pushint 1; return",
+                "__func__method_a:",
+                "retsub",
+            ],
+        )

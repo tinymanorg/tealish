@@ -3,7 +3,8 @@ import os
 import requests
 import tealish
 import json
-from .tealish_builtins import constants, AVMType
+from .tealish_builtins import constants
+from .types import BytesType, IntType, AnyType, TealishType
 from typing import List, Dict, Any, Tuple, Optional
 
 abc = "ABCDEFGHIJK"
@@ -23,10 +24,10 @@ pseudo_ops = [
 
 
 _opcode_type_map = {
-    ".": AVMType.any,
-    "B": AVMType.bytes,
-    "U": AVMType.int,
-    "": AVMType.none,
+    ".": AnyType(),
+    "B": BytesType(),
+    "U": IntType(),
+    "": AnyType(),
 }
 
 operators = [
@@ -83,12 +84,19 @@ ignores = [
 ]
 
 
-def type_lookup(a: str) -> AVMType:
+def type_lookup(a: str) -> TealishType:
     return _opcode_type_map[a]
 
 
-def convert_args_to_types(args: str) -> List[AVMType]:
+def convert_args_to_types(args: str) -> List[TealishType]:
     return [type_lookup(args[idx]) for idx in range(len(args))]
+
+
+field_types = {
+    # TODO: Add more field type overrides here
+    # TODO: Later hopefully read this from improved langspec json
+    "Sender": BytesType(size=32),
+}
 
 
 class Op:
@@ -101,11 +109,11 @@ class Op:
     #: list of arg types this op takes off the stack, encoded as a string
     args: str
     #: decoded list of incoming args
-    arg_types: List[AVMType]
+    arg_types: List[TealishType]
     #: list of arg types this op puts on the stack, encoded as a string
     returns: str
     #: decoded list of outgoing args
-    returns_types: List[AVMType]
+    returns_types: List[TealishType]
     #: how many bytes this opcode takes up when assembled
     size: int
     #: describes the args to be passed as immediate arguments to this op
@@ -113,9 +121,9 @@ class Op:
     #: describes the list of names that can be used as immediate arguments
     arg_enum: List[str]
     #: describes the types returned when each arg enum is used
-    arg_enum_types: List[AVMType]
+    arg_enum_types: List[TealishType]
     #: dictionary mapping the names in arg_enum to types in arg_enum_types
-    arg_enum_dict: Dict[str, AVMType]
+    arg_enum_dict: Dict[str, TealishType]
 
     #: informational string about the op
     doc: str
@@ -161,12 +169,16 @@ class Op:
             if "ArgEnumTypes" in op_def:
                 self.arg_enum_types = convert_args_to_types(op_def["ArgEnumTypes"])
             else:
-                self.arg_enum_types = [AVMType.int] * len(self.arg_enum)
+                self.arg_enum_types = [IntType()] * len(self.arg_enum)
             self.arg_enum_dict = dict(zip(self.arg_enum, self.arg_enum_types))
         else:
             self.arg_enum = []
             self.arg_enum_types = []
             self.arg_enum_dict = {}
+
+        for field_name in self.arg_enum_dict:
+            if field_name in field_types:
+                self.arg_enum_dict[field_name] = field_types[field_name]
 
         self.doc = op_def.get("Doc", "")
         self.doc_extra = op_def.get("DocExtra", "")
@@ -188,7 +200,7 @@ class Op:
         else:
             self.sig = f"{self.name}({arg_string})"
             if len(self.returns_types) > 0:
-                self.sig += " -> " + ", ".join(self.returns_types)
+                self.sig += " -> " + ", ".join([r.name for r in self.returns_types])
 
         self.ignore = False
         for x in ignores:
@@ -210,8 +222,8 @@ class LangSpec:
             "Txn": self.ops["txn"].arg_enum_dict,
         }
 
-        self.global_fields = self.fields["Global"]
-        self.txn_fields = self.fields["Txn"]
+        self.global_fields: Dict[str, TealishType] = self.fields["Global"]
+        self.txn_fields: Dict[str, TealishType] = self.fields["Txn"]
 
     def as_dict(self) -> Dict[str, Any]:
         return self.spec
@@ -225,12 +237,17 @@ class LangSpec:
             raise KeyError(f'Op "{name}" does not exist!')
         return self.ops[name]
 
-    def lookup_avm_constant(self, name: str) -> Tuple[AVMType, Any]:
+    def lookup_op_field(self, op_name: str, field_name: str) -> Op:
+        op = self.lookup_op(op_name)
+        type = op.arg_enum_dict[field_name]
+        return type
+
+    def lookup_avm_constant(self, name: str) -> Tuple[TealishType, Any]:
         if name not in constants:
             raise KeyError(f'Constant "{name}" does not exist!')
         return constants[name]
 
-    def get_field_type(self, namespace: str, name: str) -> str:
+    def get_field_type(self, namespace: str, name: str) -> TealishType:
         if "txn" in namespace:
             return self.txn_fields[name]
         elif namespace == "global":
@@ -279,7 +296,10 @@ def fetch_langspec(url: str) -> LangSpec:
     if "http" not in url:
         # assume branch name for go-algorand
         branch = url
-        url = f"https://github.com/algorand/go-algorand/raw/{branch}/data/transactions/logic/langspec.json"
+        url = (
+            f"https://github.com/algorand/go-algorand/raw/{branch}"
+            "/data/transactions/logic/langspec.json"
+        )
     if "github.com" in url and "blob" in url:
         url = url.replace("blob", "raw")
     r = requests.get(url)

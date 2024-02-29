@@ -1,40 +1,58 @@
 from enum import Enum
-from typing import Dict, Tuple, Union, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from .nodes import Struct
-
-
-class AVMType(str, Enum):
-    """AVMType enum represents the possible types an opcode accepts or returns"""
-
-    any = "any"
-    bytes = "bytes"
-    int = "int"
-    none = ""
+from typing import Dict, Tuple, Union
+from .types import (
+    AVMType,
+    TealishType,
+    IntType,
+)
 
 
-structs: Dict[str, "Struct"] = {}
+# TODO: add frame ptr or stack? rename to something like `storage type?`
+# I think `struct` here should probably just be `scratch`?
+class ObjectType(str, Enum):
+    """ObjectType determines where to get the bytes for a struct field.
+
+    `struct` - the field is in a byte array in a scratch var, use extract to get bytes
+    `box` - the field is in a box, use box_extract to get the bytes
+    """
+
+    struct = "struct"
+    box = "box"
 
 
-def define_struct(struct_name: str, struct: "Struct") -> None:
-    structs[struct_name] = struct
+# a constant value introduced in source
+ConstValue = Union[str, bytes, int]
 
 
-def get_struct(struct_name: str) -> "Struct":
-    return structs[struct_name]
+class SlotType(str, Enum):
+    scratch = "scratch"
+    frame = "frame"
 
 
-constants: Dict[str, Tuple[AVMType, Union[str, bytes, int]]] = {
-    "NoOp": (AVMType.int, 0),
-    "OptIn": (AVMType.int, 1),
-    "CloseOut": (AVMType.int, 2),
-    "ClearState": (AVMType.int, 3),
-    "UpdateApplication": (AVMType.int, 4),
-    "DeleteApplication": (AVMType.int, 5),
-    "Pay": (AVMType.int, 1),
-    "Acfg": (AVMType.int, 3),
-    "Axfer": (AVMType.int, 4),
-    "Afrz": (AVMType.int, 5),
-    "Appl": (AVMType.int, 6),
+class Var:
+    avm_type: AVMType
+    tealish_type: "TealishType"
+    name: str
+    scratch_slot: int
+    frame_slot: int
+    slot_type: SlotType
+
+    def __init__(self, name: str, tealish_type: "TealishType") -> None:
+        self.name = name
+        self.tealish_type = tealish_type
+        self.avm_type = tealish_type.avm_type
+
+
+constants: Dict[str, Tuple[TealishType, ConstValue]] = {
+    "NoOp": (IntType(), 0),
+    "OptIn": (IntType(), 1),
+    "CloseOut": (IntType(), 2),
+    "ClearState": (IntType(), 3),
+    "UpdateApplication": (IntType(), 4),
+    "DeleteApplication": (IntType(), 5),
+    "Pay": (IntType(), 1),
+    "Acfg": (IntType(), 3),
+    "Axfer": (IntType(), 4),
+    "Afrz": (IntType(), 5),
+    "Appl": (IntType(), 6),
 }

@@ -9,137 +9,124 @@
 // A struct
 
 // Consts
+#define FOO 100
+#define BAR "bar"
+#define BAZ 0xDEADBEEF
 
 // Assignments
-// int a = FOO [slot 0]
-pushint 100 // FOO
-store 0 // a
-// bytes b = BAR [slot 1]
-pushbytes "bar" // BAR
-store 1 // b
-// bytes c = BAZ [slot 2]
-pushbytes 0xDEADBEEF // BAZ
-store 2 // c
+// tl:22: int a = FOO [slot 0]
+pushint FOO                                                 // 100
+store 0                                                     // a
+// tl:23: bytes b = BAR [slot 1]
+pushbytes BAR                                               // "bar"
+store 1                                                     // b
+// tl:24: bytes c = BAZ [slot 2]
+pushbytes BAZ                                               // 0xDEADBEEF
+store 2                                                     // c
 
 // Structs
-// Item item1 = bzero(46) [slot 3]
+// tl:27: Item item1 = Cast(bzero(46), Item) [slot 3]
 pushint 46
 bzero
-store 3 // item1
-// item1.id = 123 [slot 3]
-load 3 // item1
+dup; len; pushint 26; ==; assert// Bytes Size Assertion: 26 bytes
+store 3                                                     // item1
+// tl:28: item1.id = 123 [slot 3]
 pushint 123
-itob
-replace 0 // item1.id
-store 3 // item1
-// item1.name = "xyz" [slot 3]
-load 3 // item1
-pushbytes "xyz"
-replace 16 // item1.name
-store 3 // item1
-// assert(item1.id > 0)
-load 3 // item1
-pushint 0
-extract_uint64 // id
+itob; load 3; swap; replace 0; store 3// set item1.id
+// tl:29: item1.name = "xyz       " [slot 3]
+pushbytes "xyz       "
+load 3; swap; replace 16; store 3// set item1.name
+// tl:30: assert(item1.id > 0)
+load 3; extract 0 8; btoi// item1.id
 pushint 0
 >
 assert
-// log(item1.name)
-load 3 // item1
-extract 16 10 // name
+// tl:31: log(item1.name)
+load 3; extract 16 10// item1.name
 log
 
 // Delcaration without assignment
-// int balance [slot 4]
-// int exists [slot 5]
+// tl:34: int balance [slot 4]
+// tl:35: int exists [slot 5]
 // Multiple assignment
 // Opcode with immediate arg
-// exists, balance = asset_holding_get(AssetBalance, 0, 5)
+// tl:38: exists, balance = asset_holding_get(AssetBalance, 0, 5)
 pushint 0
 pushint 5
 asset_holding_get AssetBalance
-store 5 // exists
-store 4 // balance
+store 5                                                     // exists
+store 4                                                     // balance
 // Use of _ to ignore a return value
-// _, balance = asset_holding_get(AssetBalance, 1, 5)
+// tl:40: _, balance = asset_holding_get(AssetBalance, 1, 5)
 pushint 1
 pushint 5
 asset_holding_get AssetBalance
-pop // discarding value for _
-store 4 // balance
+pop                                                         // discarding value for _
+store 4                                                     // balance
 
 
-// if FOO > 1:
-  pushint 100 // FOO
-  pushint 1
-  >
-  bz l0_else
-  // then:
-    // log(BAR)
-    pushbytes "bar" // BAR
+// tl:43: if FOO > 1:
+pushint FOO                                                 // 100
+pushint 1
+>
+bz l0_else
+// then:
+    // tl:44: log(BAR)
+    pushbytes BAR                                           // "bar"
     log
-  b l0_end
-  l0_else:
-  // else:
-    // error()
+    b l0_end
+l0_else:
+// tl:45: else:
+    // tl:46: Error()
     err
-  l0_end: // end
+l0_end:
 
-// if 1:
-  pushint 1
-  bz l1_elif_0
-  // then:
-    // log("a")
+// tl:49: if 1:
+pushint 1
+bz l1_elif_0
+// then:
+    // tl:50: log("a")
     pushbytes "a"
     log
-  b l1_end
-  l1_elif_0:
-  // elif 2:
-  pushint 2
-  bz l1_else
-    // log("b")
-    pushbytes "b"
-    log
-  b l1_end
-  l1_else:
-  // else:
-    // log("c")
+    b l1_end
+l1_elif_0:
+// tl:51: elif 2:
+    pushint 2
+    bz l1_else
+        // tl:52: log("b")
+        pushbytes "b"
+        log
+        b l1_end
+l1_else:
+// tl:53: else:
+    // tl:54: log("c")
     pushbytes "c"
     log
-  l1_end: // end
+l1_end:
 
-// if 1:
-  pushint 1
-  bz l2_end
-  // then:
-    // jump main
+// tl:57: if 1:
+pushint 1
+bz l2_end
+// then:
+    // tl:58: jump main
     b main
-  l2_end: // end
+l2_end:
 
 
 // Boxes
-// box<Item> box1 = CreateBox("a") [slot 6]
+// tl:63: box<Item> box1 = CreateBox("a") [slot 6]
 pushbytes "a"
-dup
-pushint 26
-box_create
-assert // assert created
-store 6 // box1
-// box1.name = "xyz" [box]
-load 6 // box key box1
-pushint 16 // offset
-pushbytes "xyz"
-box_replace // box1.name
-// assert(box1.id)
-load 6 // box key box1
-pushint 0 // offset
-pushint 8 // size
-box_extract // box1.id
-btoi
+dup; pushint 26; box_create; assert                         // create & assert created
+store 6                                                     // box:box1
+// tl:64: box1.name = "xyz       "
+pushbytes "xyz       "
+load 6; pushint 16; uncover 2; box_replace// boxset box1.name
+// tl:65: assert(box1.id)
+load 6; pushint 0; pushint 8; box_extract; btoi// box1.id
 assert
 
 
-// switch Txn.ApplicationArgs[0]:
+// tl:68: switch Txn.ApplicationArgs[0]:
 txna ApplicationArgs 0
 pushbytes "main"
 ==
@@ -148,320 +135,346 @@ txna ApplicationArgs 0
 pushbytes "inner_stuff"
 ==
 bnz inner_stuff
-b fail // else
+b fail                                                      // else
 
 
 // block main
 main:
-  // int amount = sum(2, 3) [slot 7]
-  pushint 2
-  pushint 3
-  callsub __func__sum
-  store 7 // amount
-  // transfer(0, amount, Gtxn[-1].Sender, Txn.Accounts[1])
-  pushint 0
-  load 7 // amount
-  txn GroupIndex
-  pushint 1
-  -
-  gtxns Sender
-  txna Accounts 1
-  callsub __func__transfer
-  
-  // int sum = teal_sum(2, 3) [slot 8]
-  pushint 2
-  pushint 3
-  callsub __func__teal_sum
-  store 8 // sum
-  // assert(amount == sum)
-  load 7 // amount
-  load 8 // sum
-  ==
-  assert
-  
-  // int z = add_amount(5) [slot 9]
-  pushint 5
-  callsub main__func__add_amount
-  store 9 // z
-  
-  // int i = 0 [slot 10]
-  pushint 0
-  store 10 // i
-  // while i < z:
-  l3_while:
-    load 10 // i
-    load 9 // z
-    <
-    bz l3_end
-    // i = i + 1
-    load 10 // i
+    // tl:76: int amount = sum(2, 3) [slot 7]
+    pushint 2
+    pushint 3
+    callsub __func__sum
+    store 7                                                 // amount
+    // tl:77: transfer(0, amount, Gtxn[-1].Sender, Txn.Accounts[1])
+    pushint 0
+    load 7                                                  // amount
+    txn GroupIndex
     pushint 1
-    +
-    store 10 // i
-    b l3_while
-    l3_end: // end
-  
-  // for _ in 1:10:
-    pushint 1
-    dup
-    l4_for:
-    pushint 10
+    -
+    gtxns Sender
+    txna Accounts 1
+    callsub __func__transfer
+    
+    // tl:79: int sum = teal_sum(2, 3) [slot 8]
+    pushint 2
+    pushint 3
+    callsub __func__teal_sum
+    store 8                                                 // sum
+    // tl:80: assert(amount == sum)
+    load 7                                                  // amount
+    load 8                                                  // sum
     ==
-    bnz l4_end
-    // i = i + 1
-    load 10 // i
+    assert
+    
+    // tl:82: int z = add_amount(5) [slot 9]
+    pushint 5
+    callsub main__func__add_amount
+    store 9                                                 // z
+    
+    // tl:84: int i = 0 [slot 10]
+    pushint 0
+    store 10                                                // i
+    // tl:85: while i < z:
+    l3_while:
+        load 10                                             // i
+        load 9                                              // z
+        <
+        bz l3_end
+        // tl:86: i = i + 1
+        load 10                                             // i
+        pushint 1
+        +
+        store 10                                            // i
+        b l3_while
+        l3_end:
+    
+    // tl:89: for _ in 1:10:
+        pushint 1
+        dup
+        l4_for:
+        pushint 10
+        ==
+        bnz l4_end
+        // tl:90: i = i + 1
+        load 10                                             // i
+        pushint 1
+        +
+        store 10                                            // i
+        pushint 1
+        +
+        dup
+        b l4_for
+        pop
+        l4_end:
+    
+    // tl:93: for x in 1:10:
+        pushint 1
+        store 11                                            // x
+        l5_for:
+        load 11                                             // x
+        pushint 10
+        ==
+        bnz l5_end
+        // tl:94: log(itob(x))
+        load 11                                             // x
+        itob
+        log
+        load 11                                             // x
+        pushint 1
+        +
+        store 11                                            // x
+        b l5_for
+        l5_end:
+    
+    // tl:97: int first = 1 [slot 11]
     pushint 1
+    store 11                                                // first
+    // tl:98: int last = 5 + 5 [slot 12]
+    pushint 5
+    pushint 5
     +
-    store 10 // i
+    store 12                                                // last
+    // For loop with variables
+    // tl:100: for x in first:last:
+        load 11                                             // first
+        store 13                                            // x
+        l6_for:
+        load 13                                             // x
+        load 12                                             // last
+        ==
+        bnz l6_end
+        // tl:101: log(itob(x))
+        load 13                                             // x
+        itob
+        log
+        load 13                                             // x
+        pushint 1
+        +
+        store 13                                            // x
+        b l6_for
+        l6_end:
+    
+    // Function with multiple return values
+    // tl:105: int fx [slot 13]
+    // tl:106: int fy [slot 14]
+    // tl:107: fx, fy = foo(1, 2)
     pushint 1
-    +
-    dup
-    b l4_for
-    pop
-    l4_end: // end
-  
-  // for x in 1:10:
+    pushint 2
+    callsub __func__foo
+    store 13                                                // fx
+    store 14                                                // fy
+    
+    // tl:109: exit(1)
     pushint 1
-    store 11 // x
-    l5_for:
-    load 11 // x
-    pushint 10
-    ==
-    bnz l5_end
-    // log(itob(x))
-    load 11 // x
-    itob
-    log
-    load 11 // x
-    pushint 1
-    +
-    store 11 // x
-    b l5_for
-    l5_end: // end
-  
-  // int first = 1 [slot 11]
-  pushint 1
-  store 11 // first
-  // int last = 5 + 5 [slot 12]
-  pushint 5
-  pushint 5
-  +
-  store 12 // last
-  // For loop with variables
-  // for x in first:last:
-    load 11 // first
-    store 13 // x
-    l6_for:
-    load 13 // x
-    load 12 // last
-    ==
-    bnz l6_end
-    // log(itob(x))
-    load 13 // x
-    itob
-    log
-    load 13 // x
-    pushint 1
-    +
-    store 13 // x
-    b l6_for
-    l6_end: // end
-  
-  // Function with multiple return values
-  // int fx [slot 13]
-  // int fy [slot 14]
-  // fx, fy = foo(1, 2)
-  pushint 1
-  pushint 2
-  callsub __func__foo
-  store 13 // fx
-  store 14 // fy
-  
-  // exit(1)
-  pushint 1
-  return
-  
-  // Locally scoped function using variable from parent scope
-  // func add_amount(x: int) int:
-  main__func__add_amount:
-  store 15 // x
-  // int result = amount + x [slot 16]
-  load 7 // amount
-  load 15 // x
-  +
-  store 16 // result
-  // return result
-  load 16 // result
-  retsub
+    return
+    
+    // Locally scoped function using variable from parent scope
+    // tl:112: func add_amount(x: int) int:
+    main__func__add_amount:
+        store 15                                            // x [int]
+        // tl:113: int result = amount + x [slot 16]
+        load 7                                              // amount
+        load 15                                             // x
+        +
+        store 16                                            // result
+        // tl:114: return result
+        load 16                                             // result
+        retsub
 
 
 // block inner_stuff
 inner_stuff:
-  // inner_group:
-    itxn_begin
-    // inner_txn:
-      // TypeEnum: Pay
-      pushint 1 // Pay
-      itxn_field TypeEnum
-      // Receiver: Txn.Sender
-      txn Sender
-      itxn_field Receiver
-      // Amount: 1
-      pushint 1
-      itxn_field Amount
-      // Fee: 0
-      pushint 0
-      itxn_field Fee
-    // end inner_txn
-    // if 1:
-      pushint 1
-      bz l7_end
-      // then:
-        // inner_txn:
-        itxn_next
-          // TypeEnum: Axfer
-          pushint 4 // Axfer
-          itxn_field TypeEnum
-          // AssetReceiver: Txn.Sender
-          txn Sender
-          itxn_field AssetReceiver
-          // AssetAmount: 1
-          pushint 1
-          itxn_field AssetAmount
-          // XferAsset: 1
-          pushint 1
-          itxn_field XferAsset
-          // Fee: 0
-          pushint 0
-          itxn_field Fee
+    // tl:120: inner_group:
+    callsub _itxn_group_begin
+        // tl:121: inner_txn:
+        callsub _itxn_begin
+            // tl:122: TypeEnum: Pay
+            pushint 1                                       // Pay
+            itxn_field TypeEnum
+            // tl:123: Receiver: Txn.Sender
+            txn Sender
+            itxn_field Receiver
+            // tl:124: Amount: 1
+            pushint 1
+            itxn_field Amount
+            // tl:125: Fee: 0
+            pushint 0
+            itxn_field Fee
+        callsub _itxn_submit
         // end inner_txn
-      l7_end: // end
-    itxn_submit
-  // end inner_group
-  // exit(1)
-  pushint 1
-  return
+        // tl:127: if 1:
+        pushint 1
+        bz l7_end
+        // then:
+            // tl:128: inner_txn:
+            callsub _itxn_begin
+                // tl:129: TypeEnum: Axfer
+                pushint 4                                   // Axfer
+                itxn_field TypeEnum
+                // tl:130: AssetReceiver: Txn.Sender
+                txn Sender
+                itxn_field AssetReceiver
+                // tl:131: AssetAmount: 1
+                pushint 1
+                itxn_field AssetAmount
+                // tl:132: XferAsset: 1
+                pushint 1
+                itxn_field XferAsset
+                // tl:133: Fee: 0
+                pushint 0
+                itxn_field Fee
+            callsub _itxn_submit
+            // end inner_txn
+        l7_end:
+        callsub _itxn_group_submit
+    // end inner_group
+    // tl:137: exit(1)
+    pushint 1
+    return
 
 // block fail
 fail:
-  // oops()
-  callsub __func__oops
-  // exit(1)
-  pushint 1
-  return
+    // tl:141: oops()
+    callsub __func__oops
+    // tl:142: exit(1)
+    pushint 1
+    return
 
 // Function with no args or return value
-// func oops():
+// tl:146: func oops():
 __func__oops:
-// error()
-err
-// return
-retsub
+    // tl:147: Error()
+    err
+    // tl:148: return
+    retsub
 
 
 // Function with args but no return value
-// func transfer(asset_id: int, amount: int, sender: bytes, receiver: bytes):
+// tl:153: func transfer(asset_id: int, amount: int, sender: bytes, receiver: bytes):
 __func__transfer:
-store 17 // receiver
-store 18 // sender
-store 19 // amount
-store 20 // asset_id
-// if asset_id == 0:
-  load 20 // asset_id
-  pushint 0
-  ==
-  bz l8_else
-  // then:
-    // inner_txn:
-    itxn_begin
-      // TypeEnum: Pay
-      pushint 1 // Pay
-      itxn_field TypeEnum
-      // Sender: sender
-      load 18 // sender
-      itxn_field Sender
-      // Receiver: receiver
-      load 17 // receiver
-      itxn_field Receiver
-      // Amount: amount
-      load 19 // amount
-      itxn_field Amount
-      // Fee: 0
-      pushint 0
-      itxn_field Fee
-    itxn_submit
-    // end inner_txn
-  b l8_end
-  l8_else:
-  // else:
-    // inner_txn:
-    itxn_begin
-      // TypeEnum: Axfer
-      pushint 4 // Axfer
-      itxn_field TypeEnum
-      // Sender: sender
-      load 18 // sender
-      itxn_field Sender
-      // AssetReceiver: receiver
-      load 17 // receiver
-      itxn_field AssetReceiver
-      // AssetAmount: amount
-      load 19 // amount
-      itxn_field AssetAmount
-      // XferAsset: asset_id
-      load 20 // asset_id
-      itxn_field XferAsset
-      // Fee: 0
-      pushint 0
-      itxn_field Fee
-    itxn_submit
-    // end inner_txn
-  l8_end: // end
-// return
-retsub
+    store 17                                                // receiver [bytes]
+    store 18                                                // sender [bytes]
+    store 19                                                // amount [int]
+    store 20                                                // asset_id [int]
+    // tl:154: if asset_id == 0:
+    load 20                                                 // asset_id
+    pushint 0
+    ==
+    bz l8_else
+    // then:
+        // tl:155: inner_txn:
+        callsub _itxn_begin
+            // tl:156: TypeEnum: Pay
+            pushint 1                                       // Pay
+            itxn_field TypeEnum
+            // tl:157: Sender: sender
+            load 18                                         // sender
+            itxn_field Sender
+            // tl:158: Receiver: receiver
+            load 17                                         // receiver
+            itxn_field Receiver
+            // tl:159: Amount: amount
+            load 19                                         // amount
+            itxn_field Amount
+            // tl:160: Fee: 0
+            pushint 0
+            itxn_field Fee
+        callsub _itxn_submit
+        // end inner_txn
+        b l8_end
+    l8_else:
+    // tl:162: else:
+        // tl:163: inner_txn:
+        callsub _itxn_begin
+            // tl:164: TypeEnum: Axfer
+            pushint 4                                       // Axfer
+            itxn_field TypeEnum
+            // tl:165: Sender: sender
+            load 18                                         // sender
+            itxn_field Sender
+            // tl:166: AssetReceiver: receiver
+            load 17                                         // receiver
+            itxn_field AssetReceiver
+            // tl:167: AssetAmount: amount
+            load 19                                         // amount
+            itxn_field AssetAmount
+            // tl:168: XferAsset: asset_id
+            load 20                                         // asset_id
+            itxn_field XferAsset
+            // tl:169: Fee: 0
+            pushint 0
+            itxn_field Fee
+        callsub _itxn_submit
+        // end inner_txn
+    l8_end:
+    // tl:172: return
+    retsub
 
 // Function with return value
-// func sum(x: int, y: int) int:
+// tl:176: func sum(x: int, y: int) int:
 __func__sum:
-store 21 // y
-store 22 // x
-// int result = x + y [slot 23]
-load 22 // x
-load 21 // y
-+
-store 23 // result
-// return result
-load 23 // result
-retsub
+    store 21                                                // y [int]
+    store 22                                                // x [int]
+    // tl:177: int result = x + y [slot 23]
+    load 22                                                 // x
+    load 21                                                 // y
+    +
+    store 23                                                // result
+    // tl:178: return result
+    load 23                                                 // result
+    retsub
 
 
-// func teal_sum(x: int, y: int) int:
+// tl:182: func teal_sum(x: int, y: int) int:
 __func__teal_sum:
-store 24 // y
-store 25 // x
-// push(x)
-load 25 // x
-// push
-// push(y)
-load 24 // y
-// push
-pop
-pop
-+
-// int result = pop() [slot 26]
-// pop
-store 26 // result
-// return result
-load 26 // result
-retsub
+    store 24                                                // y [int]
+    store 25                                                // x [int]
+    // tl:183: push(x)
+    load 25                                                 // x
+    // push
+    // tl:184: push(y)
+    load 24                                                 // y
+    // push
+    pop
+    pop
+    +
+    // tl:190: int result = pop() [slot 26]
+    // pop
+    store 26                                                // result
+    // tl:191: return result
+    load 26                                                 // result
+    retsub
 
 
 // Function with multiple return values
-// func foo(x: int, y: int) int, int:
+// tl:196: func foo(x: int, y: int) int, int:
 __func__foo:
-store 27 // y
-store 28 // x
-// return x, y
-load 27 // y
-load 28 // x
-retsub
+    store 27                                                // y [int]
+    store 28                                                // x [int]
+    // tl:197: return x, y
+    load 27                                                 // y
+    load 28                                                 // x
+    retsub
+
+
+_itxn_group_begin:
+  load 29; !; assert                                        // ensure no group active
+  int 1; store 29; retsub                                   // set group flag
+
+_itxn_begin:
+  load 29
+  switch _itxn_begin__0 _itxn_begin__1 _itxn_begin__2
+  err
+  _itxn_begin__0: itxn_begin; retsub                        // no group
+  _itxn_begin__1: itxn_begin; int 2; store 29; retsub       // start first txn of group
+  _itxn_begin__2: itxn_next; retsub                         // start next txn of group
+
+_itxn_submit:
+  load 29
+  bz _itxn_submit__0
+  retsub                                                    // in a group, don't submit
+  _itxn_submit__0: itxn_submit; retsub                      // no group, submit
+
+_itxn_group_submit:
+  itxn_submit
+  int 0; store 29; retsub                                   // set group flag to 0
