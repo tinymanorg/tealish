@@ -389,8 +389,10 @@ class LineStatement(InlineStatement):
             return VarDeclaration(line, parent, compiler=compiler)
         elif line.startswith("box<"):
             return BoxDeclaration(line, parent, compiler=compiler)
-        elif re.match(r"[a-z][a-zA-Z_0-9]*\.[a-z][a-zA-Z_0-9]* = .*", line):
+        elif re.match(r"[a-z][a-zA-Z_0-9]*\.[a-z][a-zA-Z_0-9]*(\[(.*)\])? = .*", line):
             return StructOrBoxAssignment(line, parent, compiler=compiler)
+        elif re.match(r"[a-z][a-zA-Z_0-9]*\[.*\] = .*", line):
+            return ElementAssignment(line, parent, compiler=compiler)
         elif " = " in line:
             return Assignment(line, parent, compiler=compiler)
         # Statement functions
@@ -636,6 +638,59 @@ class Assignment(LineStatement):
                 writer.write(self, "pop // discarding value for _")
             else:
                 writer.write(self, f"store {name.slot} // {name.value}")
+
+    def _tealish(self) -> str:
+        return (
+            f"{', '.join(n.tealish() for n in self.name_nodes)}"
+            + f" = {self.expression.tealish()}\n"
+        )
+
+
+class ElementAssignment(LineStatement):
+    pattern = r"(?P<name>[a-z_][a-zA-Z0-9_]*)\[(?P<index>.*)\] = (?P<expression>.*)$"
+    name: str
+    name_nodes: List[Name]
+    expression: GenericExpression
+    index: GenericExpression
+
+    def process(self) -> None:
+        self.expression.process()
+        t = self.expression.type
+        self.incoming_types = t if type(t) == list else [t]
+        self.name = Name(self.name)
+        if len(self.incoming_types) != 1:
+            raise CompileError(
+                "Incorrect number of names (1) for "
+                + f"values ({len(self.incoming_types)}) in assignment",
+                node=self,
+            )
+
+        self.var = self.get_var(self.name.value)
+        if self.var is None:
+            raise CompileError(
+                f'Var "{self.name.value}" not declared in current scope', node=self
+            )
+
+        if not self.var.tealish_type.type.can_hold(self.incoming_types[0]):
+            raise CompileError(
+                "Incorrect type for assignment. "
+                + f"Expected {self.var.tealish_type}, got {self.incoming_types[0]}",
+                node=self,
+            )
+        self.name.slot = self.var.scratch_slot
+        self.name._type = self.var.avm_type
+        self.element_size = self.var.tealish_type.type.size
+        self.index.process()
+
+    def write_teal(self, writer: "TealWriter") -> None:
+        writer.write(self, f"// tl:{self.line_no}: {self.line}")
+        writer.write(self, f"load {self.name.slot} // {self.name.value}")
+        writer.write(self, self.index)
+        writer.write(self, f"pushint {self.element_size}")
+        writer.write(self, "*")
+        writer.write(self, self.expression)
+        writer.write(self, "replace")
+        writer.write(self, f"store {self.name.slot} // {self.name.value}")
 
     def _tealish(self) -> str:
         return (
@@ -1873,12 +1928,13 @@ class StructDefinition(InlineStatement):
 
 class StructOrBoxAssignment(LineStatement):
     pattern = (
-        r"(?P<name>[a-z][a-zA-Z0-9_]*).(?P<field_name>[a-z][a-zA-Z0-9_]*)"
+        r"(?P<name>[a-z][a-zA-Z0-9_]*).(?P<field_name>[a-z][a-zA-Z0-9_]*)(\[(?P<index>.*)\])?"
         r"( = (?P<expression>.*))?$"
     )
     name: Name
     field_name: str
     expression: GenericExpression
+    index: GenericExpression
 
     def process(self) -> None:
         self.var = self.get_var(self.name.value)
@@ -1893,22 +1949,30 @@ class StructOrBoxAssignment(LineStatement):
 
         struct = self.var.tealish_type
         struct_field = struct.fields[self.field_name]
-        self.offset = struct_field.offset
-        self.size = struct_field.size
-        self.data_type = struct_field.tealish_type
+
+        if self.index is None:
+            self.offset = struct_field.offset
+            self.size = struct_field.size
+            self.data_type = struct_field.tealish_type
+        else:
+            array = struct_field.tealish_type
+            self.data_type = array.type
+            self.size = self.data_type.size
+            self.offset = struct_field.offset
+            self.index.process()
         self.expression.process()
-        if not struct_field.tealish_type.can_hold(self.expression.type):
+        if not self.data_type.can_hold(self.expression.type):
             # raise CompileError(
             #     "Incorrect type for struct field assignment. "
-            #     + f"Expected {struct_field.tealish_type}, got {self.expression.type}",
+            #     + f"Expected {self.data_type}, got {self.expression.type}",
             #     node=self,
             # )
             message = f"Incorrect type for struct field assignment. Expected {self.data_type}, got {self.expression.type} at line {self.line_no}."
-            if struct_field.tealish_type.can_hold_with_cast(self.expression.type):
+            if self.data_type.can_hold_with_cast(self.expression.type):
                 message += "\nPerhaps Cast or padding is required? "
                 message += f"\n- {self.line}"
                 message += f"\n+ {self.name.value}.{self.field_name} = Cast({self.expression.tealish()}, {self.data_type})"
-                if not isinstance(struct_field.tealish_type, (StructType, IntType)):
+                if not isinstance(self.data_type, (StructType, IntType)):
                     message += f"\n+ {self.name.value}.{self.field_name} = Rpad({self.expression.tealish()}, {self.data_type.size})"
             raise CompileError(message)
 
@@ -1918,43 +1982,43 @@ class StructOrBoxAssignment(LineStatement):
                 self,
                 f"// tl:{self.line_no}: {self.line} [slot {self.var.scratch_slot}]",
             )
+            writer.write(self, f"load {self.var.scratch_slot}")
+            writer.write(self, f"pushint {self.offset}")
+            if self.index:
+                writer.write(self, f"pushint {self.data_type.size}")
+                writer.write(self, self.index)
+                writer.write(self, "*")
+                writer.write(self, "+")
             writer.write(self, self.expression)
-            teal = []
             if isinstance(self.data_type, IntType):
-                teal.append("itob")
+                writer.write(self, "itob")
                 if isinstance(self.data_type, UIntType):
-                    teal.append(
-                        f"extract {8 - self.data_type.size} {self.data_type.size}"
+                    writer.write(
+                        self, f"extract {8 - self.data_type.size} {self.data_type.size}"
                     )
-            # struct setter one liner
-            teal += [
-                f"load {self.var.scratch_slot}",
-                "swap",
-                f"replace {self.offset}",
-                f"store {self.var.scratch_slot}",
-                f"// set {self.name.value}.{self.field_name}",
-            ]
-            writer.write(self, teal)
+            writer.write(self, "replace")
+            writer.write(self, f"store {self.var.scratch_slot}")
+            writer.write(self, f"// set {self.name.value}.{self.field_name}")
         elif isinstance(self.object_type, BoxType):
             writer.write(self, f"// tl:{self.line_no}: {self.line}")
             writer.write(self, self.expression)
-            teal = []
             if isinstance(self.data_type, IntType):
-                teal.append("itob")
+                writer.write(self, "itob")
                 if isinstance(self.data_type, UIntType):
-                    teal.append(
-                        f"extract {8 - self.data_type.size} {self.data_type.size}"
+                    writer.write(
+                        self, f"extract {8 - self.data_type.size} {self.data_type.size}"
                     )
-            # box setter one liner
             # Use uncover to bring the value to the top of the stack above the box name and offset
-            teal += [
-                f"load {self.var.scratch_slot}",
-                f"pushint {self.offset}",
-                "uncover 2",
-                "box_replace",
-                f"// boxset {self.name.value}.{self.field_name}",
-            ]
-            writer.write(self, teal)
+            writer.write(self, f"load {self.var.scratch_slot}")
+            writer.write(self, f"pushint {self.offset}")
+            if self.index:
+                writer.write(self, f"pushint {self.data_type.size}")
+                writer.write(self, self.index)
+                writer.write(self, "*")
+                writer.write(self, "+")
+            writer.write(self, "uncover 2")
+            writer.write(self, "box_replace")
+            writer.write(self, f"// boxset {self.name.value}.{self.field_name}")
 
     def _tealish(self) -> str:
         s = f"{self.name.tealish()}.{self.field_name}"
@@ -1972,7 +2036,7 @@ class BoxDeclaration(LineStatement):
     # box<Item> item1 = Box("a")
     pattern = (
         r"box<(?P<struct_name>[A-Z][a-zA-Z0-9_]*)> (?P<name>[a-z][a-zA-Z0-9_]*)"
-        r" = (?P<method>Open|Create)?Box\((?P<key>.*)\)$"
+        r" = (?P<method>OpenOrCreate|Open|Create)?Box\((?P<key>.*)\)$"
     )
     # Name to struct type
     struct_name: str

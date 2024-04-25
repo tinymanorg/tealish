@@ -131,7 +131,8 @@ class Cast(FunctionCall):
     name = "Cast"
 
     def process(self) -> None:
-        self.type = get_type_instance(self.args[1].name)
+        type_name = self.args[1].tealish()
+        self.type = get_type_instance(type_name)
         self.args[0].process()
         self.expression = self.args[0]
         if str(self.expression.type) == str(self.type):

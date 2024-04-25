@@ -188,6 +188,18 @@ class ArrayType(BytesType):
         self.length = length
         super().__init__(length * type.size)
 
+    def can_hold(self, other):
+        if isinstance(other, BytesType):
+            if not other.size:
+                return False
+            if self.size == other.size:
+                return True
+        return False
+
+    def __str__(self) -> str:
+        s = f"{self.type.name}[{self.length}]"
+        return s
+
 
 def define_struct(struct: StructType) -> None:
     _structs[struct.name] = struct
@@ -210,17 +222,30 @@ def get_type_instance(type_name):
         return UInt8Type()
     elif type_name == "uint64":
         return IntType()
-    elif m := re.match(r"bytes\[([0-9]+)\]", type_name):
+    elif m := re.match(r"uint([0-9]+)$", type_name):
+        size = int(m.groups()[0])
+        return UIntType(size // 8)
+    # elif m := re.match(r"bigint([0-9]+)", type_name):
+    #     size = int(m.groups()[0])
+    #     return BigIntType(size // 8)
+    elif m := re.match(r"bytes\[([0-9]+)\]$", type_name):
         size = int(m.groups()[0])
         return BytesType(size)
-    elif m := re.match(r"box<([A-Z][a-zA-Z0-9_]+)>", type_name):
+    elif m := re.match(r"box<([A-Z][a-zA-Z0-9_]+)>$", type_name):
         struct_name = m.groups()[0]
         return BoxType(struct_name=struct_name)
-    elif m := re.match(r"([A-Z][a-zA-Z0-9_]+)", type_name):
+    elif m := re.match(r"([A-Z][a-zA-Z0-9_]+)\[([0-9]+)\]$", type_name):
+        struct_name = m.groups()[0]
+        size = int(m.groups()[1])
+        return ArrayType(get_struct(struct_name), size)
+    elif m := re.match(r"([A-Z][a-zA-Z0-9_]+)$", type_name):
         struct_name = m.groups()[0]
         return get_struct(struct_name)
-    elif m := re.match(r"uint8\[([0-9]+)\]", type_name):
+    elif m := re.match(r"uint8\[([0-9]+)\]$", type_name):
         size = int(m.groups()[0])
-        return ArrayType(UInt8Type, size)
+        return ArrayType(UInt8Type(), size)
+    elif m := re.match(r"int\[([0-9]+)\]$", type_name):
+        size = int(m.groups()[0])
+        return ArrayType(IntType(), size)
     else:
         raise KeyError(f"Unknown type {type_name}")

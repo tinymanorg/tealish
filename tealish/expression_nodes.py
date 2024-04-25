@@ -5,12 +5,14 @@ from .errors import CompileError
 from .types import (
     AVMType,
     AddrType,
+    ArrayType,
     BigIntType,
     BoxType,
     StructType,
     IntType,
     BytesType,
     UIntType,
+    get_struct,
 )
 from .langspec import Op, type_lookup
 
@@ -273,9 +275,9 @@ class OpCall(BaseNode):
     def process(self) -> None:
         try:
             op = self.lookup_op(self.name)
-            return self.process_op_call(op)
         except KeyError:
             raise CompileError(f'Unknown function or opcode "{self.name}"', node=self)
+        return self.process_op_call(op)
 
     def process_op_call(self, op: Op) -> None:
         self.func_call_type = "op"
@@ -336,9 +338,9 @@ class UserDefinedFuncCall(BaseNode):
     def process(self) -> None:
         try:
             func = self.lookup_func(self.name)
-            self.process_user_defined_func_call(func)
         except KeyError:
             raise CompileError(f'Unknown function or opcode "{self.name}"', node=self)
+        self.process_user_defined_func_call(func)
 
     def process_user_defined_func_call(self, func: "Func") -> None:
         self.func_call_type = "user_defined"
@@ -584,7 +586,9 @@ class StructOrBoxField(BaseNode):
         if isinstance(self.object_type, StructType):
             teal = [
                 f"load {self.var.scratch_slot}",
-                f"extract {self.offset} {self.size}",
+                f"pushint {self.offset}",
+                f"pushint {self.size}",
+                "extract",
             ]
         elif isinstance(self.object_type, BoxType):
             teal = [
@@ -603,6 +607,156 @@ class StructOrBoxField(BaseNode):
 
     def _tealish(self) -> str:
         return f"{self.name}.{self.field}"
+
+
+class StructOrBoxArrayField(BaseNode):
+    def __init__(self, name, field, arrayIndex, parent=None) -> None:
+        self.name = name
+        self.field = field
+        self.type = AVMType.none
+        self.parent = parent
+        self.arrayIndex = arrayIndex
+
+    def process(self) -> None:
+        self.var = self.lookup_var(self.name)
+        self.object_type = self.var.tealish_type
+        struct = self.var.tealish_type
+        array_field = struct.fields[self.field]
+        array = array_field.tealish_type
+        self.offset = array_field.offset
+        self.size = array.type.size
+        self.type = array.type
+        if not isinstance(self.arrayIndex, Integer):
+            # index is an expression that needs to be evaluated
+            self.arrayIndex.process()
+
+    def write_teal(self, writer: "TealWriter") -> None:
+        if isinstance(self.object_type, StructType):
+            writer.write(self, f"load {self.var.scratch_slot}")
+            writer.write(self, f"pushint {self.offset}")
+            writer.write(self, f"pushint {self.size}")
+            writer.write(self, self.arrayIndex)
+            writer.write(self, "*")
+            writer.write(self, "+")
+            writer.write(self, f"pushint {self.size}")
+            writer.write(self, "extract")
+
+        elif isinstance(self.object_type, BoxType):
+            writer.write(self, f"load {self.var.scratch_slot}")
+            writer.write(self, f"pushint {self.offset}")
+            writer.write(self, f"pushint {self.size}")
+            writer.write(self, self.arrayIndex)
+            writer.write(self, "*")
+            writer.write(self, "+")
+            writer.write(self, f"pushint {self.size}")
+            writer.write(self, "box_extract")
+        else:
+            raise Exception()
+        # If the field is a Int or Uint convert it from bytes to int
+        if isinstance(self.type, IntType):
+            writer.write(self, "btoi")
+        writer.write(self, f"// {self.name}.{self.field}")
+
+    def _tealish(self) -> str:
+        return f"{self.name}.{self.field}"
+
+
+class KeyValue(BaseNode):
+    def __init__(
+        self, key: str, value: "Node", parent: Optional[BaseNode] = None
+    ) -> None:
+
+        self.parent = parent
+        self.key = key
+        self.expression = value
+
+    def process(self) -> None:
+        self.expression.process()
+
+    def write_teal(self, writer: "TealWriter") -> None:
+        writer.write(self, self.expression)
+
+    def _tealish(self) -> str:
+        return f"{self.key}: {self.expression}"
+
+
+class StructLiteral(BaseNode):
+    def __init__(
+        self, name: str, args: List["Node"], parent: Optional[BaseNode] = None
+    ) -> None:
+
+        self.args = args
+        self.parent = parent
+        self.nodes = args
+        self.func_call = None
+        self.struct = get_struct(name)
+        self.type = self.struct
+
+    def process(self) -> None:
+        for arg in self.args:
+            arg.process()
+            struct_field = self.struct.fields[arg.key]
+            if not struct_field.tealish_type.can_hold(arg.expression.type):
+                message = f'Incorrect type for struct field "{arg.key}". Expected {struct_field.tealish_type}, got {arg.expression.type} at line {self.line_no}.'
+                raise CompileError(message)
+
+    def write_teal(self, writer: "TealWriter") -> None:
+        writer.write(
+            self, f"pushint {self.struct.size}; bzero // make {self.struct.name} struct"
+        )
+        for arg in self.args:
+            field = self.struct.fields[arg.key]
+            writer.write(self, arg.expression)
+            teal = []
+            if isinstance(field.tealish_type, IntType):
+                teal.append("itob")
+                if isinstance(field.tealish_type, UIntType):
+                    teal.append(
+                        f"extract {8 - field.tealish_type.size} {field.tealish_type.size}"
+                    )
+            teal += [
+                f"replace {field.offset} // field: {arg.key}",
+            ]
+            writer.write(self, teal)
+
+    def _tealish(self) -> str:
+        return f"{self.struct.name}{{}}"
+
+
+class ArrayElement(BaseNode):
+    def __init__(
+        self, name: str, arrayIndex, parent: Optional[BaseNode] = None
+    ) -> None:
+        self.name = name
+        self.parent = parent
+        self.array_index = arrayIndex
+
+    def process(self) -> None:
+        try:
+            self.var = self.lookup_var(self.name)
+        except KeyError as e:
+            raise CompileError(e.args[0], node=self)
+
+        assert isinstance(self.var.tealish_type, ArrayType), (
+            self.name,
+            self.var.tealish_type,
+        )
+        self.type = self.var.tealish_type.type
+        if not isinstance(self.array_index, Integer):
+            self.array_index.process()
+
+    def write_teal(self, writer: "TealWriter") -> None:
+        writer.write(self, f"load {self.var.scratch_slot} // {self.name}")
+        writer.write(self, f"pushint {self.type.size}")
+        writer.write(self, self.array_index)
+        writer.write(self, "*")
+        writer.write(self, f"pushint {self.type.size}")
+        writer.write(self, "extract")
+        if isinstance(self.type, IntType):
+            writer.write(self, "btoi")
+
+    def _tealish(self) -> str:
+        return f"{self.name}[{self.array_index.tealish()}]"
 
 
 def class_provider(name: str) -> Optional[type]:
@@ -626,5 +780,9 @@ def class_provider(name: str) -> Optional[type]:
         "GlobalField": GlobalField,
         "InnerTxnField": InnerTxnField,
         "StructOrBoxField": StructOrBoxField,
+        "StructOrBoxArrayField": StructOrBoxArrayField,
+        "KeyValue": KeyValue,
+        "StructLiteral": StructLiteral,
+        "ArrayElement": ArrayElement,
     }
     return classes.get(name)
