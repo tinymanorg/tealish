@@ -1,3 +1,4 @@
+import inspect
 from typing import List, Dict, Union, Tuple
 from .base import BaseNode
 from .nodes import Node, Program
@@ -118,7 +119,12 @@ class TealishCompiler:
 
     def process(self) -> None:
         for node in self.nodes:
-            node.process()
+            try:
+                node.process()
+            except Exception as e:
+                node = inspect.trace()[-1].frame.f_locals['self']
+                print(node.line_no, node.line)
+                raise e
         self.processed = True
 
     def compile(self) -> List[str]:
