@@ -2,7 +2,7 @@ import json
 import pathlib
 import click
 from typing import List, Optional, Tuple, IO
-from tealish import compile_program, reformat_program
+from tealish import compile_program, inspect_program, reformat_program
 from tealish.errors import CompileError, ParseError
 from tealish.langspec import (
     fetch_langspec,
@@ -151,6 +151,19 @@ def format(ctx: click.Context, tealish_file: IO) -> None:
     tealish_file.truncate()
 
 
+@click.command()
+@click.argument("tealish_file", type=click.File("r"))
+@click.pass_context
+def inspect(ctx: click.Context, tealish_file: IO) -> None:
+    """Inspect a tealish program"""
+    input = tealish_file.read()
+    try:
+        output = inspect_program(input)
+    except ParseError as e:
+        raise click.ClickException(str(e))
+    print(json.dumps(output, indent=2))
+
+
 @click.group()
 def langspec() -> None:
     """Tools to support new Teal versions by updating the langspec file"""
@@ -214,6 +227,38 @@ def langspec_diff(url: str) -> None:
         click.echo(f"{sig}")
 
 
+@click.command()
+@click.argument("path", type=click.Path(exists=True, path_type=pathlib.Path))
+@click.pass_context
+def stats(ctx: click.Context, path: pathlib.Path) -> None:
+    """Stats for a .tl file"""
+    paths = []
+    if path.is_dir():
+        paths = (
+            list(path.glob("*.tl"))
+            + list(path.glob("*/*.tl"))
+            + list(path.glob("*/build/*.teal"))
+        )
+    else:
+        paths = [path]
+    for path in paths:
+        # click.echo(f"Compiling {path} to {teal_filename}")
+        tealish = open(path).readlines()
+        n = 0
+        for line in tealish:
+            line = line.strip()
+            if line.startswith("#"):
+                continue
+            if line.startswith("//"):
+                continue
+            if not line:
+                continue
+            if line == "end":
+                continue
+            n += 1
+        click.echo(f"{path}: {n} lines")
+
+
 langspec.add_command(langspec_update, "update")
 langspec.add_command(langspec_fetch, "fetch")
 langspec.add_command(langspec_diff, "diff")
@@ -222,3 +267,5 @@ cli.add_command(compile)
 cli.add_command(build)
 cli.add_command(format)
 cli.add_command(langspec)
+cli.add_command(stats)
+cli.add_command(inspect)

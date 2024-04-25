@@ -3,6 +3,7 @@ from typing import List, Dict, Union, Tuple
 from .base import BaseNode
 from .nodes import Node, Program
 from .utils import TealishMap
+from .types import _structs
 
 
 class TealWriter:
@@ -154,6 +155,9 @@ class TealishCompiler:
         map.errors = dict(self.error_messages)
         return map
 
+    def get_structs(self):
+        return dict(_structs)
+
 
 def compile_program(source: str) -> Tuple[List[str], TealishMap]:
     source_lines = source.split("\n")
@@ -167,4 +171,25 @@ def reformat_program(source: str) -> str:
     compiler = TealishCompiler(source_lines)
     output = compiler.reformat()
     output = output.strip() + "\n"
+    return output
+
+
+def inspect_program(source: str):
+    source_lines = source.split("\n")
+    compiler = TealishCompiler(source_lines)
+    compiler.compile()
+    structs = compiler.get_structs()
+    structs_output = {}
+    for s in structs:
+        fields = [(name, structs[s].fields[name]) for name in structs[s].fields]
+        structs_output[s] = {
+            "size": structs[s].size,
+            "fields": {
+                name: {"type": str(f.tealish_type), "size": f.size, "offset": f.offset}
+                for name, f in fields
+            },
+        }
+    output = {
+        "structs": structs_output,
+    }
     return output
