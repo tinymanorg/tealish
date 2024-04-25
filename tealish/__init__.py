@@ -94,6 +94,9 @@ class TealishCompiler:
             # check the type is not None
             return  # type: ignore
         line = self.source_lines[self.line_no].strip()
+        # strip out inline comments
+        if not line.startswith("#"):
+            line = line.split("#")[0]
         self.line_no += 1
         return line
 
