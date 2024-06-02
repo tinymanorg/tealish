@@ -1,17 +1,24 @@
 import json
 import pathlib
+from os import getcwd
+from shutil import copytree
+from typing import IO, List, Optional, Tuple
+
 import click
-from typing import List, Optional, Tuple, IO
-from tealish import compile_program, reformat_program
+
+from tealish import compile_program, config, reformat_program
+from tealish.build import assemble_with_algod, assemble_with_goal
 from tealish.errors import CompileError, ParseError
 from tealish.langspec import (
     fetch_langspec,
     get_active_langspec,
-    packaged_lang_spec,
     local_lang_spec,
+    packaged_lang_spec,
 )
-from tealish.build import assemble_with_goal, assemble_with_algod
 from tealish.utils import TealishMap
+
+# TODO: consider using config to modify project structure
+# TODO: make recursive building a flag?
 
 
 def _build(
@@ -21,28 +28,43 @@ def _build(
     quiet: bool = False,
 ) -> None:
     paths: List[pathlib.Path]
-    if path.is_dir():
-        paths = list(path.glob("*.tl"))
-    else:
-        paths = [path]
 
-    for path in paths:
-        output_path = pathlib.Path(path).parent / "build"
-        output_path.mkdir(exist_ok=True)
-        filename = pathlib.Path(path).name
+    if path.is_dir():
+        paths = [file.resolve().as_posix() for file in path.rglob("*.tl")]
+        if len(paths) == 0:
+            raise click.ClickException(
+                f"{path.name} and all of its subdirectories do not contain any Tealish files - aborting."
+            )
+    else:
+        if not path.name.endswith(".tl"):
+            raise click.ClickException(f"{path.name} is not a Tealish file - aborting.")
+        paths = [path.resolve().as_posix()]
+        path = path.parent
+
+    if not config.is_using_config:
+        _build_path = path / "build"
+        _contracts_path = path
+    else:
+        _build_path = config.build_path
+        _contracts_path = config.contracts_path
+
+    for p in paths:
+        filename = str(p).replace(f"{str(_contracts_path)}", f"{str(_build_path)}")
         base_filename = filename.replace(".tl", "")
 
         # Teal
-        teal_filename = output_path / f"{base_filename}.teal"
+        teal_filename = pathlib.Path(f"{base_filename}.teal")
         if not quiet:
-            click.echo(f"Compiling {path} to {teal_filename}")
-        teal, tealish_map = _compile_program(open(path).read())
+            # TODO: change relative to build/contracts directories to avoid long prints
+            click.echo(f"Compiling {p} to {teal_filename}")
+        teal, tealish_map = _compile_program(open(p).read())
         teal_string = "\n".join(teal + [""])
+        teal_filename.parent.mkdir(parents=True, exist_ok=True)
         with open(teal_filename, "w") as f:
             f.write("\n".join(teal + [""]))
 
         if assembler:
-            tok_filename = output_path / f"{base_filename}.teal.tok"
+            tok_filename = f"{base_filename}.teal.tok"
             if assembler == "goal":
                 if not quiet:
                     click.echo(
@@ -74,11 +96,40 @@ def _build(
                 f.write(bytecode)
             # Source Map
             tealish_map.update_from_teal_sourcemap(sourcemap)
-            map_filename = output_path / f"{base_filename}.map.json"
+            map_filename = f"{base_filename}.map.json"
             if not quiet:
                 click.echo(f"Writing source map to {map_filename}")
             with open(map_filename, "w") as f:
                 f.write(json.dumps(tealish_map.as_dict()).replace("],", "],\n"))
+
+
+def _create_project(
+    project_name: str,
+    template: str,
+    quiet: bool = False,
+) -> None:
+    project_path = pathlib.Path(getcwd()) / project_name
+
+    if not quiet:
+        click.echo(
+            f'Starting a new Tealish project named "{project_name}" with {template} template...'
+        )
+
+    # Only pure algosdk implementation for now.
+    # Can have other templates in the future like Algojig, Beaker, etc.
+    if template == "algosdk" or template is None:
+        # Relies on the template project being in Tealish package.
+        # Not ideal as they would all be downloaded when Tealish is downloaded.
+        # Templates should rather be in their own repositories and separately maintained.
+        # TODO: change to pulling from GitHub.
+        copytree(
+            pathlib.Path(__file__).parent / "scaffold",
+            project_path,
+            ignore=lambda x, y: ["__pycache__"],
+        )
+
+    if not quiet:
+        click.echo(f'Done - project "{project_name}" is ready for take off!')
 
 
 def _compile_program(source: str) -> Tuple[List[str], TealishMap]:
@@ -98,6 +149,15 @@ def cli(ctx: click.Context, quiet: bool) -> None:
     "Tealish Compiler & Tools"
     ctx.ensure_object(dict)
     ctx.obj["quiet"] = quiet
+
+
+@click.command()
+@click.argument("project_name", type=str)
+@click.option("--template", type=click.Choice(["algosdk"], case_sensitive=False))
+@click.pass_context
+def start(ctx: click.Context, project_name: str, template: str):
+    """Start a new Tealish project"""
+    _create_project(project_name, template, quiet=ctx.obj["quiet"])
 
 
 @click.command()
@@ -218,6 +278,7 @@ langspec.add_command(langspec_update, "update")
 langspec.add_command(langspec_fetch, "fetch")
 langspec.add_command(langspec_diff, "diff")
 
+cli.add_command(start)
 cli.add_command(compile)
 cli.add_command(build)
 cli.add_command(format)
