@@ -1043,14 +1043,24 @@ class InnerTxn(InlineStatement):
                 node.expression.process()
 
     def write_teal(self, writer: "TealWriter") -> None:
+        self.compiler.use_inner_txns_macro = False
         writer.write(self, f"// tl:{self.line_no}: {self.line}")
-        writer.write(self, "callsub _itxn_begin")
-        writer.level += 1
-        for node in self.child_nodes:
-            writer.write(self, node)
-        writer.level -= 1
-        writer.write(self, "callsub _itxn_submit")
-        writer.write(self, "// end inner_txn")
+        if self.compiler.use_inner_txns_macro:
+            writer.write(self, "callsub _itxn_begin")
+            writer.level += 1
+            for node in self.child_nodes:
+                writer.write(self, node)
+            writer.level -= 1
+            writer.write(self, "callsub _itxn_submit")
+            writer.write(self, "// end inner_txn")
+        else:
+            writer.write(self, "itxn_begin")
+            writer.level += 1
+            for node in self.child_nodes:
+                writer.write(self, node)
+            writer.level -= 1
+            writer.write(self, "itxn_submit")
+            writer.write(self, "// end inner_txn")
 
     def _tealish(self) -> str:
         output = "inner_txn:\n"
