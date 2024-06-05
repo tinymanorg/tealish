@@ -87,6 +87,7 @@ class TealishCompiler:
         self.writer = TealWriter()
         self.processed = False
         self.line_nodes = {}
+        self.use_inner_txns_macro = None
 
     def consume_line(self) -> str:
         if self.line_no == len(self.source_lines):
