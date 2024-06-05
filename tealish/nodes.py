@@ -309,7 +309,12 @@ class Program(Node):
     def process(self) -> None:
         for n in self.nodes:
             n.process()
-        if self.has_child_node(InnerTxn):
+
+        # enable inner_txns_macro if it is needed and not explicitly disabled
+        if self.compiler.use_inner_txns_macro is None and self.has_child_node(InnerGroup):
+            self.compiler.use_inner_txns_macro = True
+
+        if self.compiler.use_inner_txns_macro:
             scope = self.get_current_scope()
             var = scope.declare_scratch_var(
                 "inner_group_flag", IntType, self.compiler.max_slot + 1
@@ -320,7 +325,7 @@ class Program(Node):
         for n in self.child_nodes:
             n.write_teal(writer)
 
-        if self.has_child_node(InnerTxn):
+        if self.compiler.use_inner_txns_macro:
             var = self.get_var("inner_group_flag")
             teal = f"""
             _itxn_group_begin:
