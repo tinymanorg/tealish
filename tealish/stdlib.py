@@ -1,4 +1,5 @@
 from typing import List, Optional, Union
+from Cryptodome.Hash import SHA512
 from tealish import TealWriter
 from tealish.base import BaseNode
 from tealish.errors import CompileError, warning
@@ -487,6 +488,24 @@ class Address(FunctionCall):
         writer.write(self, f"addr {value}")
 
 
+class ARC28Event(FunctionCall):
+    name = "ARC28Event"
+
+    def process(self) -> None:
+        self.signature = self.args[0].value
+        self.prefix = SHA512.new(self.signature.encode(), truncate="256").hexdigest()[:8]  # 4 bytes, 8 chars of hex
+        for arg in self.args[1:]:
+            arg.process()
+        self.type = BytesType()
+
+    def write_teal(self, writer: "TealWriter") -> None:
+        writer.write(self, f"pushbytes 0x{self.prefix} // SHA512_256(\"{self.signature}\")[:4]")
+        for arg in self.args[1:]:
+            writer.write(self, arg)
+        for _ in range(len(self.args[1:])):
+            writer.write(self, "concat")
+
+
 functions = {
     f.name: f
     for f in [
@@ -502,6 +521,7 @@ functions = {
         Lpad,
         Concat,
         Address,
+        ARC28Event,
     ]
 }
 

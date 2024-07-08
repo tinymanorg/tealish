@@ -75,3 +75,17 @@ All builtin Tealish functions are Capitalized to distinguish them from the AVM f
         const TINYMAN = Address("RIKLQ5HEVXAOAWYSW2LGQFYGWVO4J6LIAQQ72ZRULHZ4KS5NRPCCKYPCUU")
 
 
+.. function:: ARC28Event(signature, bytes, ...,) -> bytes
+   
+    Generates an `ARC28 <https://arc.algorand.foundation/ARCs/arc-0028>`_ compliant byte string for logging event messages.
+    The message is prefixed with the first 4 bytes of the SHA512_256 hash of the signature.
+
+    .. code-block::
+
+        log(ARC28Event("set_manager(address)", new_manager))
+
+        # The above line generates the following Teal:
+        pushbytes 0xba87e7f4                                    // SHA512_256("set_manager(address)")[:4]
+        load 4                                                  // new_manager
+        concat
+        log
