@@ -263,7 +263,8 @@ packaged_lang_spec.is_packaged = True
 
 local_lang_spec: Optional[LangSpec] = None
 if os.path.exists("langspec.json"):
-    local_lang_spec = LangSpec(json.load(open("langspec.json")))
+    with open("langspec.json", "r") as f:
+        local_lang_spec = LangSpec(json.load(f))
 
 
 def get_active_langspec() -> LangSpec:
