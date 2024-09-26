@@ -1,0 +1,102 @@
+{
+  "name": "app",
+  "methods": [
+    {
+      "name": "setup",
+      "args": [],
+      "returns": {
+        "type": "void"
+      }
+    },
+    {
+      "name": "add",
+      "args": [
+        {
+          "type": "uint64"
+        },
+        {
+          "type": "uint64"
+        }
+      ],
+      "returns": {
+        "type": "uint64"
+      }
+    },
+    {
+      "name": "mulw",
+      "args": [
+        {
+          "type": "uint64"
+        },
+        {
+          "type": "uint64"
+        }
+      ],
+      "returns": {
+        "type": "uint128"
+      }
+    },
+    {
+      "name": "hello",
+      "args": [
+        {
+          "type": "string"
+        }
+      ],
+      "returns": {
+        "type": "string"
+      }
+    },
+    {
+      "name": "send",
+      "args": [
+        {
+          "type": "address"
+        }
+      ],
+      "returns": {
+        "type": "void"
+      }
+    },
+    {
+      "name": "store_data",
+      "args": [
+        {
+          "type": "byte[10]"
+        },
+        {
+          "type": "byte[100]"
+        }
+      ],
+      "returns": {
+        "type": "void"
+      }
+    },
+    {
+      "name": "store_tuple",
+      "args": [
+        {
+          "type": "byte[10]"
+        },
+        {
+          "type": "(uint64,address,byte[100])"
+        }
+      ],
+      "returns": {
+        "type": "void"
+      }
+    },
+    {
+      "name": "balance",
+      "args": [
+        {
+          "type": "account"
+        }
+      ],
+      "returns": {
+        "type": "uint64"
+      }
+    }
+  ],
+  "networks": {}
+}
