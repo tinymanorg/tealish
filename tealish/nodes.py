@@ -161,7 +161,7 @@ class Literal(Expression):
 
 
 class LiteralInt(Literal):
-    pattern = r"(?P<value>[0-9]+)$"
+    pattern = r"(?P<value>[0-9_]+)$"
     value: int
 
     def type(self) -> UIntType:
