@@ -51,6 +51,7 @@ constants: Dict[str, Tuple[TealishType, ConstValue]] = {
     "UpdateApplication": (IntType(), 4),
     "DeleteApplication": (IntType(), 5),
     "Pay": (IntType(), 1),
+    "Keyreg": (IntType(), 2),
     "Acfg": (IntType(), 3),
     "Axfer": (IntType(), 4),
     "Afrz": (IntType(), 5),
