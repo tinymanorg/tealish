@@ -1987,7 +1987,7 @@ class BoxDeclaration(LineStatement):
     # box<Item> item1 = Box("a")
     pattern = (
         r"box<(?P<struct_name>[A-Z][a-zA-Z0-9_]*)> (?P<name>[a-z][a-zA-Z0-9_]*)"
-        r" = (?P<method>Open|Create)?Box\((?P<key>.*)\)$"
+        r" = (?P<method>OpenOrCreate|Open|Create)?Box\((?P<key>.*)\)$"
     )
     # Name to struct type
     struct_name: str
