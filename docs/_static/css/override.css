@@ -81,6 +81,10 @@ img {
   width: 100%;
 }
 
+div.sphinxsidebar {
+  margin-left: 0px;
+}
+
 div.sphinxsidebar ul {
   padding-inline-start: 0;
 }
