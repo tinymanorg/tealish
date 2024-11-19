@@ -17,8 +17,10 @@ def assemble_with_goal(teal: str) -> Tuple[bytes, SourceMap]:
         raise Exception("goal not found in path")
     except subprocess.CalledProcessError as e:
         raise Exception(e.output)
-    bytecode = open(tmp_out_filename, "rb").read()
-    algod_sourcemap = json.load(open(tmp_out_filename + ".map"))
+    with open(tmp_out_filename, "rb") as f:
+        bytecode = f.read()
+    with open(tmp_out_filename + ".map", "r") as f:
+        algod_sourcemap = json.load(f)
     return bytecode, SourceMap(algod_sourcemap)
 
 
