@@ -1,0 +1,253 @@
+#pragma version 8
+
+// if Txn.ApplicationID == 0:
+  txn ApplicationID
+  pushint 0
+  ==
+  bz l0_end
+  // then:
+    // Handle Create App
+    // exit(1)
+    pushint 1
+    return
+  l0_end: // end
+
+// switch Txn.OnCompletion:
+txn OnCompletion
+pushint 0 // NoOp
+==
+bnz main
+txn OnCompletion
+pushint 1 // OptIn
+==
+bnz opt_in
+txn OnCompletion
+pushint 2 // CloseOut
+==
+bnz close_out
+txn OnCompletion
+pushint 4 // UpdateApplication
+==
+bnz update_app
+txn OnCompletion
+pushint 5 // DeleteApplication
+==
+bnz delete_app
+err // unexpected value
+
+// block opt_in
+opt_in:
+  // Disallow Opt In
+  // exit(0)
+  pushint 0
+  return
+
+// block close_out
+close_out:
+  // Disallow Closing Out
+  // exit(0)
+  pushint 0
+  return
+
+// block update_app
+update_app:
+  // Handle Update App
+  // Only allow the Creator to update the app
+  // assert(Txn.Sender == Global.CreatorAddress)
+  txn Sender
+  global CreatorAddress
+  ==
+  assert
+  // exit(1)
+  pushint 1
+  return
+
+// block delete_app
+delete_app:
+  // Handle Delete App
+  // Only allow the Creator to delete the app
+  // assert(Txn.Sender == Global.CreatorAddress)
+  txn Sender
+  global CreatorAddress
+  ==
+  assert
+  // exit(1)
+  pushint 1
+  return
+
+// block main
+main:
+  // switch Txn.ApplicationArgs[0]:
+  txna ApplicationArgs 0
+  method "setup()void"
+  ==
+  bnz main__setup
+  txna ApplicationArgs 0
+  method "add(uint64,uint64)uint64"
+  ==
+  bnz main__add
+  txna ApplicationArgs 0
+  method "mulw(uint64,uint64)uint128"
+  ==
+  bnz main__mulw
+  txna ApplicationArgs 0
+  method "hello(string)string"
+  ==
+  bnz main__mulw
+  err // unexpected value
+  
+  // block setup
+  main__setup:
+    // Do some setup stuff here
+    // exit(1)
+    pushint 1
+    return
+  
+  // block add
+  main__add:
+    // Add 2 integers
+    // int x = btoi(Txn.ApplicationArgs[1]) [slot 0]
+    txna ApplicationArgs 1
+    btoi
+    store 0 // x
+    // int y = btoi(Txn.ApplicationArgs[2]) [slot 1]
+    txna ApplicationArgs 2
+    btoi
+    store 1 // y
+    // int result = x + y [slot 2]
+    load 0 // x
+    load 1 // y
+    +
+    store 2 // result
+    // abi_return(abi_encode_uint64(result))
+    load 2 // result
+    callsub __func__abi_encode_uint64
+    callsub __func__abi_return
+    // exit(1)
+    pushint 1
+    return
+  
+  // block mulw
+  main__mulw:
+    // Multiply 2 integers, returing a uint128
+    // bytes x = Txn.ApplicationArgs[1] [slot 0]
+    txna ApplicationArgs 1
+    store 0 // x
+    // bytes y = Txn.ApplicationArgs[2] [slot 1]
+    txna ApplicationArgs 2
+    store 1 // y
+    // bytes result = x b* y [slot 2]
+    load 0 // x
+    load 1 // y
+    b*
+    store 2 // result
+    // abi_return(abi_encode_uint128(result))
+    load 2 // result
+    callsub __func__abi_encode_uint128
+    callsub __func__abi_return
+    // exit(1)
+    pushint 1
+    return
+  
+  
+  // block hello
+  main__hello:
+    // Return a greeting
+    // bytes name = abi_decode_string(Txn.ApplicationArgs[1]) [slot 0]
+    txna ApplicationArgs 1
+    callsub __func__abi_decode_string
+    store 0 // name
+    // bytes result = concat("Hello ", name) [slot 1]
+    pushbytes "Hello "
+    load 0 // name
+    concat
+    store 1 // result
+    // abi_return(abi_encode_string(result))
+    load 1 // result
+    callsub __func__abi_encode_string
+    callsub __func__abi_return
+    // exit(1)
+    pushint 1
+    return
+
+// func abi_return(result: bytes):
+__func__abi_return:
+store 3 // result
+// log(concat("\x15\x1f\x7c\x75", result))
+pushbytes "\x15\x1f\x7c\x75"
+load 3 // result
+concat
+log
+// return
+retsub
+
+// func abi_decode_string(value: bytes) bytes:
+__func__abi_decode_string:
+store 4 // value
+// return the content portion of the string, skipping the first 2 bytes which encode the length
+// return extract(2, 0, value)
+load 4 // value
+extract 2 0
+retsub
+
+// func abi_encode_string(value: bytes) bytes:
+__func__abi_encode_string:
+store 5 // value
+// return the bytestring with a uint16 prefix denoting the length
+// return concat(extract(6, 2, itob(len(value))), value)
+load 5 // value
+len
+itob
+extract 6 2
+load 5 // value
+concat
+retsub
+
+// func abi_encode_uint64(value: int) bytes:
+__func__abi_encode_uint64:
+store 6 // value
+// return itob(value)
+load 6 // value
+itob
+retsub
+
+// func abi_encode_uint32(value: int) bytes:
+__func__abi_encode_uint32:
+store 7 // value
+// return the last 4 bytes
+// return extract(4, 4, itob(value))
+load 7 // value
+itob
+extract 4 4
+retsub
+
+// func abi_encode_uint16(value: int) bytes:
+__func__abi_encode_uint16:
+store 8 // value
+// return the last 2 bytes
+// return extract(6, 2, itob(value))
+load 8 // value
+itob
+extract 6 2
+retsub
+
+// func abi_encode_uint8(value: int) bytes:
+__func__abi_encode_uint8:
+store 9 // value
+// return the last 1 byte
+// return extract(7, 1, itob(value))
+load 9 // value
+itob
+extract 7 1
+retsub
+
+// func abi_encode_uint128(value: bytes) bytes:
+__func__abi_encode_uint128:
+store 10 // value
+// return 16 bytes with zero padding
+// return bzero(16) b| value
+pushint 16
+bzero
+load 10 // value
+b|
+retsub

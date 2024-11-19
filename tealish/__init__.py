@@ -121,6 +121,7 @@ class TealishCompiler:
     def parse(self) -> None:
         node = Program.consume(self, None)
         self.nodes.append(node)
+        return node
 
     def process(self) -> None:
         for node in self.nodes:
