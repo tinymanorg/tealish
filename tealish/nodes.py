@@ -1098,7 +1098,6 @@ class InnerTxn(InlineStatement):
                 node.expression.process()
 
     def write_teal(self, writer: "TealWriter") -> None:
-        self.compiler.use_inner_txns_macro = False
         writer.write(self, f"// tl:{self.line_no}: {self.line}")
         if self.compiler.use_inner_txns_macro:
             writer.write(self, "callsub _itxn_begin")
